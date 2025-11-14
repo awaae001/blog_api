@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
     'survival',
     'timeout',
     'error',
+    'died',
     'pending'
   )),
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

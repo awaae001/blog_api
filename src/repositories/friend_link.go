@@ -47,9 +47,9 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 	return nil
 }
 
-// GetAllFriendLinks retrieves all friend links from the database.
+// GetAllFriendLinks retrieves all friend links from the database, excluding 'died' ones.
 func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
-	rows, err := db.Query("SELECT id, website_name, website_url, website_icon_url, description FROM friend_link")
+	rows, err := db.Query("SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE status != 'died'")
 	if err != nil {
 		return nil, fmt.Errorf("could not query friend links: %w", err)
 	}
@@ -58,7 +58,7 @@ func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
 	var links []model.FriendWebsite
 	for rows.Next() {
 		var link model.FriendWebsite
-		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info); err != nil {
+		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
 			log.Printf("Could not scan friend link: %v", err)
 			continue
 		}
@@ -69,17 +69,34 @@ func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
 }
 
 // UpdateFriendLink updates the details of a friend link after crawling.
-func UpdateFriendLink(db *sql.DB, id int, result model.CrawlResult) error {
-	stmt, err := db.Prepare("UPDATE friend_link SET description = ?, website_icon_url = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlResult) error {
+	if result.Status == "survival" {
+		link.Times = 0 // Reset times on success
+	} else {
+		link.Times++
+	}
+
+	if link.Times >= 4 {
+		link.Status = "died"
+	} else {
+		link.Status = result.Status
+	}
+
+	// If there was a redirect, update the URL
+	if result.RedirectURL != "" {
+		link.Link = result.RedirectURL
+	}
+
+	stmt, err := db.Prepare("UPDATE friend_link SET website_url = ?, description = ?, website_icon_url = ?, status = ?, times = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
 	if err != nil {
 		return fmt.Errorf("could not prepare update statement: %w", err)
 	}
 	defer stmt.Close()
 
-	if _, err := stmt.Exec(result.Description, result.IconURL, result.Status, id); err != nil {
-		return fmt.Errorf("could not update friend link with id %d: %w", id, err)
+	if _, err := stmt.Exec(link.Link, result.Description, result.IconURL, link.Status, link.Times, link.ID); err != nil {
+		return fmt.Errorf("could not update friend link with id %d: %w", link.ID, err)
 	}
 
-	log.Printf("Updated friend link with id %d", id)
+	log.Printf("Updated friend link with id %d. Status: %s, Times: %d", link.ID, link.Status, link.Times)
 	return nil
 }

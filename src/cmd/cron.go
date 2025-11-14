@@ -13,8 +13,8 @@ import (
 func StartCronJobs(db *sql.DB) {
 	c := cron.New()
 
-	// Schedule the crawler to run at 1:00 AM every day.
-	_, err := c.AddFunc("0 1 * * *", func() {
+	// Schedule the crawler to run every 3 hours.
+	_, err := c.AddFunc("0 */3 * * *", func() {
 		log.Println("Running friend link crawler job...")
 		links, err := repositories.GetAllFriendLinks(db)
 		if err != nil {
@@ -24,7 +24,7 @@ func StartCronJobs(db *sql.DB) {
 
 		for _, link := range links {
 			result := service.CrawlWebsite(link.Link)
-			err := repositories.UpdateFriendLink(db, link.ID, result)
+			err := repositories.UpdateFriendLink(db, link, result)
 			if err != nil {
 				log.Printf("Error updating friend link %s in cron job: %v", link.Name, err)
 			}
