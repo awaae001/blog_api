@@ -1,0 +1,19 @@
+-- 创建友链表
+CREATE TABLE IF NOT EXISTS friend_link (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  website_url TEXT NOT NULL,
+  website_name TEXT NOT NULL,
+  website_icon_url TEXT NOT NULL,
+  description TEXT NOT NULL,
+  times INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'survival' CHECK ( status in_progress (
+    'survival',
+    'timeout',
+    'error',
+    'pending'
+  ))
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+
+-- 创建索引优化查询
+CREATE INDEX IF NOT EXISTS idx_friend_link_status ON friend_link (status);
