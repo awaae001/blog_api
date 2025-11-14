@@ -4,5 +4,5 @@ CREATE TABLE IF NOT EXISTS friend_rss_post (
     title TEXT NOT NULL,
     link TEXT NOT NULL,
     description TEXT NOT NULL,
-    time TIMESTAMP NOT NULL,
-);
+    time TIMESTAMP NOT NULL
+)

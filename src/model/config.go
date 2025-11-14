@@ -17,6 +17,13 @@ type Config struct {
 	FriendLinks []FriendWebsite
 }
 
+// FriendLinksConf 对应 friend_list.json 的结构
+type FriendLinksConf struct {
+	FriendLinksData struct {
+		Website []FriendWebsite `json:"website"`
+	} `json:"friend_links_conf"`
+}
+
 // SafeConfig 安全配置
 type SafeConfig struct {
 	CorsAllowHostlist []string
@@ -41,8 +48,8 @@ type ImageConfig struct {
 
 // FriendWebsite 单个友链站点
 type FriendWebsite struct {
-	Name   string
-	Link   string
-	Avatar string
-	Info   string
+	Name   string `json:"name"`
+	Link   string `json:"link"`
+	Avatar string `json:"avatar"`
+	Info   string `json:"info"`
 }

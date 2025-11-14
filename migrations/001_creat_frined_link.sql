@@ -6,14 +6,14 @@ CREATE TABLE IF NOT EXISTS friend_link (
   website_icon_url TEXT NOT NULL,
   description TEXT NOT NULL,
   times INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'survival' CHECK ( status in_progress (
+  status TEXT NOT NULL DEFAULT 'survival' CHECK ( status IN (
     'survival',
     'timeout',
     'error',
     'pending'
-  ))
+  )),
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 
--- 创建索引优化查询
+;
 CREATE INDEX IF NOT EXISTS idx_friend_link_status ON friend_link (status);

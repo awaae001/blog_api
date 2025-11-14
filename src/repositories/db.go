@@ -8,6 +8,7 @@ import (
 	"log"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -44,11 +45,60 @@ func InitDB(cfg *model.Config) (*sql.DB, error) {
 			return nil, fmt.Errorf("could not read migration file %s: %w", file, err)
 		}
 
-		if _, err := db.Exec(string(content)); err != nil {
-			return nil, fmt.Errorf("could not execute migration file %s: %w", file, err)
+		// Split the content by semicolon to execute multiple statements
+		statements := strings.Split(string(content), ";")
+		for _, stmt := range statements {
+			// Trim whitespace and skip empty statements
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
+			if _, err := db.Exec(stmt); err != nil {
+				return nil, fmt.Errorf("could not execute migration statement in file %s: %w", file, err)
+			}
 		}
 	}
 
 	log.Println("Database migrations completed successfully.")
 	return db, nil
+}
+
+// InsertFriendLinks inserts friend links from the configuration if they don't already exist.
+func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
+	if len(friendLinks) == 0 {
+		log.Println("No friend links to insert.")
+		return nil
+	}
+
+	log.Println("Start inserting friend links...")
+
+	stmt, err := db.Prepare("INSERT INTO friend_link (website_name, website_url, website_icon_url, description) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return fmt.Errorf("could not prepare insert statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, link := range friendLinks {
+		var exists bool
+		// Check if the link already exists
+		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_link WHERE website_url = ?)", link.Link).Scan(&exists)
+		if err != nil {
+			log.Printf("Could not check for existing link %s: %v", link.Link, err)
+			continue // Or return error, depending on desired strictness
+		}
+
+		if !exists {
+			if _, err := stmt.Exec(link.Name, link.Link, link.Avatar, link.Info); err != nil {
+				log.Printf("Could not insert friend link %s: %v", link.Name, err)
+				// Decide if one failure should stop the whole process
+			} else {
+				log.Printf("Inserted friend link: %s", link.Name)
+			}
+		} else {
+			log.Printf("Friend link %s already exists, skipping.", link.Name)
+		}
+	}
+
+	log.Println("Friend links insertion process completed.")
+	return nil
 }

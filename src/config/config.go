@@ -2,8 +2,11 @@ package config
 
 import (
 	"blog_api/src/model"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -125,21 +128,17 @@ func unmarshalConfig(cfg *model.Config) error {
 	cfg.Data.Image.Path = v.GetString("system_conf.data_conf.image.path")
 	cfg.Data.Image.ConvTo = v.GetString("system_conf.data_conf.image.conv_to")
 
-	// 解析友链配置
-	var friendLinksData []map[string]interface{}
-	if err := v.UnmarshalKey("friend_links_conf.website", &friendLinksData); err != nil {
-		log.Printf("解析友链配置失败: %v", err)
+	// 手动解析友链配置
+	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")
+	friendListData, err := ioutil.ReadFile(friendListPath)
+	if err != nil {
+		log.Printf("无法读取 friend_list.json 文件: %v, 将跳过加载友链", err)
 	} else {
-		for _, item := range friendLinksData {
-			friend := model.FriendWebsite{
-				Name:   getString(item, "name"),
-				Link:   getString(item, "link"),
-				Avatar: getString(item, "avatar"),
-				Info:   getString(item, "info"),
-			}
-			cfg.FriendLinks = append(cfg.FriendLinks, friend)
+		var friendLinksConf model.FriendLinksConf
+		if err := json.Unmarshal(friendListData, &friendLinksConf); err != nil {
+			return fmt.Errorf("解析 friend_list.json 文件失败: %w", err)
 		}
-		log.Printf("已加载 %d 个友链", len(cfg.FriendLinks))
+		cfg.FriendLinks = friendLinksConf.FriendLinksData.Website
 	}
 
 	return nil

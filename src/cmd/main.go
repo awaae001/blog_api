@@ -20,5 +20,10 @@ func main() {
 	}
 	defer db.Close()
 
+	// Insert friend links from config
+	if err := repositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
+		log.Printf("Could not insert friend links: %v", err)
+	}
+
 	log.Println("Application started successfully.")
 }
