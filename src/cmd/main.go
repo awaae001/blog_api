@@ -25,5 +25,10 @@ func main() {
 		log.Printf("Could not insert friend links: %v", err)
 	}
 
-	log.Println("Application started successfully.")
+	// Start the cron jobs
+	StartCronJobs(db)
+	log.Println("Application started successfully. Cron jobs are running.")
+
+	// Block forever
+	select {}
 }

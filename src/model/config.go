@@ -48,6 +48,7 @@ type ImageConfig struct {
 
 // FriendWebsite 单个友链站点
 type FriendWebsite struct {
+	ID     int    `json:"id,omitempty"`
 	Name   string `json:"name"`
 	Link   string `json:"link"`
 	Avatar string `json:"avatar"`
