@@ -28,6 +28,13 @@ func StartCronJobs(db *sql.DB) {
 			if err != nil {
 				log.Printf("Error updating friend link %s in cron job: %v", link.Name, err)
 			}
+			// After updating the friend link, discover and insert RSS feeds.
+			if len(result.RssURLs) > 0 {
+				err = repositories.InsertFriendRss(db, link.ID, result.RssURLs)
+				if err != nil {
+					log.Printf("Error inserting RSS feeds for %s in cron job: %v", link.Name, err)
+				}
+			}
 		}
 	})
 	if err != nil {

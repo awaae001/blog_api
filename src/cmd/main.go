@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	cmd "blog_api/src/cmd/router"
 	"blog_api/src/config"
-	"blog_api/src/handler"
 	"blog_api/src/repositories"
 	"fmt"
 	"log"
@@ -29,7 +29,7 @@ func Run() {
 	}
 
 	// Setup HTTP router
-	router := handler.SetupRouter(db, cfg)
+	router := cmd.SetupRouter(db, cfg)
 
 	// Start HTTP server in a separate goroutine
 	go func() {

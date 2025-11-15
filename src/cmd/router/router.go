@@ -1,6 +1,7 @@
-package handler
+package cmd
 
 import (
+	"blog_api/src/handler"
 	"blog_api/src/model"
 	"database/sql"
 	"time"
@@ -28,7 +29,7 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 	router.Use(cors.New(corsConfig))
 
 	// Initialize handlers
-	friendLinkHandler := NewFriendLinkHandler(db)
+	friendLinkHandler := handler.NewFriendLinkHandler(db)
 
 	// API routes
 	api := router.Group("/api")

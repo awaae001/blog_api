@@ -4,6 +4,7 @@ import (
 	"blog_api/src/model"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -55,9 +56,35 @@ func CrawlWebsite(url string) model.CrawlResult {
 		}
 	}
 
+	// Find RSS feeds
+	var rssURLs []string
+	doc.Find("link[rel='alternate']").Each(func(i int, s *goquery.Selection) {
+		if href, exists := s.Attr("href"); exists {
+			// Check if the type is related to RSS or Atom
+			linkType, _ := s.Attr("type")
+			if linkType == "application/rss+xml" || linkType == "application/atom+xml" {
+				// Resolve relative URL to absolute
+				absoluteURL := toAbsoluteURL(resp.Request.URL, href)
+				if absoluteURL != "" {
+					rssURLs = append(rssURLs, absoluteURL)
+				}
+			}
+		}
+	})
+
 	return model.CrawlResult{
 		Description: description,
 		IconURL:     iconURL,
 		Status:      "survival",
+		RssURLs:     rssURLs,
 	}
+}
+
+// toAbsoluteURL converts a relative URL to an absolute URL based on the base URL.
+func toAbsoluteURL(base *url.URL, href string) string {
+	relativeURL, err := url.Parse(href)
+	if err != nil {
+		return ""
+	}
+	return base.ResolveReference(relativeURL).String()
 }
