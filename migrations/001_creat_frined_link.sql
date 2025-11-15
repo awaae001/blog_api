@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
     'pending'
   )),
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
+);
 
-;
+-- 创建索引
 CREATE INDEX IF NOT EXISTS idx_friend_link_status ON friend_link (status);

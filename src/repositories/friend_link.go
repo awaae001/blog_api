@@ -68,6 +68,60 @@ func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
 	return links, nil
 }
 
+// GetFriendLinksWithFilter retrieves friend links with filtering and pagination support.
+func GetFriendLinksWithFilter(db *sql.DB, status string, offset int, limit int) ([]model.FriendWebsite, error) {
+	query := "SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE 1=1"
+	args := []interface{}{}
+
+	// Add status filter if provided
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+
+	// Add pagination
+	query += " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("could not query friend links: %w", err)
+	}
+	defer rows.Close()
+
+	var links []model.FriendWebsite
+	for rows.Next() {
+		var link model.FriendWebsite
+		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
+			log.Printf("Could not scan friend link: %v", err)
+			continue
+		}
+		links = append(links, link)
+	}
+
+	return links, nil
+}
+
+// CountFriendLinks counts the total number of friend links matching the filter.
+func CountFriendLinks(db *sql.DB, status string) (int, error) {
+	query := "SELECT COUNT(*) FROM friend_link WHERE 1=1"
+	args := []interface{}{}
+
+	// Add status filter if provided
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+
+	var count int
+	err := db.QueryRow(query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("could not count friend links: %w", err)
+	}
+
+	return count, nil
+}
+
 // UpdateFriendLink updates the details of a friend link after crawling.
 func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlResult) error {
 	if result.Status == "survival" {

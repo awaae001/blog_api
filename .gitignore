@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# 编译产物
+blog_api
+
 # Test binary, built with `go test -c`
 *.test
 

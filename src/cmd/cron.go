@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"blog_api/src/repositories"
