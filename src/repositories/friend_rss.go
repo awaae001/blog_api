@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"blog_api/src/model"
 	"database/sql"
 	"fmt"
 	"log"
@@ -42,4 +43,29 @@ func InsertFriendRss(db *sql.DB, friendLinkID int, rssURLs []string) error {
 
 	log.Printf("RSS feed insertion process completed for friend link ID: %d", friendLinkID)
 	return nil
+}
+
+// GetAllFriendRss retrieves all RSS feeds from the database.
+func GetAllFriendRss(db *sql.DB) ([]model.FriendRss, error) {
+	rows, err := db.Query("SELECT id, friend_link_id, rss_url, status, updated_at FROM friend_rss")
+	if err != nil {
+		return nil, fmt.Errorf("could not query friend_rss: %w", err)
+	}
+	defer rows.Close()
+
+	var rssFeeds []model.FriendRss
+	for rows.Next() {
+		var rss model.FriendRss
+		if err := rows.Scan(&rss.ID, &rss.FriendLinkID, &rss.RssURL, &rss.Status, &rss.UpdatedAt); err != nil {
+			log.Printf("could not scan friend_rss row: %v", err)
+			continue
+		}
+		rssFeeds = append(rssFeeds, rss)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over friend_rss rows: %w", err)
+	}
+
+	return rssFeeds, nil
 }

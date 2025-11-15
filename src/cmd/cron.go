@@ -34,22 +34,48 @@ func RunFriendLinkCrawlerJob(db *sql.DB) {
 	}
 }
 
+// RunRssParserJob fetches all RSS feeds and parses them.
+func RunRssParserJob(db *sql.DB) {
+	log.Println("[Cron] Running RSS parser job...")
+	rssFeeds, err := repositories.GetAllFriendRss(db)
+	if err != nil {
+		log.Printf("[Cron] Failed to get all RSS feeds: %v", err)
+		return
+	}
+
+	for _, rss := range rssFeeds {
+		service.ParseRssFeed(db, rss.ID, rss.RssURL)
+	}
+}
+
 // StartCronJobs initializes and starts the cron jobs.
 func StartCronJobs(db *sql.DB) {
 	c := cron.New()
 
-	// Schedule the crawler to run every 3 hours.
+	// Schedule the friend link crawler to run every 6 hours.
 	_, err := c.AddFunc("0 */6 * * *", func() {
 		RunFriendLinkCrawlerJob(db)
 	})
 	if err != nil {
-		log.Fatalf("[Cron] Could not add cron job: %v", err)
+		log.Fatalf("[Cron] Could not add friend link crawler cron job: %v", err)
 	}
 
-	// Run the job once immediately on startup in a separate goroutine.
+	// Schedule the RSS parser to run every hour.
+	_, err = c.AddFunc("0 * * * *", func() {
+		RunRssParserJob(db)
+	})
+	if err != nil {
+		log.Fatalf("[Cron] Could not add RSS parser cron job: %v", err)
+	}
+
+	// Run jobs once immediately on startup in separate goroutines.
 	go func() {
 		log.Println("[Cron] Running initial friend link crawler job...")
 		RunFriendLinkCrawlerJob(db)
+	}()
+	go func() {
+		log.Println("[Cron] Running initial RSS parser job...")
+		RunRssParserJob(db)
 	}()
 
 	log.Println("[Cron] Starting cron jobs...")
