@@ -7,7 +7,11 @@ import (
 	"net/url"
 	"time"
 
+	"bytes"
+	"io"
+
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html/charset"
 )
 
 // CrawlWebsite fetches and parses a website to extract SEO information.
@@ -37,7 +41,23 @@ func CrawlWebsite(url string) model.CrawlResult {
 		return model.CrawlResult{Status: "error"}
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	// Read the body content
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[Crawler]Error reading response body for %s: %v", url, err)
+		return model.CrawlResult{Status: "error"}
+	}
+	// Reset the body for subsequent reads
+	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	// Determine the encoding
+	e, name, _ := charset.DetermineEncoding(bodyBytes, resp.Header.Get("Content-Type"))
+	log.Printf("[Crawler]Determined encoding for %s: %s", url, name)
+
+	// Create a reader with the detected encoding
+	utf8Reader := e.NewDecoder().Reader(bytes.NewBuffer(bodyBytes))
+
+	doc, err := goquery.NewDocumentFromReader(utf8Reader)
 	if err != nil {
 		log.Printf("[Crawler]Error parsing HTML for %s: %v", url, err)
 		return model.CrawlResult{Status: "error"}

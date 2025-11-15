@@ -14,11 +14,11 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 		return nil
 	}
 
-	log.Println("Start inserting friend links...")
+	log.Println("[db][friend][init]Start inserting friend links...")
 
 	stmt, err := db.Prepare("INSERT INTO friend_link (website_name, website_url, website_icon_url, description) VALUES (?, ?, ?, ?)")
 	if err != nil {
-		return fmt.Errorf("could not prepare insert statement: %w", err)
+		return fmt.Errorf("[db][friend][ERR]could not prepare insert statement: %w", err)
 	}
 	defer stmt.Close()
 
@@ -27,23 +27,23 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 		// Check if the link already exists
 		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_link WHERE website_url = ?)", link.Link).Scan(&exists)
 		if err != nil {
-			log.Printf("Could not check for existing link %s: %v", link.Link, err)
+			log.Printf("[db][friend][ERR]Could not check for existing link %s: %v", link.Link, err)
 			continue // Or return error, depending on desired strictness
 		}
 
 		if !exists {
 			if _, err := stmt.Exec(link.Name, link.Link, link.Avatar, link.Info); err != nil {
-				log.Printf("Could not insert friend link %s: %v", link.Name, err)
+				log.Printf("[db][friend][ERR]Could not insert friend link %s: %v", link.Name, err)
 				// Decide if one failure should stop the whole process
 			} else {
-				log.Printf("Inserted friend link: %s", link.Name)
+				log.Printf("[db][friend][init]Inserted friend link: %s", link.Name)
 			}
 		} else {
-			log.Printf("Friend link %s already exists, skipping.", link.Name)
+			log.Printf("[db][friend][init]Friend link %s already exists, skipping.", link.Name)
 		}
 	}
 
-	log.Println("Friend links insertion process completed.")
+	log.Println("[db][friend][init]Friend links insertion process completed.")
 	return nil
 }
 
