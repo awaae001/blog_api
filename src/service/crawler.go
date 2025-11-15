@@ -14,76 +14,82 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-// CrawlWebsite fetches and parses a website to extract SEO information.
+// CrawlWebsite 获取并解析网站以提取 SEO 信息。
 func CrawlWebsite(url string) model.CrawlResult {
 	client := &http.Client{
-		Timeout: 10 * time.Second, // Set a timeout to prevent hanging
+		Timeout: 10 * time.Second, // 设置超时以防止挂起
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // Do not follow redirects
+			return http.ErrUseLastResponse // 不跟随重定向
 		},
 	}
 
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("[Crawler]Error fetching URL %s: %v", url, err)
+		log.Printf("[爬虫]创建获取 %s 的请求时出错: %v", url, err)
+		return model.CrawlResult{Status: "error"}
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 -  blog_api_webCrawler")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[爬虫]获取 URL %s 时出错: %v", url, err)
 		return model.CrawlResult{Status: "timeout"}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		redirectURL := resp.Header.Get("Location")
-		log.Printf("[Crawler]Redirect detected for %s to %s", url, redirectURL)
+		log.Printf("[crawler]检测到 %s 重定向到 %s", url, redirectURL)
 		return model.CrawlResult{Status: "survival", RedirectURL: redirectURL}
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[Crawler]Error: Non-200 status code for %s: %d", url, resp.StatusCode)
+		log.Printf("[crawler]错误: %s 的状态码非 200: %d", url, resp.StatusCode)
 		return model.CrawlResult{Status: "error"}
 	}
 
-	// Read the body content
+	// 读取响应体内容
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("[Crawler]Error reading response body for %s: %v", url, err)
+		log.Printf("[crawler]读取 %s 的响应体时出错: %v", url, err)
 		return model.CrawlResult{Status: "error"}
 	}
-	// Reset the body for subsequent reads
+	// 重置响应体以便后续读取
 	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	// Determine the encoding
+	// 确定编码
 	e, name, _ := charset.DetermineEncoding(bodyBytes, resp.Header.Get("Content-Type"))
-	log.Printf("[Crawler]Determined encoding for %s: %s", url, name)
+	log.Printf("[crawler]确定 %s 的编码为: %s", url, name)
 
-	// Create a reader with the detected encoding
+	// 使用检测到的编码创建读取器
 	utf8Reader := e.NewDecoder().Reader(bytes.NewBuffer(bodyBytes))
 
 	doc, err := goquery.NewDocumentFromReader(utf8Reader)
 	if err != nil {
-		log.Printf("[Crawler]Error parsing HTML for %s: %v", url, err)
+		log.Printf("[crawler]解析 %s 的 HTML 时出错: %v", url, err)
 		return model.CrawlResult{Status: "error"}
 	}
 
-	// Find the description
+	// 查找描述
 	description := doc.Find("meta[name='description']").AttrOr("content", "")
 
-	// Find the web icon
+	// 查找网站图标
 	iconURL, exists := doc.Find("link[rel='icon']").Attr("href")
 	if !exists {
-		// Fallback for apple-touch-icon or shortcut icon
+		// 兼容 apple-touch-icon 或 shortcut icon
 		iconURL, exists = doc.Find("link[rel='apple-touch-icon']").Attr("href")
 		if !exists {
 			iconURL = doc.Find("link[rel='shortcut icon']").AttrOr("href", "")
 		}
 	}
 
-	// Find RSS feeds
+	// 查找 RSS feeds
 	var rssURLs []string
 	doc.Find("link[rel='alternate']").Each(func(i int, s *goquery.Selection) {
 		if href, exists := s.Attr("href"); exists {
-			// Check if the type is related to RSS or Atom
+			// 检查类型是否与 RSS 或 Atom 相关
 			linkType, _ := s.Attr("type")
 			if linkType == "application/rss+xml" || linkType == "application/atom+xml" {
-				// Resolve relative URL to absolute
+				// 将相对 URL 解析为绝对 URL
 				absoluteURL := toAbsoluteURL(resp.Request.URL, href)
 				if absoluteURL != "" {
 					rssURLs = append(rssURLs, absoluteURL)
@@ -100,7 +106,7 @@ func CrawlWebsite(url string) model.CrawlResult {
 	}
 }
 
-// toAbsoluteURL converts a relative URL to an absolute URL based on the base URL.
+// toAbsoluteURL 根据基础 URL 将相对 URL 转换为绝对 URL。
 func toAbsoluteURL(base *url.URL, href string) string {
 	relativeURL, err := url.Parse(href)
 	if err != nil {

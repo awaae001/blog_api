@@ -39,7 +39,7 @@ func StartCronJobs(db *sql.DB) {
 	c := cron.New()
 
 	// Schedule the crawler to run every 3 hours.
-	_, err := c.AddFunc("0 */3 * * *", func() {
+	_, err := c.AddFunc("0 */6 * * *", func() {
 		RunFriendLinkCrawlerJob(db)
 	})
 	if err != nil {
