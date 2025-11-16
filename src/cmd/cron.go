@@ -68,12 +68,10 @@ func StartCronJobs(db *sql.DB) {
 		log.Fatalf("[Cron] Could not add RSS parser cron job: %v", err)
 	}
 
-	// Run jobs once immediately on startup in separate goroutines.
+	// Run jobs once immediately on startup.
 	go func() {
 		log.Println("[Cron] Running initial friend link crawler job...")
 		RunFriendLinkCrawlerJob(db)
-	}()
-	go func() {
 		log.Println("[Cron] Running initial RSS parser job...")
 		RunRssParserJob(db)
 	}()

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"log"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -18,6 +19,7 @@ func ParseRssFeed(db *sql.DB, friendRssID int, rssURL string) {
 		return
 	}
 
+	p := bluemonday.StripTagsPolicy()
 	for _, item := range feed.Items {
 		publishedTime := item.PublishedParsed
 		if publishedTime == nil {
@@ -33,7 +35,7 @@ func ParseRssFeed(db *sql.DB, friendRssID int, rssURL string) {
 			FriendRssID: friendRssID,
 			Title:       item.Title,
 			Link:        item.Link,
-			Description: item.Description,
+			Description: p.Sanitize(item.Description),
 			Time:        *publishedTime,
 		}
 

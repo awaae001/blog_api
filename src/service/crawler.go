@@ -83,20 +83,31 @@ func CrawlWebsite(url string) model.CrawlResult {
 	}
 
 	// 查找 RSS feeds
-	var rssURLs []string
+	var atomURLs []string
+	var rss2URLs []string
 	doc.Find("link[rel='alternate']").Each(func(i int, s *goquery.Selection) {
 		if href, exists := s.Attr("href"); exists {
-			// 检查类型是否与 RSS 或 Atom 相关
 			linkType, _ := s.Attr("type")
-			if linkType == "application/rss+xml" || linkType == "application/atom+xml" {
-				// 将相对 URL 解析为绝对 URL
-				absoluteURL := toAbsoluteURL(resp.Request.URL, href)
-				if absoluteURL != "" {
-					rssURLs = append(rssURLs, absoluteURL)
-				}
+			absoluteURL := toAbsoluteURL(resp.Request.URL, href)
+			if absoluteURL == "" {
+				return // Skip if URL is invalid
+			}
+
+			switch linkType {
+			case "application/atom+xml":
+				atomURLs = append(atomURLs, absoluteURL)
+			case "application/rss+xml":
+				rss2URLs = append(rss2URLs, absoluteURL)
 			}
 		}
 	})
+
+	var rssURLs []string
+	if len(atomURLs) > 0 {
+		rssURLs = atomURLs
+	} else {
+		rssURLs = rss2URLs
+	}
 
 	return model.CrawlResult{
 		Description: description,
