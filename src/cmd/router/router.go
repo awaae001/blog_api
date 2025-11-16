@@ -30,6 +30,7 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 
 	// Initialize handlers
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
+	rssPostHandler := handler.NewRssPostHandler(db)
 
 	// API routes
 	api := router.Group("/api")
@@ -38,6 +39,12 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 		friend := api.Group("/friend")
 		{
 			friend.GET("/", friendLinkHandler.GetAllFriendLinks)
+		}
+
+		// RSS post routes
+		rss := api.Group("/rss")
+		{
+			rss.GET("/", rssPostHandler.GetAllPostsByFriendLinkID)
 		}
 	}
 
