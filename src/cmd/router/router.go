@@ -37,10 +37,14 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
 	rssPostHandler := handler.NewRssPostHandler(db)
 	updataHandler := handlerAction.NewUpdataHandler(db)
+	authHandler := handler.NewAuthHandler()
 
 	// API routes
 	api := router.Group("/api")
 	{
+		// Authentication routes
+		api.POST("/verify", authHandler.Login)
+
 		// Friend link routes
 		friend := api.Group("/friend")
 		{
