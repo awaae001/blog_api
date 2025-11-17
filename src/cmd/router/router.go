@@ -5,6 +5,10 @@ import (
 	handlerAction "blog_api/src/handler/action"
 	"blog_api/src/model"
 	"database/sql"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -59,6 +63,56 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 			}
 		}
 	}
+	//
+	router.NoRoute(func(c *gin.Context) {
+		dir := "data"
+		reqPath := c.Request.URL.Path
 
+		// 1. Prevent directory traversal
+		if strings.Contains(reqPath, "..") {
+			c.String(http.StatusBadRequest, "Bad Request")
+			return
+		}
+
+		// 2. Check against general excluded paths from config
+		for _, excludedPath := range cfg.Safe.ExcludePaths {
+			if !strings.HasPrefix(excludedPath, "/") {
+				excludedPath = "/" + excludedPath
+			}
+			if strings.HasPrefix(reqPath, excludedPath) {
+				c.String(http.StatusForbidden, "Forbidden")
+				return
+			}
+		}
+
+		// 3. Check against database file
+		if cfg.Data.Database.Path != "" {
+			dbFileName := filepath.Base(cfg.Data.Database.Path)
+			if reqPath == "/"+dbFileName {
+				c.String(http.StatusForbidden, "Forbidden")
+				return
+			}
+		}
+
+		fsPath := filepath.Join(dir, reqPath)
+		originalPathIsDir := false
+		if info, err := os.Stat(fsPath); err == nil && info.IsDir() {
+			originalPathIsDir = true
+			fsPath = filepath.Join(fsPath, "index.html")
+		}
+
+		// Check if the file exists and handle errors
+		if _, err := os.Stat(fsPath); os.IsNotExist(err) {
+			if originalPathIsDir {
+				c.String(http.StatusBadRequest, "Bad Request: index.html not found in directory")
+			} else {
+				c.String(http.StatusNotFound, "Not Found")
+			}
+			return
+		}
+
+		// Serve the file
+		c.File(fsPath)
+	})
 	return router
 }

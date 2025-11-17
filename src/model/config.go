@@ -28,6 +28,7 @@ type FriendLinksConf struct {
 // SafeConfig 安全配置
 type SafeConfig struct {
 	CorsAllowHostlist []string
+	ExcludePaths      []string
 }
 
 // DataConfig 数据配置

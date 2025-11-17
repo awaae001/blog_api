@@ -128,6 +128,7 @@ func unmarshalConfig(cfg *model.Config) error {
 
 	// 解析系统配置
 	cfg.Safe.CorsAllowHostlist = v.GetStringSlice("system_conf.safe_conf.cors_allow_hostlist")
+	cfg.Safe.ExcludePaths = v.GetStringSlice("system_conf.safe_conf.exclude_paths")
 	cfg.Data.Database.Path = v.GetString("system_conf.data_conf.database.path")
 	cfg.Data.Image.Path = v.GetString("system_conf.data_conf.image.path")
 	cfg.Data.Image.ConvTo = v.GetString("system_conf.data_conf.image.conv_to")
@@ -146,16 +147,6 @@ func unmarshalConfig(cfg *model.Config) error {
 	}
 
 	return nil
-}
-
-// getString 从 map 中安全获取字符串值
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key]; ok {
-		if str, ok := val.(string); ok {
-			return str
-		}
-	}
-	return ""
 }
 
 // Reload 重新加载配置 (用于热更新)
