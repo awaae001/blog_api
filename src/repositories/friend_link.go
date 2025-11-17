@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 )
 
 // InsertFriendLinks inserts friend links from the configuration if they don't already exist.
@@ -185,4 +186,156 @@ func CreateFriendLink(db *sql.DB, link model.FriendWebsite) (int64, error) {
 
 	log.Printf("[db][friend] Inserted new friend link: %s with ID: %d", link.Name, id)
 	return id, nil
+}
+
+// DeleteFriendLinksByID deletes friend links by their IDs and returns the deleted links.
+func DeleteFriendLinksByID(db *sql.DB, ids []int) ([]model.FriendWebsite, error) {
+	if len(ids) == 0 {
+		return []model.FriendWebsite{}, nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("could not begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback on error
+
+	// First, retrieve the records to be deleted
+	query, args, err := buildInClause("SELECT id, website_name, website_url, website_icon_url, description, email, times, status FROM friend_link WHERE id IN (?)", ids)
+	if err != nil {
+		return nil, fmt.Errorf("could not build query: %w", err)
+	}
+
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("could not query friend links for deletion: %w", err)
+	}
+	defer rows.Close()
+
+	var deletedLinks []model.FriendWebsite
+	for rows.Next() {
+		var link model.FriendWebsite
+		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Email, &link.Times, &link.Status); err != nil {
+			log.Printf("Could not scan friend link for deletion: %v", err)
+			continue
+		}
+		deletedLinks = append(deletedLinks, link)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during rows iteration: %w", err)
+	}
+
+	// Now, delete the records
+	query, args, err = buildInClause("DELETE FROM friend_link WHERE id IN (?)", ids)
+	if err != nil {
+		return nil, fmt.Errorf("could not build delete query: %w", err)
+	}
+
+	result, err := tx.Exec(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("could not delete friend links: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("could not get rows affected: %w", err)
+	}
+
+	log.Printf("[db][friend] Deleted %d friend links.", rowsAffected)
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("could not commit transaction: %w", err)
+	}
+
+	return deletedLinks, nil
+}
+
+// UpdateFriendLinkByID updates a friend link by its ID based on the provided data.
+func UpdateFriendLinkByID(db *sql.DB, req model.EditFriendLinkReq) (int64, error) {
+	if len(req.Data) == 0 {
+		return 0, fmt.Errorf("no data provided for update")
+	}
+
+	// Whitelist of updatable columns
+	updatableColumns := map[string]bool{
+		"website_name":     true,
+		"website_url":      true,
+		"website_icon_url": true,
+		"description":      true,
+		"email":            true,
+		"status":           true,
+	}
+
+	query := "UPDATE friend_link SET "
+	args := []interface{}{}
+	var setClauses []string
+
+	for col, val := range req.Data {
+		if !updatableColumns[col] {
+			log.Printf("[db][friend][WARN] Attempted to update non-updatable column: %s", col)
+			continue
+		}
+
+		if !req.Opt.OverwriteIfBlank {
+			if s, ok := val.(string); ok && s == "" {
+				continue
+			}
+		}
+
+		setClauses = append(setClauses, fmt.Sprintf("%s = ?", col))
+		args = append(args, val)
+	}
+
+	if len(setClauses) == 0 {
+		log.Println("[db][friend] No valid fields to update after filtering.")
+		return 0, nil // Nothing to update
+	}
+
+	query += fmt.Sprintf("%s, updated_at = CURRENT_TIMESTAMP WHERE id = ?", strings.Join(setClauses, ", "))
+	args = append(args, req.ID)
+
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("could not execute update statement for friend link with id %d: %w", req.ID, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("could not get rows affected: %w", err)
+	}
+
+	log.Printf("[db][friend] Updated friend link with ID: %d. Rows affected: %d", req.ID, rowsAffected)
+	return rowsAffected, nil
+}
+
+// buildInClause is a helper function to build SQL IN clauses.
+func buildInClause(query string, params []int) (string, []interface{}, error) {
+	if len(params) == 0 {
+		return "", nil, fmt.Errorf("no parameters provided")
+	}
+
+	placeholders := ""
+	args := make([]interface{}, len(params))
+	for i, id := range params {
+		if i > 0 {
+			placeholders += ","
+		}
+		placeholders += "?"
+		args[i] = id
+	}
+
+	// Correctly replace the single '?' with the generated placeholders.
+	// This is a simplified approach; for multiple '?' in the query, a more robust method is needed.
+	finalQuery := ""
+	inClauseStarted := false
+	for _, r := range query {
+		if r == '?' && !inClauseStarted {
+			finalQuery += placeholders
+			inClauseStarted = true
+		} else {
+			finalQuery += string(r)
+		}
+	}
+
+	return finalQuery, args, nil
 }
