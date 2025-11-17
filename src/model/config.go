@@ -53,6 +53,7 @@ type FriendWebsite struct {
 	Link   string `json:"link"`
 	Avatar string `json:"avatar"`
 	Info   string `json:"info"`
+	Email  string `json:"email,omitempty"`
 	Times  int    `json:"times,omitempty"`
 	Status string `json:"status,omitempty"`
 }

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
   website_name TEXT NOT NULL,
   website_icon_url TEXT NOT NULL,
   description TEXT NOT NULL,
+  email TEXT,
   times INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'survival' CHECK ( status IN (
     'survival',

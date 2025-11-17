@@ -141,7 +141,17 @@ func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlRe
 		link.Link = result.RedirectURL
 	}
 
-	stmt, err := db.Prepare("UPDATE friend_link SET website_url = ?, description = ?, website_icon_url = ?, status = ?, times = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+	stmt, err := db.Prepare(`
+		UPDATE friend_link
+		SET
+			website_url = ?,
+			description = CASE WHEN description = '' THEN ? ELSE description END,
+			website_icon_url = CASE WHEN website_icon_url = '' THEN ? ELSE website_icon_url END,
+			status = ?,
+			times = ?,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`)
 	if err != nil {
 		return fmt.Errorf("could not prepare update statement: %w", err)
 	}
@@ -153,4 +163,26 @@ func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlRe
 
 	log.Printf("Updated friend link with id %d. Status: %s, Times: %d", link.ID, link.Status, link.Times)
 	return nil
+}
+
+// CreateFriendLink inserts a single new friend link into the database.
+func CreateFriendLink(db *sql.DB, link model.FriendWebsite) (int64, error) {
+	stmt, err := db.Prepare("INSERT INTO friend_link (website_name, website_url, website_icon_url, description, email, status) VALUES (?, ?, ?, ?, ?, 'pending')")
+	if err != nil {
+		return 0, fmt.Errorf("could not prepare insert statement for friend link: %w", err)
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(link.Name, link.Link, link.Avatar, link.Info, link.Email)
+	if err != nil {
+		return 0, fmt.Errorf("could not execute insert statement for friend link: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("could not retrieve last insert ID for friend link: %w", err)
+	}
+
+	log.Printf("[db][friend] Inserted new friend link: %s with ID: %d", link.Name, id)
+	return id, nil
 }
