@@ -3,6 +3,7 @@ package cmd
 import (
 	"blog_api/src/handler"
 	handlerAction "blog_api/src/handler/action"
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"database/sql"
 	"net/http"
@@ -56,8 +57,9 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 			rss.GET("/", rssPostHandler.GetAllPostsByFriendLinkID)
 		}
 		// Update routes
-		// Action routes for friend links
+		// Action routes for friend links (requires JWT authentication)
 		action := api.Group("/action")
+		action.Use(middleware.JWTAuth())
 		{
 			friendAction := action.Group("/friend")
 			{

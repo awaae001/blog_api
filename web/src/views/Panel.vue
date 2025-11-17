@@ -119,7 +119,7 @@ const handleCommand = (command: string) => {
       localStorage.removeItem('token')
       localStorage.removeItem('username')
       ElMessage.success('已退出登录')
-      router.push('/panel/login')
+      router.push('/login')
     })
   }
 }

@@ -4,17 +4,13 @@ import Panel from '@/views/Panel.vue'
 
 const routes: RouteRecordRaw[] = [
   {
-    path: '/',
-    redirect: '/panel'
-  },
-  {
-    path: '/panel/login',
+    path: '/login',
     name: 'Login',
     component: Login,
     meta: { requiresAuth: false }
   },
   {
-    path: '/panel',
+    path: '/',
     name: 'Panel',
     component: Panel,
     meta: { requiresAuth: true }
@@ -22,23 +18,23 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/panel/'),
   routes
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
 
   if (to.meta.requiresAuth) {
     if (!token) {
-      next('/panel/login')
+      next('/login')
     } else {
       next()
     }
   } else {
-    if (token && to.path === '/panel/login') {
-      next('/panel')
+    if (token && to.path === '/login') {
+      next('/')
     } else {
       next()
     }

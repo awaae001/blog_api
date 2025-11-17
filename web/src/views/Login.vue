@@ -88,7 +88,7 @@ const handleLogin = async () => {
           localStorage.setItem('token', response.data.token)
           localStorage.setItem('username', loginForm.username)
           ElMessage.success('登录成功')
-          router.push('/panel')
+          router.push('/')
         } else {
           ElMessage.error(response.message || '登录失败')
         }
