@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"blog_api/src/config"
 	"blog_api/src/repositories"
 	"blog_api/src/service"
 	"database/sql"
@@ -68,13 +69,17 @@ func StartCronJobs(db *sql.DB) {
 		log.Fatalf("[Cron] Could not add RSS parser cron job: %v", err)
 	}
 
-	// Run jobs once immediately on startup.
-	go func() {
-		log.Println("[Cron] Running initial friend link crawler job...")
-		RunFriendLinkCrawlerJob(db)
-		log.Println("[Cron] Running initial RSS parser job...")
-		RunRssParserJob(db)
-	}()
+	// Run jobs once immediately on startup if configured to do so.
+	if config.GetConfig().CronScanOnStartup {
+		go func() {
+			log.Println("[Cron] Running initial friend link crawler job...")
+			RunFriendLinkCrawlerJob(db)
+			log.Println("[Cron] Running initial RSS parser job...")
+			RunRssParserJob(db)
+		}()
+	} else {
+		log.Println("[Cron] Skipping initial scan as per CRON_SCAN_ON_STARTUP setting.")
+	}
 
 	log.Println("[Cron] Starting cron jobs...")
 	c.Start()

@@ -42,15 +42,10 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 			friend.GET("/", friendLinkHandler.GetAllFriendLinks)
 		}
 
-		// Updata routes
-		updata := api.Group("/updata")
+		// Update routes
+		update := api.Group("/update")
 		{
-
-			upd_friend := updata.Group("/friend")
-			{
-				upd_friend.POST("/", updataHandler.CreateFriendLink)
-			}
-
+			update.POST("/friend", updataHandler.CreateFriendLink)
 		}
 		// RSS post routes
 		rss := api.Group("/rss")

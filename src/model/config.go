@@ -3,11 +3,12 @@ package model
 // Config 全局配置结构 - 支持点号访问
 type Config struct {
 	// 环境变量配置
-	Port          string
-	ListenAddress string
-	WebPanelUser  string
-	WebPanelPwd   string
-	ConfigPath    string
+	Port              string
+	ListenAddress     string
+	WebPanelUser      string
+	WebPanelPwd       string
+	ConfigPath        string
+	CronScanOnStartup bool
 
 	// 系统配置 - 使用小写字段名，通过 Safe 和 Data 访问
 	Safe SafeConfig
@@ -52,7 +53,7 @@ type FriendWebsite struct {
 	Name   string `json:"name"`
 	Link   string `json:"link"`
 	Avatar string `json:"avatar"`
-	Info   string `json:"info"`
+	Info   string `json:"description"`
 	Email  string `json:"email,omitempty"`
 	Times  int    `json:"times,omitempty"`
 	Status string `json:"status,omitempty"`

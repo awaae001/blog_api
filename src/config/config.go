@@ -45,6 +45,9 @@ func loadConfig() (*model.Config, error) {
 	// 初始化全局 viper 实例
 	v = viper.New()
 
+	// 设置默认值
+	v.SetDefault("CRON_SCAN_ON_STARTUP", true)
+
 	// 1. 从 .env 文件加载环境变量
 	v.SetConfigFile(".env")
 	v.SetConfigType("env")
@@ -110,6 +113,7 @@ func unmarshalConfig(cfg *model.Config) error {
 	cfg.WebPanelUser = v.GetString("WEB_PANEL_USER")
 	cfg.WebPanelPwd = v.GetString("WEB_PANEL_PWD")
 	cfg.ConfigPath = v.GetString("CONFIG_PATH")
+	cfg.CronScanOnStartup = v.GetBool("CRON_SCAN_ON_STARTUP")
 
 	// 设置默认值
 	if cfg.Port == "" {
