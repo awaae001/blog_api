@@ -6,10 +6,12 @@ import (
 	"blog_api/src/repositories"
 	"fmt"
 	"log"
+	"time"
 )
 
 // Run starts the application
 func Run() {
+	startTime := time.Now()
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -29,7 +31,7 @@ func Run() {
 	}
 
 	// Setup HTTP router
-	router := cmd.SetupRouter(db, cfg)
+	router := cmd.SetupRouter(db, cfg, startTime)
 
 	// Start HTTP server in a separate goroutine
 	go func() {

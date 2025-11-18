@@ -14,7 +14,7 @@ import (
 )
 
 // SetupRouter initializes and configures the Gin router
-func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
+func SetupRouter(db *sql.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
@@ -29,20 +29,20 @@ func SetupRouter(db *sql.DB, cfg *model.Config) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	registerRoutes(router, db)
+	registerRoutes(router, db, startTime)
 
 	// Serve static files and handle SPA
 	router.NoRoute(staticFileHandler(cfg))
-
 	return router
 }
 
-func registerRoutes(router *gin.Engine, db *sql.DB) {
+func registerRoutes(router *gin.Engine, db *sql.DB, startTime time.Time) {
 	// Initialize handlers
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
 	rssPostHandler := handler.NewRssPostHandler(db)
 	updataHandler := handlerAction.NewUpdataHandler(db)
 	authHandler := handler.NewAuthHandler()
+	statusHandler := handler.NewStatusHandler(db, startTime)
 
 	// Serve SPA for /panel
 	panelHandler := func(c *gin.Context) {
@@ -54,6 +54,8 @@ func registerRoutes(router *gin.Engine, db *sql.DB) {
 	// API routes
 	apiGroup := router.Group("/api")
 	{
+		// Status router
+		apiGroup.GET("/status", statusHandler.GetSystemStatus)
 		// Authentication routes
 		apiGroup.POST("/verify", authHandler.Login)
 
