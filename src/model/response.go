@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // ApiResponse 统一API响应结构
 type ApiResponse struct {
 	Code    int         `json:"code"`    // HTTP状态码
@@ -23,6 +25,20 @@ type FriendLinkDTO struct {
 	Avatar string `json:"avatar"` // 网站图标
 	Info   string `json:"info"`   // 网站描述
 	Status string `json:"status"` // 网站状态
+}
+
+// StatusData holds the statistical data for the system.
+type StatusData struct {
+	FriendLinkCount int `json:"friend_link_count"`
+	RssCount        int `json:"rss_count"`
+	RssPostCount    int `json:"rss_post_count"`
+}
+
+// SystemStatus represents the overall system status response.
+type SystemStatus struct {
+	Uptime     string     `json:"uptime"`
+	StatusData StatusData `json:"status_data"`
+	Time       time.Time  `json:"time"`
 }
 
 // NewSuccessResponse 创建成功响应

@@ -66,13 +66,13 @@
           <div class="stats-section">
             <el-row :gutter="20">
               <el-col :span="8">
-                <el-statistic title="友链总数" :value="0" />
+                <el-statistic title="友链总数" :value="stats.status_data.friend_link_count" />
               </el-col>
               <el-col :span="8">
-                <el-statistic title="RSS文章" :value="0" />
+                <el-statistic title="RSS文章总数" :value="stats.status_data.rss_post_count" />
               </el-col>
               <el-col :span="8">
-                <el-statistic title="在线时长" value="0h" />
+                <el-statistic title="在线时长" :value="stats.uptime" />
               </el-col>
             </el-row>
           </div>
@@ -94,13 +94,33 @@ import {
   Document,
   Setting
 } from '@element-plus/icons-vue'
+import { statsApi, type SystemStatus } from '@/api/stats'
 
 const router = useRouter()
 const username = ref('')
 const activeMenu = ref('dashboard')
+const stats = ref<SystemStatus>({
+  uptime: '0s',
+  status_data: {
+    friend_link_count: 0,
+    rss_count: 0,
+    rss_post_count: 0
+  },
+  time: ''
+})
 
-onMounted(() => {
+onMounted(async () => {
   username.value = localStorage.getItem('username') || '管理员'
+  try {
+    const res = await statsApi.getSystemStatus()
+    if (res.code === 200) {
+      stats.value = res.data
+    } else {
+      ElMessage.error(res.message || '获取状态信息失败')
+    }
+  } catch (error) {
+    ElMessage.error('请求状态信息时出错')
+  }
 })
 
 const handleMenuSelect = (index: string) => {

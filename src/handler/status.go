@@ -36,9 +36,9 @@ func (h *StatusHandler) GetSystemStatus(c *gin.Context) {
 
 	// Build response
 	systemStatus := model.SystemStatus{
-		Uptime: fmt.Sprintf("%v", uptime.Round(time.Second)),
-		Data:   stats,
-		Time:   time.Now(),
+		Uptime:     fmt.Sprintf("%v", uptime.Round(time.Second)),
+		StatusData: stats,
+		Time:       time.Now(),
 	}
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(systemStatus))
