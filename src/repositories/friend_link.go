@@ -71,7 +71,7 @@ func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
 
 // GetFriendLinksWithFilter retrieves friend links with filtering and pagination support.
 func GetFriendLinksWithFilter(db *sql.DB, status string, offset int, limit int) ([]model.FriendWebsite, error) {
-	query := "SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE 1=1"
+	query := "SELECT id, website_name, website_url, website_icon_url, description, times, status, updated_at FROM friend_link WHERE 1=1"
 	args := []interface{}{}
 
 	// Add status filter if provided
@@ -93,7 +93,7 @@ func GetFriendLinksWithFilter(db *sql.DB, status string, offset int, limit int) 
 	var links []model.FriendWebsite
 	for rows.Next() {
 		var link model.FriendWebsite
-		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
+		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status, &link.UpdatedAt); err != nil {
 			log.Printf("Could not scan friend link: %v", err)
 			continue
 		}
@@ -162,7 +162,7 @@ func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlRe
 		return fmt.Errorf("could not update friend link with id %d: %w", link.ID, err)
 	}
 
-	log.Printf("Updated friend link with id %d. Status: %s, Times: %d", link.ID, link.Status, link.Times)
+	log.Printf("为 ID  %d 更新友链. 状态: %s, 时间: %d", link.ID, link.Status, link.Times)
 	return nil
 }
 
@@ -304,7 +304,7 @@ func UpdateFriendLinkByID(db *sql.DB, req model.EditFriendLinkReq) (int64, error
 		return 0, fmt.Errorf("could not get rows affected: %w", err)
 	}
 
-	log.Printf("[db][friend] Updated friend link with ID: %d. Rows affected: %d", req.ID, rowsAffected)
+	log.Printf("[db][friend] 为 ID: %d 更新友链. Rows affected: %d", req.ID, rowsAffected)
 	return rowsAffected, nil
 }
 

@@ -42,20 +42,31 @@ func staticFileHandler(cfg *model.Config) gin.HandlerFunc {
 		}
 
 		fsPath := filepath.Join(dir, reqPath)
-		originalPathIsDir := false
-		if info, err := os.Stat(fsPath); err == nil && info.IsDir() {
-			originalPathIsDir = true
-			fsPath = filepath.Join(fsPath, "index.html")
+		info, err := os.Stat(fsPath)
+
+		// If file doesn't exist, check if it's a SPA route
+		if os.IsNotExist(err) {
+			// If the path is under /panel/, it's a SPA route, serve index.html
+			if strings.HasPrefix(reqPath, "/panel/") {
+				spaIndex := filepath.Join(dir, "panel", "index.html")
+				if _, err := os.Stat(spaIndex); err == nil {
+					c.File(spaIndex)
+					return
+				}
+			}
+			// Otherwise, it's a 404
+			c.String(http.StatusNotFound, "Not Found")
+			return
 		}
 
-		// Check if the file exists and handle errors
-		if _, err := os.Stat(fsPath); os.IsNotExist(err) {
-			if originalPathIsDir {
-				c.String(http.StatusBadRequest, "Bad Request: index.html not found in directory")
+		// If it's a directory, serve index.html from it
+		if info.IsDir() {
+			indexPath := filepath.Join(fsPath, "index.html")
+			if _, err := os.Stat(indexPath); err == nil {
+				c.File(indexPath)
 				return
 			}
-
-			c.String(http.StatusNotFound, "Not Found")
+			c.String(http.StatusForbidden, "Directory listing is not allowed")
 			return
 		}
 

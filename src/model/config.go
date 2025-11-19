@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // Config 全局配置结构 - 支持点号访问
 type Config struct {
 	// 环境变量配置
@@ -50,12 +52,13 @@ type ImageConfig struct {
 
 // FriendWebsite 单个友链站点
 type FriendWebsite struct {
-	ID     int    `json:"id,omitempty"`
-	Name   string `json:"name"`
-	Link   string `json:"link"`
-	Avatar string `json:"avatar"`
-	Info   string `json:"description"`
-	Email  string `json:"email,omitempty"`
-	Times  int    `json:"times,omitempty"`
-	Status string `json:"status,omitempty"`
+	ID        int       `json:"id,omitempty"`
+	Name      string    `json:"name"`
+	Link      string    `json:"link"`
+	Avatar    string    `json:"avatar"`
+	Info      string    `json:"description"`
+	Email     string    `json:"email,omitempty"`
+	Times     int       `json:"times,omitempty"`
+	Status    string    `json:"status,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }

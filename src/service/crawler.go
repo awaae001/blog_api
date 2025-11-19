@@ -25,13 +25,13 @@ func CrawlWebsite(url string) model.CrawlResult {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("[爬虫]创建获取 %s 的请求时出错: %v", url, err)
+		log.Printf("[crawler]创建获取 %s 的请求时出错: %v", url, err)
 		return model.CrawlResult{Status: "error"}
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 -  blog_api_webCrawler")
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[爬虫]获取 URL %s 时出错: %v", url, err)
+		log.Printf("[crawler]获取 URL %s 时出错: %v", url, err)
 		return model.CrawlResult{Status: "timeout"}
 	}
 	defer resp.Body.Close()

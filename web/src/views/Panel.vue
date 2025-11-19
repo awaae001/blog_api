@@ -49,42 +49,15 @@
       </el-aside>
 
       <el-main class="panel-main">
-        <el-card class="welcome-card">
-          <h3>欢迎使用管理面板</h3>
-          <p>当前登录用户: <strong>{{ username }}</strong></p>
-          <el-divider />
-          <div class="info-section">
-            <h4>快速开始</h4>
-            <ul>
-              <li>左侧菜单可以切换不同的管理模块</li>
-              <li>友链管理：查看、创建、编辑、删除友链</li>
-              <li>RSS文章：查看爬取的RSS文章内容</li>
-              <li>系统设置：配置CORS、数据库等参数</li>
-            </ul>
-          </div>
-          <el-divider />
-          <div class="stats-section">
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-statistic title="友链总数" :value="stats.status_data.friend_link_count" />
-              </el-col>
-              <el-col :span="8">
-                <el-statistic title="RSS文章总数" :value="stats.status_data.rss_post_count" />
-              </el-col>
-              <el-col :span="8">
-                <el-statistic title="在线时长" :value="stats.uptime" />
-              </el-col>
-            </el-row>
-          </div>
-        </el-card>
+        <router-view />
       </el-main>
     </el-container>
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   User,
@@ -94,39 +67,21 @@ import {
   Document,
   Setting
 } from '@element-plus/icons-vue'
-import { statsApi, type SystemStatus } from '@/api/stats'
 
 const router = useRouter()
+const route = useRoute()
 const username = ref('')
-const activeMenu = ref('dashboard')
-const stats = ref<SystemStatus>({
-  uptime: '0s',
-  status_data: {
-    friend_link_count: 0,
-    rss_count: 0,
-    rss_post_count: 0
-  },
-  time: ''
+
+const activeMenu = computed(() => {
+  return route.path.substring(1) // e.g., /friend-link -> friend-link
 })
 
-onMounted(async () => {
+onMounted(() => {
   username.value = localStorage.getItem('username') || '管理员'
-  try {
-    const res = await statsApi.getSystemStatus()
-    if (res.code === 200) {
-      stats.value = res.data
-    } else {
-      ElMessage.error(res.message || '获取状态信息失败')
-    }
-  } catch (error) {
-    ElMessage.error('请求状态信息时出错')
-  }
 })
 
 const handleMenuSelect = (index: string) => {
-  activeMenu.value = index
-  ElMessage.info(`切换到: ${index}`)
-  // 未来这里可以添加路由切换或组件切换逻辑
+  router.push(`/${index}`)
 }
 
 const handleCommand = (command: string) => {

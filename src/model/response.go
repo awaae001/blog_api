@@ -19,12 +19,13 @@ type PaginatedResponse struct {
 
 // FriendLinkDTO 友链数据传输对象（不包含敏感字段times）
 type FriendLinkDTO struct {
-	ID     int    `json:"id"`     // 友链ID
-	Name   string `json:"name"`   // 网站名称
-	Link   string `json:"link"`   // 网站链接
-	Avatar string `json:"avatar"` // 网站图标
-	Info   string `json:"info"`   // 网站描述
-	Status string `json:"status"` // 网站状态
+	ID             int       `json:"id"`
+	WebsiteName    string    `json:"website_name"`
+	WebsiteURL     string    `json:"website_url"`
+	WebsiteIconURL string    `json:"website_icon_url"`
+	Description    string    `json:"description"`
+	Status         string    `json:"status"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // StatusData holds the statistical data for the system.

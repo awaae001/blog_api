@@ -84,12 +84,13 @@ func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
 	dtoLinks := make([]model.FriendLinkDTO, 0, len(links))
 	for _, link := range links {
 		dtoLinks = append(dtoLinks, model.FriendLinkDTO{
-			ID:     link.ID,
-			Name:   link.Name,
-			Link:   link.Link,
-			Avatar: link.Avatar,
-			Info:   link.Info,
-			Status: link.Status,
+			ID:             link.ID,
+			WebsiteName:    link.Name,
+			WebsiteURL:     link.Link,
+			WebsiteIconURL: link.Avatar,
+			Description:    link.Info,
+			Status:         link.Status,
+			UpdatedAt:      link.UpdatedAt,
 		})
 	}
 

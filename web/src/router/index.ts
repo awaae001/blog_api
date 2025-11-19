@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import Login from '@/views/Login.vue'
 import Panel from '@/views/Panel.vue'
+import FriendLink from '@/views/FriendLink.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -11,9 +12,25 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
+    redirect: '/dashboard'
+  },
+  {
+    path: '/',
     name: 'Panel',
     component: Panel,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('@/views/Dashboard.vue')
+      },
+      {
+        path: 'friend-link',
+        name: 'FriendLink',
+        component: FriendLink
+      }
+    ]
   }
 ]
 

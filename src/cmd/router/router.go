@@ -6,7 +6,6 @@ import (
 	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"database/sql"
-	"path/filepath"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -43,13 +42,6 @@ func registerRoutes(router *gin.Engine, db *sql.DB, startTime time.Time) {
 	updataHandler := handlerAction.NewUpdataHandler(db)
 	authHandler := handler.NewAuthHandler()
 	statusHandler := handler.NewStatusHandler(db, startTime)
-
-	// Serve SPA for /panel
-	panelHandler := func(c *gin.Context) {
-		c.File(filepath.Join("data", "panel", "index.html"))
-	}
-	router.GET("/panel", panelHandler)
-	router.GET("/panel/*path", panelHandler)
 
 	// API routes
 	apiGroup := router.Group("/api")
