@@ -14,7 +14,7 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-// CrawlWebsite 获取并解析网站以提取 SEO 信息。
+// CrawlWebsite 获取并解析网站以提取 SEO 信息
 func CrawlWebsite(url string) model.CrawlResult {
 	client := &http.Client{
 		Timeout: 10 * time.Second, // 设置超时以防止挂起
@@ -117,7 +117,7 @@ func CrawlWebsite(url string) model.CrawlResult {
 	}
 }
 
-// toAbsoluteURL 根据基础 URL 将相对 URL 转换为绝对 URL。
+// toAbsoluteURL 根据基础 URL 将相对 URL 转换为绝对 URL
 func toAbsoluteURL(base *url.URL, href string) string {
 	relativeURL, err := url.Parse(href)
 	if err != nil {

@@ -40,7 +40,7 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 				log.Printf("[db][friend][init]已插入友链: %s", link.Name)
 			}
 		} else {
-			log.Printf("[db][friend][init]友链 %s 已存在，跳过。", link.Name)
+			log.Printf("[db][friend][init]友链 %s 已存在，跳过", link.Name)
 		}
 	}
 
@@ -53,6 +53,27 @@ func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
 	rows, err := db.Query("SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE status != 'died'")
 	if err != nil {
 		return nil, fmt.Errorf("could not query friend links: %w", err)
+	}
+	defer rows.Close()
+
+	var links []model.FriendWebsite
+	for rows.Next() {
+		var link model.FriendWebsite
+		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
+			log.Printf("无法扫描友链: %v", err)
+			continue
+		}
+		links = append(links, link)
+	}
+
+	return links, nil
+}
+
+// GetAllDiedFriendLinks retrieves all friend links from the database with 'died' status.
+func GetAllDiedFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
+	rows, err := db.Query("SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE status = 'died'")
+	if err != nil {
+		return nil, fmt.Errorf("could not query died friend links: %w", err)
 	}
 	defer rows.Close()
 
@@ -241,7 +262,7 @@ func DeleteFriendLinksByID(db *sql.DB, ids []int) ([]model.FriendWebsite, error)
 		return nil, fmt.Errorf("could not get rows affected: %w", err)
 	}
 
-	log.Printf("[db][friend] 已删除 %d 个友链。", rowsAffected)
+	log.Printf("[db][friend] 已删除 %d 个友链", rowsAffected)
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("could not commit transaction: %w", err)

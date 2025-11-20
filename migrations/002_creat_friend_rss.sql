@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS friend_rss (
     'survival',
     'timeout',
     'error',
-    'not_found'
+    'pause'  
   )),
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 )

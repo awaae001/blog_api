@@ -17,7 +17,7 @@ func InsertRssPost(db *sql.DB, post *model.RssPost) error {
 	}
 
 	if exists {
-		log.Printf("链接为 %s 的文章已存在，跳过。", post.Link)
+		log.Printf("链接为 %s 的文章已存在，跳过", post.Link)
 		return nil
 	}
 

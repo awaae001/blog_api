@@ -1,6 +1,6 @@
 # Blog API 管理面板
 
-基于 Vue 3 + TypeScript + Element Plus 的管理后台。
+基于 Vue 3 + TypeScript + Element Plus 的管理后台
 
 ## 技术栈
 
@@ -35,7 +35,7 @@ npm run dev
 npm run build
 ```
 
-构建输出会自动放置到 `../data/panel` 目录，后端会自动提供静态文件服务。
+构建输出会自动放置到 `../data/panel` 目录，后端会自动提供静态文件服务
 
 ## 项目结构
 
@@ -78,7 +78,7 @@ web/
 
 ### 配置代理
 
-开发模式下，Vite 会将 `/api` 开头的请求代理到后端服务器（http://localhost:10024）。
+开发模式下，Vite 会将 `/api` 开头的请求代理到后端服务器（http://localhost:10024）
 
 ### 添加新页面
 
