@@ -77,3 +77,51 @@ func GetPostsByFriendLinkID(db *sql.DB, friendLinkID int) ([]model.RssPost, erro
 
 	return posts, nil
 }
+
+// GetAllPosts retrieves all posts with pagination.
+func GetAllPosts(db *sql.DB, page, pageSize int) ([]model.RssPost, int, error) {
+	// First, get the total count of posts
+	var total int
+	err := db.QueryRow("SELECT COUNT(*) FROM friend_rss_post").Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not query total posts count: %w", err)
+	}
+
+	// Then, get the posts for the current page
+	query := `
+		SELECT
+			id,
+			friend_rss_id,
+			title,
+			link,
+			description,
+			time
+		FROM
+			friend_rss_post
+		ORDER BY
+			time DESC
+		LIMIT ? OFFSET ?
+	`
+
+	offset := (page - 1) * pageSize
+	rows, err := db.Query(query, pageSize, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("could not query posts with pagination: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []model.RssPost
+	for rows.Next() {
+		var post model.RssPost
+		if err := rows.Scan(&post.ID, &post.FriendRssID, &post.Title, &post.Link, &post.Description, &post.Time); err != nil {
+			return nil, 0, fmt.Errorf("could not scan post row: %w", err)
+		}
+		posts = append(posts, post)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error during rows iteration: %w", err)
+	}
+
+	return posts, total, nil
+}

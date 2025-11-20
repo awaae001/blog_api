@@ -61,7 +61,7 @@ func registerRoutes(router *gin.Engine, db *sql.DB, startTime time.Time) {
 		// RSS post routes
 		rssGroup := apiGroup.Group("/rss")
 		{
-			rssGroup.GET("/", rssPostHandler.GetAllPostsByFriendLinkID)
+			rssGroup.GET("/", rssPostHandler.GetRssPosts)
 		}
 
 		// Action routes (requires JWT authentication)
