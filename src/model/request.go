@@ -13,3 +13,9 @@ type EditFriendLinkReq struct {
 		OverwriteIfBlank bool `json:"overwrite_if_blank"`
 	} `json:"opt"`
 }
+
+// CreateFriendRssReq defines the request body for creating a friend rss link.
+type CreateFriendRssReq struct {
+	FriendLinkID int    `json:"friend_link_id" binding:"required"`
+	RssURL       string `json:"rss_url" binding:"required"`
+}

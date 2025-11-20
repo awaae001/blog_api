@@ -339,3 +339,13 @@ func buildInClause(query string, params []int) (string, []interface{}, error) {
 
 	return finalQuery, args, nil
 }
+
+// FriendLinkExists checks if a friend link with the given ID exists.
+func FriendLinkExists(db *sql.DB, id int) (bool, error) {
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_link WHERE id = ?)", id).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("could not check for existing friend_link: %w", err)
+	}
+	return exists, nil
+}
