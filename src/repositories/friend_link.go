@@ -28,19 +28,19 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 		// Check if the link already exists
 		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_link WHERE website_url = ?)", link.Link).Scan(&exists)
 		if err != nil {
-			log.Printf("[db][friend][ERR]Could not check for existing link %s: %v", link.Link, err)
+			log.Printf("[db][friend][ERR]无法检查已存在的链接 %s: %v", link.Link, err)
 			continue // Or return error, depending on desired strictness
 		}
 
 		if !exists {
 			if _, err := stmt.Exec(link.Name, link.Link, link.Avatar, link.Info); err != nil {
-				log.Printf("[db][friend][ERR]Could not insert friend link %s: %v", link.Name, err)
+				log.Printf("[db][friend][ERR]无法插入友链 %s: %v", link.Name, err)
 				// Decide if one failure should stop the whole process
 			} else {
-				log.Printf("[db][friend][init]Inserted friend link: %s", link.Name)
+				log.Printf("[db][friend][init]已插入友链: %s", link.Name)
 			}
 		} else {
-			log.Printf("[db][friend][init]Friend link %s already exists, skipping.", link.Name)
+			log.Printf("[db][friend][init]友链 %s 已存在，跳过。", link.Name)
 		}
 	}
 
@@ -60,7 +60,7 @@ func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
 	for rows.Next() {
 		var link model.FriendWebsite
 		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
-			log.Printf("Could not scan friend link: %v", err)
+			log.Printf("无法扫描友链: %v", err)
 			continue
 		}
 		links = append(links, link)
@@ -94,7 +94,7 @@ func GetFriendLinksWithFilter(db *sql.DB, status string, offset int, limit int) 
 	for rows.Next() {
 		var link model.FriendWebsite
 		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status, &link.UpdatedAt); err != nil {
-			log.Printf("Could not scan friend link: %v", err)
+			log.Printf("无法扫描友链: %v", err)
 			continue
 		}
 		links = append(links, link)
@@ -184,7 +184,7 @@ func CreateFriendLink(db *sql.DB, link model.FriendWebsite) (int64, error) {
 		return 0, fmt.Errorf("could not retrieve last insert ID for friend link: %w", err)
 	}
 
-	log.Printf("[db][friend] Inserted new friend link: %s with ID: %d", link.Name, id)
+	log.Printf("[db][friend] 已插入新友链: %s，ID 为: %d", link.Name, id)
 	return id, nil
 }
 
@@ -216,7 +216,7 @@ func DeleteFriendLinksByID(db *sql.DB, ids []int) ([]model.FriendWebsite, error)
 	for rows.Next() {
 		var link model.FriendWebsite
 		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Email, &link.Times, &link.Status); err != nil {
-			log.Printf("Could not scan friend link for deletion: %v", err)
+			log.Printf("无法扫描要删除的友链: %v", err)
 			continue
 		}
 		deletedLinks = append(deletedLinks, link)
@@ -241,7 +241,7 @@ func DeleteFriendLinksByID(db *sql.DB, ids []int) ([]model.FriendWebsite, error)
 		return nil, fmt.Errorf("could not get rows affected: %w", err)
 	}
 
-	log.Printf("[db][friend] Deleted %d friend links.", rowsAffected)
+	log.Printf("[db][friend] 已删除 %d 个友链。", rowsAffected)
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("could not commit transaction: %w", err)
@@ -272,7 +272,7 @@ func UpdateFriendLinkByID(db *sql.DB, req model.EditFriendLinkReq) (int64, error
 
 	for col, val := range req.Data {
 		if !updatableColumns[col] {
-			log.Printf("[db][friend][WARN] Attempted to update non-updatable column: %s", col)
+			log.Printf("[db][friend][WARN] 尝试更新不可更新的列: %s", col)
 			continue
 		}
 

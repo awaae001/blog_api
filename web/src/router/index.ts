@@ -26,8 +26,8 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/Dashboard.vue')
       },
       {
-        path: 'friend-link',
-        name: 'FriendLink',
+        path: 'friend',
+        name: 'Friend',
         component: FriendLink
       }
     ]

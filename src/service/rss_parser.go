@@ -15,7 +15,7 @@ func ParseRssFeed(db *sql.DB, friendRssID int, rssURL string) {
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(rssURL)
 	if err != nil {
-		log.Printf("Error parsing RSS feed %s: %v", rssURL, err)
+		log.Printf("解析 RSS feed %s 时出错: %v", rssURL, err)
 		return
 	}
 
@@ -26,7 +26,7 @@ func ParseRssFeed(db *sql.DB, friendRssID int, rssURL string) {
 			// If PublishedParsed is nil, use UpdatedParsed
 			publishedTime = item.UpdatedParsed
 			if publishedTime == nil {
-				log.Printf("Skipping post with no publish or update time: %s", item.Title)
+				log.Printf("跳过没有发布或更新时间的文章: %s", item.Title)
 				continue
 			}
 		}
@@ -41,7 +41,7 @@ func ParseRssFeed(db *sql.DB, friendRssID int, rssURL string) {
 
 		err := repositories.InsertRssPost(db, post)
 		if err != nil {
-			log.Printf("Error inserting post '%s': %v", item.Title, err)
+			log.Printf("插入文章 '%s' 时出错: %v", item.Title, err)
 		}
 	}
 }

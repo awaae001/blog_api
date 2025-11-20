@@ -40,7 +40,7 @@ func (h *UpdataHandler) CreateFriendLink(c *gin.Context) {
 	// Insert into database
 	id, err := repositories.CreateFriendLink(h.DB, req)
 	if err != nil {
-		log.Printf("[handler][updata][ERR] Failed to create friend link: %v", err)
+		log.Printf("[handler][updata][ERR] 创建友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create friend link"))
 		return
 	}
@@ -62,7 +62,7 @@ func (h *UpdataHandler) DeleteFriendLink(c *gin.Context) {
 
 	deletedLinks, err := repositories.DeleteFriendLinksByID(h.DB, req.IDs)
 	if err != nil {
-		log.Printf("[handler][updata][ERR] Failed to delete friend links: %v", err)
+		log.Printf("[handler][updata][ERR] 删除友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete friend links"))
 		return
 	}
@@ -84,7 +84,7 @@ func (h *UpdataHandler) EditFriendLink(c *gin.Context) {
 
 	rowsAffected, err := repositories.UpdateFriendLinkByID(h.DB, req)
 	if err != nil {
-		log.Printf("[handler][updata][ERR] Failed to update friend link: %v", err)
+		log.Printf("[handler][updata][ERR] 更新友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to update friend link"))
 		return
 	}

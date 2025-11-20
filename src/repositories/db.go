@@ -20,7 +20,7 @@ func InitDB(cfg *model.Config) (*sql.DB, error) {
 		return nil, fmt.Errorf("database path is not configured")
 	}
 
-	log.Printf("Initializing database at: %s", dbPath)
+	log.Printf("初始化数据库于: %s", dbPath)
 
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -39,7 +39,7 @@ func InitDB(cfg *model.Config) (*sql.DB, error) {
 	sort.Strings(migrationFiles)
 
 	for _, file := range migrationFiles {
-		log.Printf("Running migration: %s\n", file)
+		log.Printf("运行迁移: %s\n", file)
 		content, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("could not read migration file %s: %w", file, err)

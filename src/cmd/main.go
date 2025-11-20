@@ -27,7 +27,7 @@ func Run() {
 
 	// Insert friend links from config
 	if err := repositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
-		log.Printf("[main]Could not insert friend links: %v", err)
+		log.Printf("[main]无法插入友链: %v", err)
 	}
 
 	// Setup HTTP router
@@ -36,7 +36,7 @@ func Run() {
 	// Start HTTP server in a separate goroutine
 	go func() {
 		addr := fmt.Sprintf("%s:%s", cfg.ListenAddress, cfg.Port)
-		log.Printf("[main][Http]Starting HTTP server on %s", addr)
+		log.Printf("[main][Http]HTTP 服务器启动于 %s", addr)
 		if err := router.Run(addr); err != nil {
 			log.Fatalf("[main][Http]Failed to start HTTP server: %v", err)
 		}

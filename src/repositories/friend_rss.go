@@ -13,7 +13,7 @@ func InsertFriendRss(db *sql.DB, friendLinkID int, rssURLs []string) error {
 		return nil
 	}
 
-	log.Printf("Start inserting RSS feeds for friend link ID: %d", friendLinkID)
+	log.Printf("开始为友链 ID: %d 插入 RSS feeds", friendLinkID)
 
 	stmt, err := db.Prepare("INSERT INTO friend_rss (friend_link_id, rss_url) VALUES (?, ?)")
 	if err != nil {
@@ -26,22 +26,22 @@ func InsertFriendRss(db *sql.DB, friendLinkID int, rssURLs []string) error {
 		// Check if the RSS feed already exists for this friend link
 		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_rss WHERE friend_link_id = ? AND rss_url = ?)", friendLinkID, rssURL).Scan(&exists)
 		if err != nil {
-			log.Printf("Could not check for existing RSS feed %s for friend link %d: %v", rssURL, friendLinkID, err)
+			log.Printf("无法为友链 %d 检查已存在的 RSS feed %s: %v", friendLinkID, rssURL, err)
 			continue
 		}
 
 		if !exists {
 			if _, err := stmt.Exec(friendLinkID, rssURL); err != nil {
-				log.Printf("Could not insert RSS feed %s for friend link %d: %v", rssURL, friendLinkID, err)
+				log.Printf("无法为友链 %d 插入 RSS feed %s: %v", friendLinkID, rssURL, err)
 			} else {
-				log.Printf("Inserted RSS feed: %s for friend link ID: %d", rssURL, friendLinkID)
+				log.Printf("已为友链 ID: %d 插入 RSS feed: %s", friendLinkID, rssURL)
 			}
 		} else {
-			log.Printf("RSS feed %s already exists for friend link %d, skipping.", rssURL, friendLinkID)
+			log.Printf("友链 %d 的 RSS feed %s 已存在，跳过。", friendLinkID, rssURL)
 		}
 	}
 
-	log.Printf("RSS feed insertion process completed for friend link ID: %d", friendLinkID)
+	log.Printf("友链 ID: %d 的 RSS feed 插入流程完成", friendLinkID)
 	return nil
 }
 
@@ -57,7 +57,7 @@ func GetAllFriendRss(db *sql.DB) ([]model.FriendRss, error) {
 	for rows.Next() {
 		var rss model.FriendRss
 		if err := rows.Scan(&rss.ID, &rss.FriendLinkID, &rss.RssURL, &rss.Status, &rss.UpdatedAt); err != nil {
-			log.Printf("could not scan friend_rss row: %v", err)
+			log.Printf("无法扫描 friend_rss 行: %v", err)
 			continue
 		}
 		rssFeeds = append(rssFeeds, rss)

@@ -17,7 +17,7 @@ func InsertRssPost(db *sql.DB, post *model.RssPost) error {
 	}
 
 	if exists {
-		log.Printf("Post with link %s already exists, skipping.", post.Link)
+		log.Printf("链接为 %s 的文章已存在，跳过。", post.Link)
 		return nil
 	}
 
@@ -32,7 +32,7 @@ func InsertRssPost(db *sql.DB, post *model.RssPost) error {
 		return fmt.Errorf("could not insert post: %w", err)
 	}
 
-	log.Printf("Inserted new post: %s", post.Title)
+	log.Printf("已插入新文章: %s", post.Title)
 	return nil
 }
 
