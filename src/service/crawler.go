@@ -37,9 +37,10 @@ func CrawlWebsite(url string) model.CrawlResult {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		redirectURL := resp.Header.Get("Location")
-		log.Printf("[crawler]检测到 %s 重定向到 %s", url, redirectURL)
-		return model.CrawlResult{Status: "survival", RedirectURL: redirectURL}
+		redirectLocation := resp.Header.Get("Location")
+		absoluteRedirectURL := toAbsoluteURL(resp.Request.URL, redirectLocation)
+		log.Printf("[crawler]检测到 %s 重定向到 %s (resolved to %s)", url, redirectLocation, absoluteRedirectURL)
+		return model.CrawlResult{Status: "survival", RedirectURL: absoluteRedirectURL}
 	}
 
 	if resp.StatusCode != http.StatusOK {

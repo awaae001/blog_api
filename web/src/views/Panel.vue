@@ -33,7 +33,7 @@
             <el-icon><HomeFilled /></el-icon>
             <span>仪表板</span>
           </el-menu-item>
-          <el-menu-item index="friend-link">
+          <el-menu-item index="friend">
             <el-icon><Link /></el-icon>
             <span>友链管理</span>
           </el-menu-item>
@@ -103,7 +103,7 @@ const handleCommand = (command: string) => {
 <style scoped>
 .panel-container {
   width: 100%;
-  height: 100%;
+  height: 100vh;
 }
 
 .panel-header {
@@ -152,6 +152,7 @@ const handleCommand = (command: string) => {
 .panel-main {
   background: #f0f2f5;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .welcome-card {
