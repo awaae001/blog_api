@@ -19,3 +19,14 @@ type CreateFriendRssReq struct {
 	FriendLinkID int    `json:"friend_link_id" binding:"required"`
 	RssURL       string `json:"rss_url" binding:"required"`
 }
+
+// DeleteFriendRssReq defines the request body for deleting a friend rss link.
+type DeleteFriendRssReq struct {
+	RssURL string `json:"rss_url" binding:"required"`
+}
+
+// CreateRssReq defines the request body for creating a rss link.
+type CreateRssReq struct {
+	FriendLinkID int    `json:"friend_link_id"`
+	RssURL       string `json:"rss_url" binding:"required"`
+}

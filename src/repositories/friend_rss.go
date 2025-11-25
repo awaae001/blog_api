@@ -102,3 +102,37 @@ func CreateFriendRss(db *sql.DB, friendLinkID int, rssURL string) (int64, error)
 	log.Printf("成功为友链 ID %d 插入 RSS 源 %s，新 ID 为 %d", friendLinkID, rssURL, id)
 	return id, nil
 }
+
+// DeleteFriendRssByURL deletes a friend_rss entry and all associated posts by its URL.
+func DeleteFriendRssByURL(db *sql.DB, rssURL string) (int64, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("无法开始事务: %w", err)
+	}
+	defer tx.Rollback()
+
+	var id int64
+	err = tx.QueryRow("SELECT id FROM friend_rss WHERE rss_url = ?", rssURL).Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("未找到 RSS URL: %s", rssURL)
+		}
+		return 0, fmt.Errorf("查询 RSS ID 失败: %w", err)
+	}
+
+	if err := DeleteRssPostsByRssIDWithTx(tx, id); err != nil {
+		return 0, fmt.Errorf("删除关联的 RSS 文章失败: %w", err)
+	}
+
+	_, err = tx.Exec("DELETE FROM friend_rss WHERE id = ?", id)
+	if err != nil {
+		return 0, fmt.Errorf("删除 RSS 源失败: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("提交事务失败: %w", err)
+	}
+
+	log.Printf("成功删除 RSS 源 %s 及其所有文章，ID 为 %d", rssURL, id)
+	return id, nil
+}

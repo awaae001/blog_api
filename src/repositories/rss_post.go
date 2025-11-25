@@ -125,3 +125,12 @@ func GetAllPosts(db *sql.DB, page, pageSize int) ([]model.RssPost, int, error) {
 
 	return posts, total, nil
 }
+
+// DeleteRssPostsByRssIDWithTx deletes all posts associated with a given friend_rss_id using a transaction.
+func DeleteRssPostsByRssIDWithTx(tx *sql.Tx, friendRssID int64) error {
+	_, err := tx.Exec("DELETE FROM friend_rss_post WHERE friend_rss_id = ?", friendRssID)
+	if err != nil {
+		return fmt.Errorf("无法删除 friend_rss_id 为 %d 的文章: %w", friendRssID, err)
+	}
+	return nil
+}

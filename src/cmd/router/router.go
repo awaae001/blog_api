@@ -40,7 +40,7 @@ func registerRoutes(router *gin.Engine, db *sql.DB, startTime time.Time) {
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
 	rssPostHandler := handler.NewRssPostHandler(db)
 	updataHandler := handlerAction.NewUpdataHandler(db)
-	friendRssHandler := handlerAction.NewFriendRssHandler(db)
+	RssHandler := handlerAction.NewRssHandler(db)
 	authHandler := handler.NewAuthHandler()
 	statusHandler := handler.NewStatusHandler(db, startTime)
 
@@ -74,7 +74,12 @@ func registerRoutes(router *gin.Engine, db *sql.DB, startTime time.Time) {
 				friendActionGroup.PUT("/", updataHandler.EditFriendLink)
 				friendActionGroup.DELETE("/", updataHandler.DeleteFriendLink)
 			}
-			actionGroup.POST("/rss", friendRssHandler.CreateFriendRss)
+			rssActionGroup := actionGroup.Group("/rss")
+			{
+				rssActionGroup.POST("/", RssHandler.CreateFriendRss)
+				rssActionGroup.PUT("/", RssHandler.CreateRss)
+				rssActionGroup.DELETE("/", RssHandler.DeleteFriendRss)
+			}
 		}
 	}
 }
