@@ -5,15 +5,15 @@ import (
 	handlerAction "blog_api/src/handler/action"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
-	"database/sql"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // SetupRouter initializes and configures the Gin router
-func SetupRouter(db *sql.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
+func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
@@ -35,7 +35,7 @@ func SetupRouter(db *sql.DB, cfg *model.Config, startTime time.Time) *gin.Engine
 	return router
 }
 
-func registerRoutes(router *gin.Engine, db *sql.DB, startTime time.Time) {
+func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 	// Initialize handlers
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
 	rssPostHandler := handler.NewRssPostHandler(db)

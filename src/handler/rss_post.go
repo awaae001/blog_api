@@ -3,20 +3,20 @@ package handler
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
-	"database/sql"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // RssPostHandler handles RSS post related requests
 type RssPostHandler struct {
-	DB *sql.DB
+	DB *gorm.DB
 }
 
 // NewRssPostHandler creates a new RSS post handler
-func NewRssPostHandler(db *sql.DB) *RssPostHandler {
+func NewRssPostHandler(db *gorm.DB) *RssPostHandler {
 	return &RssPostHandler{DB: db}
 }
 

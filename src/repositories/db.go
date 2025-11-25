@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"blog_api/src/model"
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -10,11 +9,12 @@ import (
 	"sort"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 // InitDB initializes the database and runs migrations.
-func InitDB(cfg *model.Config) (*sql.DB, error) {
+func InitDB(cfg *model.Config) (*gorm.DB, error) {
 	dbPath := cfg.Data.Database.Path
 	if dbPath == "" {
 		return nil, fmt.Errorf("database path is not configured")
@@ -22,13 +22,18 @@ func InitDB(cfg *model.Config) (*sql.DB, error) {
 
 	log.Printf("初始化数据库于: %s", dbPath)
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("could not connect to database: %w", err)
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("could not get sql.DB from gorm: %w", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		return nil, fmt.Errorf("could not connect to database via gorm: %w", err)
 	}
 
 	// Run migrations
@@ -53,7 +58,7 @@ func InitDB(cfg *model.Config) (*sql.DB, error) {
 			if stmt == "" {
 				continue
 			}
-			if _, err := db.Exec(stmt); err != nil {
+			if err := db.Exec(stmt).Error; err != nil {
 				return nil, fmt.Errorf("could not execute migration statement in file %s: %w", file, err)
 			}
 		}

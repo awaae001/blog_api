@@ -2,14 +2,15 @@ package repositories
 
 import (
 	"blog_api/src/model"
-	"database/sql"
 	"fmt"
 	"log"
-	"strings"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // InsertFriendLinks inserts friend links from the configuration if they don't already exist.
-func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
+func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
 	if len(friendLinks) == 0 {
 		log.Println("No friend links to insert.")
 		return nil
@@ -17,23 +18,22 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 
 	log.Println("[db][friend][init]Start inserting friend links...")
 
-	stmt, err := db.Prepare("INSERT INTO friend_link (website_name, website_url, website_icon_url, description) VALUES (?, ?, ?, ?)")
-	if err != nil {
-		return fmt.Errorf("[db][friend][ERR]could not prepare insert statement: %w", err)
-	}
-	defer stmt.Close()
-
 	for _, link := range friendLinks {
 		var exists bool
-		// Check if the link already exists
-		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_link WHERE website_url = ?)", link.Link).Scan(&exists)
+		err := db.Model(&model.FriendWebsite{}).Select("count(*) > 0").Where("website_url = ?", link.Link).Find(&exists).Error
 		if err != nil {
 			log.Printf("[db][friend][ERR]无法检查已存在的链接 %s: %v", link.Link, err)
 			continue // Or return error, depending on desired strictness
 		}
 
 		if !exists {
-			if _, err := stmt.Exec(link.Name, link.Link, link.Avatar, link.Info); err != nil {
+			newLink := model.FriendWebsite{
+				Name:   link.Name,
+				Link:   link.Link,
+				Avatar: link.Avatar,
+				Info:   link.Info,
+			}
+			if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&newLink).Error; err != nil {
 				log.Printf("[db][friend][ERR]无法插入友链 %s: %v", link.Name, err)
 				// Decide if one failure should stop the whole process
 			} else {
@@ -49,103 +49,61 @@ func InsertFriendLinks(db *sql.DB, friendLinks []model.FriendWebsite) error {
 }
 
 // GetAllFriendLinks retrieves all friend links from the database, excluding 'died' ones.
-func GetAllFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
-	rows, err := db.Query("SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE status != 'died'")
-	if err != nil {
-		return nil, fmt.Errorf("could not query friend links: %w", err)
-	}
-	defer rows.Close()
-
+func GetAllFriendLinks(db *gorm.DB) ([]model.FriendWebsite, error) {
 	var links []model.FriendWebsite
-	for rows.Next() {
-		var link model.FriendWebsite
-		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
-			log.Printf("无法扫描友链: %v", err)
-			continue
-		}
-		links = append(links, link)
+	if err := db.Where("status != ?", "died").
+		Select("id, website_name, website_url, website_icon_url, description, times, status").
+		Find(&links).Error; err != nil {
+		return nil, fmt.Errorf("could not query friend links: %w", err)
 	}
 
 	return links, nil
 }
 
 // GetAllDiedFriendLinks retrieves all friend links from the database with 'died' status.
-func GetAllDiedFriendLinks(db *sql.DB) ([]model.FriendWebsite, error) {
-	rows, err := db.Query("SELECT id, website_name, website_url, website_icon_url, description, times, status FROM friend_link WHERE status = 'died'")
-	if err != nil {
-		return nil, fmt.Errorf("could not query died friend links: %w", err)
-	}
-	defer rows.Close()
-
+func GetAllDiedFriendLinks(db *gorm.DB) ([]model.FriendWebsite, error) {
 	var links []model.FriendWebsite
-	for rows.Next() {
-		var link model.FriendWebsite
-		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status); err != nil {
-			log.Printf("无法扫描友链: %v", err)
-			continue
-		}
-		links = append(links, link)
+	if err := db.Where("status = ?", "died").
+		Select("id, website_name, website_url, website_icon_url, description, times, status").
+		Find(&links).Error; err != nil {
+		return nil, fmt.Errorf("could not query died friend links: %w", err)
 	}
 
 	return links, nil
 }
 
 // GetFriendLinksWithFilter retrieves friend links with filtering and pagination support.
-func GetFriendLinksWithFilter(db *sql.DB, status string, offset int, limit int) ([]model.FriendWebsite, error) {
-	query := "SELECT id, website_name, website_url, website_icon_url, description, times, status, updated_at FROM friend_link WHERE 1=1"
-	args := []interface{}{}
-
-	// Add status filter if provided
+func GetFriendLinksWithFilter(db *gorm.DB, status string, offset int, limit int) ([]model.FriendWebsite, error) {
+	query := db.Model(&model.FriendWebsite{})
 	if status != "" {
-		query += " AND status = ?"
-		args = append(args, status)
+		query = query.Where("status = ?", status)
 	}
-
-	// Add pagination
-	query += " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
-	args = append(args, limit, offset)
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("could not query friend links: %w", err)
-	}
-	defer rows.Close()
 
 	var links []model.FriendWebsite
-	for rows.Next() {
-		var link model.FriendWebsite
-		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Times, &link.Status, &link.UpdatedAt); err != nil {
-			log.Printf("无法扫描友链: %v", err)
-			continue
-		}
-		links = append(links, link)
+	if err := query.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&links).Error; err != nil {
+		return nil, fmt.Errorf("could not query friend links: %w", err)
 	}
 
 	return links, nil
 }
 
 // CountFriendLinks counts the total number of friend links matching the filter.
-func CountFriendLinks(db *sql.DB, status string) (int, error) {
-	query := "SELECT COUNT(*) FROM friend_link WHERE 1=1"
-	args := []interface{}{}
-
-	// Add status filter if provided
+func CountFriendLinks(db *gorm.DB, status string) (int, error) {
+	query := db.Model(&model.FriendWebsite{})
 	if status != "" {
-		query += " AND status = ?"
-		args = append(args, status)
+		query = query.Where("status = ?", status)
 	}
 
-	var count int
-	err := db.QueryRow(query, args...).Scan(&count)
-	if err != nil {
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("could not count friend links: %w", err)
 	}
 
-	return count, nil
+	return int(count), nil
 }
 
 // UpdateFriendLink updates the details of a friend link after crawling.
-func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlResult) error {
+func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlResult) error {
 	if result.Status == "survival" {
 		link.Times = 0 // Reset times on success
 	} else {
@@ -163,23 +121,16 @@ func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlRe
 		link.Link = result.RedirectURL
 	}
 
-	stmt, err := db.Prepare(`
-		UPDATE friend_link
-		SET
-			website_url = ?,
-			description = CASE WHEN description = '' THEN ? ELSE description END,
-			website_icon_url = CASE WHEN website_icon_url = '' THEN ? ELSE website_icon_url END,
-			status = ?,
-			times = ?,
-			updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`)
-	if err != nil {
-		return fmt.Errorf("could not prepare update statement: %w", err)
+	updates := map[string]interface{}{
+		"website_url":      link.Link,
+		"description":      gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
+		"website_icon_url": gorm.Expr("CASE WHEN website_icon_url = '' THEN ? ELSE website_icon_url END", result.IconURL),
+		"status":           link.Status,
+		"times":            link.Times,
+		"updated_at":       gorm.Expr("CURRENT_TIMESTAMP"),
 	}
-	defer stmt.Close()
 
-	if _, err := stmt.Exec(link.Link, result.Description, result.IconURL, link.Status, link.Times, link.ID); err != nil {
+	if err := db.Model(&model.FriendWebsite{}).Where("id = ?", link.ID).Updates(updates).Error; err != nil {
 		return fmt.Errorf("could not update friend link with id %d: %w", link.ID, err)
 	}
 
@@ -188,91 +139,55 @@ func UpdateFriendLink(db *sql.DB, link model.FriendWebsite, result model.CrawlRe
 }
 
 // CreateFriendLink inserts a single new friend link into the database.
-func CreateFriendLink(db *sql.DB, link model.FriendWebsite) (int64, error) {
-	stmt, err := db.Prepare("INSERT INTO friend_link (website_name, website_url, website_icon_url, description, email, status) VALUES (?, ?, ?, ?, ?, 'pending')")
-	if err != nil {
-		return 0, fmt.Errorf("could not prepare insert statement for friend link: %w", err)
+func CreateFriendLink(db *gorm.DB, link model.FriendWebsite) (int64, error) {
+	newLink := model.FriendWebsite{
+		Name:   link.Name,
+		Link:   link.Link,
+		Avatar: link.Avatar,
+		Info:   link.Info,
+		Email:  link.Email,
+		Status: "pending",
 	}
-	defer stmt.Close()
 
-	result, err := stmt.Exec(link.Name, link.Link, link.Avatar, link.Info, link.Email)
-	if err != nil {
+	if err := db.Create(&newLink).Error; err != nil {
 		return 0, fmt.Errorf("could not execute insert statement for friend link: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("could not retrieve last insert ID for friend link: %w", err)
-	}
-
-	log.Printf("[db][friend] 已插入新友链: %s，ID 为: %d", link.Name, id)
-	return id, nil
+	log.Printf("[db][friend] 已插入新友链: %s，ID 为: %d", link.Name, newLink.ID)
+	return int64(newLink.ID), nil
 }
 
 // DeleteFriendLinksByID deletes friend links by their IDs and returns the deleted links.
-func DeleteFriendLinksByID(db *sql.DB, ids []int) ([]model.FriendWebsite, error) {
+func DeleteFriendLinksByID(db *gorm.DB, ids []int) ([]model.FriendWebsite, error) {
 	if len(ids) == 0 {
 		return []model.FriendWebsite{}, nil
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, fmt.Errorf("could not begin transaction: %w", err)
-	}
-	defer tx.Rollback() // Rollback on error
-
-	// First, retrieve the records to be deleted
-	query, args, err := buildInClause("SELECT id, website_name, website_url, website_icon_url, description, email, times, status FROM friend_link WHERE id IN (?)", ids)
-	if err != nil {
-		return nil, fmt.Errorf("could not build query: %w", err)
-	}
-
-	rows, err := tx.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("could not query friend links for deletion: %w", err)
-	}
-	defer rows.Close()
-
 	var deletedLinks []model.FriendWebsite
-	for rows.Next() {
-		var link model.FriendWebsite
-		if err := rows.Scan(&link.ID, &link.Name, &link.Link, &link.Avatar, &link.Info, &link.Email, &link.Times, &link.Status); err != nil {
-			log.Printf("无法扫描要删除的友链: %v", err)
-			continue
+	var rowsDeleted int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id IN ?", ids).Find(&deletedLinks).Error; err != nil {
+			return fmt.Errorf("could not query friend links for deletion: %w", err)
 		}
-		deletedLinks = append(deletedLinks, link)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error during rows iteration: %w", err)
-	}
 
-	// Now, delete the records
-	query, args, err = buildInClause("DELETE FROM friend_link WHERE id IN (?)", ids)
+		res := tx.Where("id IN ?", ids).Delete(&model.FriendWebsite{})
+		if res.Error != nil {
+			return fmt.Errorf("could not delete friend links: %w", res.Error)
+		}
+		rowsDeleted = res.RowsAffected
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("could not build delete query: %w", err)
+		return nil, err
 	}
 
-	result, err := tx.Exec(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("could not delete friend links: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("could not get rows affected: %w", err)
-	}
-
-	log.Printf("[db][friend] 已删除 %d 个友链", rowsAffected)
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("could not commit transaction: %w", err)
-	}
+	log.Printf("[db][friend] 已删除 %d 个友链", rowsDeleted)
 
 	return deletedLinks, nil
 }
 
 // UpdateFriendLinkByID updates a friend link by its ID based on the provided data.
-func UpdateFriendLinkByID(db *sql.DB, req model.EditFriendLinkReq) (int64, error) {
+func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, error) {
 	if len(req.Data) == 0 {
 		return 0, fmt.Errorf("no data provided for update")
 	}
@@ -287,9 +202,7 @@ func UpdateFriendLinkByID(db *sql.DB, req model.EditFriendLinkReq) (int64, error
 		"status":           true,
 	}
 
-	query := "UPDATE friend_link SET "
-	args := []interface{}{}
-	var setClauses []string
+	updates := map[string]interface{}{}
 
 	for col, val := range req.Data {
 		if !updatableColumns[col] {
@@ -303,70 +216,31 @@ func UpdateFriendLinkByID(db *sql.DB, req model.EditFriendLinkReq) (int64, error
 			}
 		}
 
-		setClauses = append(setClauses, fmt.Sprintf("%s = ?", col))
-		args = append(args, val)
+		updates[col] = val
 	}
 
-	if len(setClauses) == 0 {
+	if len(updates) == 0 {
 		log.Println("[db][friend] No valid fields to update after filtering.")
 		return 0, nil // Nothing to update
 	}
 
-	query += fmt.Sprintf("%s, updated_at = CURRENT_TIMESTAMP WHERE id = ?", strings.Join(setClauses, ", "))
-	args = append(args, req.ID)
+	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
 
-	result, err := db.Exec(query, args...)
-	if err != nil {
-		return 0, fmt.Errorf("could not execute update statement for friend link with id %d: %w", req.ID, err)
+	result := db.Model(&model.FriendWebsite{}).Where("id = ?", req.ID).Updates(updates)
+	if result.Error != nil {
+		return 0, fmt.Errorf("could not execute update statement for friend link with id %d: %w", req.ID, result.Error)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("could not get rows affected: %w", err)
-	}
-
+	rowsAffected := result.RowsAffected
 	log.Printf("[db][friend] 为 ID: %d 更新友链. Rows affected: %d", req.ID, rowsAffected)
 	return rowsAffected, nil
 }
 
-// buildInClause is a helper function to build SQL IN clauses.
-func buildInClause(query string, params []int) (string, []interface{}, error) {
-	if len(params) == 0 {
-		return "", nil, fmt.Errorf("no parameters provided")
-	}
-
-	placeholders := ""
-	args := make([]interface{}, len(params))
-	for i, id := range params {
-		if i > 0 {
-			placeholders += ","
-		}
-		placeholders += "?"
-		args[i] = id
-	}
-
-	// Correctly replace the single '?' with the generated placeholders.
-	// This is a simplified approach; for multiple '?' in the query, a more robust method is needed.
-	finalQuery := ""
-	inClauseStarted := false
-	for _, r := range query {
-		if r == '?' && !inClauseStarted {
-			finalQuery += placeholders
-			inClauseStarted = true
-		} else {
-			finalQuery += string(r)
-		}
-	}
-
-	return finalQuery, args, nil
-}
-
 // FriendLinkExists checks if a friend link with the given ID exists.
-func FriendLinkExists(db *sql.DB, id int) (bool, error) {
-	var exists bool
-	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM friend_link WHERE id = ?)", id).Scan(&exists)
-	if err != nil {
+func FriendLinkExists(db *gorm.DB, id int) (bool, error) {
+	var count int64
+	if err := db.Model(&model.FriendWebsite{}).Where("id = ?", id).Count(&count).Error; err != nil {
 		return false, fmt.Errorf("could not check for existing friend_link: %w", err)
 	}
-	return exists, nil
+	return count > 0, nil
 }

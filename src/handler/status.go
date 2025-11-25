@@ -3,22 +3,22 @@ package handler
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // StatusHandler handles system status requests.
 type StatusHandler struct {
-	DB        *sql.DB
+	DB        *gorm.DB
 	StartTime time.Time
 }
 
 // NewStatusHandler creates a new status handler.
-func NewStatusHandler(db *sql.DB, startTime time.Time) *StatusHandler {
+func NewStatusHandler(db *gorm.DB, startTime time.Time) *StatusHandler {
 	return &StatusHandler{DB: db, StartTime: startTime}
 }
 

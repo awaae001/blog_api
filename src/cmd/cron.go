@@ -4,14 +4,14 @@ import (
 	"blog_api/src/config"
 	"blog_api/src/repositories"
 	"blog_api/src/service"
-	"database/sql"
 	"log"
 
 	"github.com/robfig/cron/v3"
+	"gorm.io/gorm"
 )
 
 // RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源
-func RunFriendLinkCrawlerJob(db *sql.DB) {
+func RunFriendLinkCrawlerJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行友链爬取任务...")
 	links, err := repositories.GetAllFriendLinks(db)
 	if err != nil {
@@ -36,7 +36,7 @@ func RunFriendLinkCrawlerJob(db *sql.DB) {
 }
 
 // RunDiedFriendLinkCheckJob 执行失效友链的检查
-func RunDiedFriendLinkCheckJob(db *sql.DB) {
+func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行失效友链检查任务...")
 	links, err := repositories.GetAllDiedFriendLinks(db)
 	if err != nil {
@@ -55,7 +55,7 @@ func RunDiedFriendLinkCheckJob(db *sql.DB) {
 }
 
 // RunRssParserJob 获取所有 RSS 订阅源并解析它们
-func RunRssParserJob(db *sql.DB) {
+func RunRssParserJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行 RSS 解析任务...")
 	rssFeeds, err := repositories.GetAllFriendRss(db)
 	if err != nil {
@@ -69,7 +69,7 @@ func RunRssParserJob(db *sql.DB) {
 }
 
 // StartCronJobs 初始化并启动 cron 任务
-func StartCronJobs(db *sql.DB) {
+func StartCronJobs(db *gorm.DB) {
 	c := cron.New()
 
 	// 安排友链爬取任务每 6 小时运行一次

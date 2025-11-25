@@ -3,15 +3,15 @@ package service
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
-	"database/sql"
 	"log"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
+	"gorm.io/gorm"
 )
 
 // ParseRssFeed parses an RSS feed and saves the articles to the database.
-func ParseRssFeed(db *sql.DB, friendRssID int, rssURL string) {
+func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(rssURL)
 	if err != nil {

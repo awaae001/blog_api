@@ -23,7 +23,11 @@ func Run() {
 	if err != nil {
 		log.Fatalf("[main]Failed to initialize database: %v", err)
 	}
-	defer db.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("[main]Failed to get sql.DB from gorm: %v", err)
+	}
+	defer sqlDB.Close()
 
 	// Insert friend links from config
 	if err := repositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {

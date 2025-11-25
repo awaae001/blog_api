@@ -3,20 +3,20 @@ package handlerAction
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
-	"database/sql"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // UpdataHandler handles updata related requests
 type UpdataHandler struct {
-	DB *sql.DB
+	DB *gorm.DB
 }
 
 // NewUpdataHandler creates a new updata handler
-func NewUpdataHandler(db *sql.DB) *UpdataHandler {
+func NewUpdataHandler(db *gorm.DB) *UpdataHandler {
 	return &UpdataHandler{DB: db}
 }
 

@@ -3,20 +3,20 @@ package handlerAction
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
-	"database/sql"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // FriendRssHandler 处理与 friend_rss 相关的请求
 type FriendRssHandler struct {
-	DB *sql.DB
+	DB *gorm.DB
 }
 
 // NewFriendRssHandler 创建一个新的 FriendRssHandler
-func NewRssHandler(db *sql.DB) *FriendRssHandler {
+func NewRssHandler(db *gorm.DB) *FriendRssHandler {
 	return &FriendRssHandler{DB: db}
 }
 

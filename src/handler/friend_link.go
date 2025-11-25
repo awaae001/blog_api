@@ -3,20 +3,20 @@ package handler
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
-	"database/sql"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // FriendLinkHandler handles friend link related requests
 type FriendLinkHandler struct {
-	DB *sql.DB
+	DB *gorm.DB
 }
 
 // NewFriendLinkHandler creates a new friend link handler
-func NewFriendLinkHandler(db *sql.DB) *FriendLinkHandler {
+func NewFriendLinkHandler(db *gorm.DB) *FriendLinkHandler {
 	return &FriendLinkHandler{DB: db}
 }
 
