@@ -39,12 +39,16 @@ func (h *FriendRssHandler) CreateFriendRss(c *gin.Context) {
 		return
 	}
 
-	id, err := repositories.CreateFriendRss(h.DB, req.FriendLinkID, req.RssURL)
+	createdFeeds, err := repositories.CreateFriendRssFeeds(h.DB, req.FriendLinkID, []string{req.RssURL})
 	if err != nil {
-		// 可以考虑检查特定错误，例如重复条目
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "创建友链 RSS 失败: "+err.Error()))
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "无法创建 friend_rss 记录"))
 		return
 	}
+	if len(createdFeeds) == 0 {
+		c.JSON(http.StatusConflict, model.NewErrorResponse(409, "RSS feed 已存在"))
+		return
+	}
+	id := createdFeeds[0].ID
 
 	c.JSON(http.StatusCreated, model.NewSuccessResponse(gin.H{"id": id}))
 }
@@ -92,11 +96,16 @@ func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 		}
 	}
 
-	id, err := repositories.CreateFriendRss(h.DB, friendLinkID, req.RssURL)
+	createdFeeds, err := repositories.CreateFriendRssFeeds(h.DB, friendLinkID, []string{req.RssURL})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "创建 RSS 失败: "+err.Error()))
 		return
 	}
+	if len(createdFeeds) == 0 {
+		c.JSON(http.StatusConflict, model.NewErrorResponse(http.StatusConflict, "RSS feed 已存在"))
+		return
+	}
+	id := createdFeeds[0].ID
 
 	c.JSON(http.StatusCreated, model.NewSuccessResponse(gin.H{"id": id}))
 }

@@ -30,3 +30,16 @@ func (FriendRss) TableName() string {
 func (RssPost) TableName() string {
 	return "friend_rss_post"
 }
+
+// FriendRssQueryOptions defines the options for querying friend RSS feeds.
+type FriendRssQueryOptions struct {
+	FriendLinkID int    // Filter by friend link ID
+	Status       string // Filter by status
+	Count        bool   // If true, only return the count
+}
+
+// QueryFriendRssResponse defines the response for the unified friend RSS query.
+type QueryFriendRssResponse struct {
+	Feeds []FriendRss
+	Count int64
+}

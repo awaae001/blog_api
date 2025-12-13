@@ -87,27 +87,26 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 	// Calculate offset
 	offset := (page - 1) * pageSize
 
-	// Get total count
-	total, err := repositories.CountFriendLinks(h.DB, status, search)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to count friend links"))
-		return
+	// Query friend links and total count
+	opts := model.FriendLinkQueryOptions{
+		Status: status,
+		Search: search,
+		Offset: offset,
+		Limit:  pageSize,
 	}
-
-	// Get friend links
-	links, err := repositories.GetFriendLinksWithFilter(h.DB, status, search, offset, pageSize)
+	resp, err := repositories.QueryFriendLinks(h.DB, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend links"))
 		return
 	}
 
 	// Convert to DTO based on the context (public or private)
-	dtoLinks := toFriendLinkDTOs(links, isPrivate)
+	dtoLinks := toFriendLinkDTOs(resp.Links, isPrivate)
 
 	// Build paginated response
 	paginatedData := model.PaginatedResponse{
 		Items:    dtoLinks,
-		Total:    total,
+		Total:    int(resp.Count),
 		Page:     page,
 		PageSize: pageSize,
 	}

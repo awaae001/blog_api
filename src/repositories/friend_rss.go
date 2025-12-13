@@ -8,78 +8,71 @@ import (
 	"gorm.io/gorm"
 )
 
-// InsertFriendRss 为友链插入新的 RSS 源，避免重复
-func InsertFriendRss(db *gorm.DB, friendLinkID int, rssURLs []string) error {
-	if len(rssURLs) == 0 {
-		return nil
+// QueryFriendRss provides a unified interface for querying friend RSS feeds.
+func QueryFriendRss(db *gorm.DB, opts model.FriendRssQueryOptions) (model.QueryFriendRssResponse, error) {
+	var resp model.QueryFriendRssResponse
+	query := db.Model(&model.FriendRss{})
+
+	if opts.FriendLinkID > 0 {
+		query = query.Where("friend_link_id = ?", opts.FriendLinkID)
+	}
+	if opts.Status != "" {
+		query = query.Where("status = ?", opts.Status)
 	}
 
-	log.Printf("开始为友链 ID: %d 插入 RSS 源", friendLinkID)
+	// Special case for getting all valid RSS feeds
+	if opts.Status == "valid" {
+		query = db.Table("friend_rss").
+			Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
+			Where("friend_link.status NOT IN ?", []string{"ignored", "died"})
+	}
 
+	if opts.Count {
+		if err := query.Count(&resp.Count).Error; err != nil {
+			return resp, fmt.Errorf("could not count friend rss feeds: %w", err)
+		}
+		return resp, nil
+	}
+
+	if err := query.Find(&resp.Feeds).Error; err != nil {
+		return resp, fmt.Errorf("could not query friend rss feeds: %w", err)
+	}
+
+	return resp, nil
+}
+
+// CreateFriendRssFeeds creates new friend_rss records from a slice of URLs, avoiding duplicates.
+func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURLs []string) ([]model.FriendRss, error) {
+	if len(rssURLs) == 0 {
+		return nil, nil
+	}
+
+	var createdFeeds []model.FriendRss
 	for _, rssURL := range rssURLs {
-		var exists bool
-		// 检查该友链是否已存在此 RSS 源
-		err := db.Model(&model.FriendRss{}).
-			Select("count(*) > 0").
-			Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).
-			Find(&exists).Error
-		if err != nil {
-			log.Printf("无法检查友链 %d 的 RSS 源 %s 是否存在: %v", friendLinkID, rssURL, err)
+		var existing model.FriendRss
+		err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error
+		if err == nil {
+			log.Printf("RSS feed '%s' already exists for friend link ID %d, skipping.", rssURL, friendLinkID)
 			continue
 		}
-
-		if !exists {
-			newRSS := model.FriendRss{
-				FriendLinkID: friendLinkID,
-				RssURL:       rssURL,
-				Status:       "survival", // 避免空字符串触发 CHECK 约束
-			}
-			if err := db.Create(&newRSS).Error; err != nil {
-				log.Printf("无法为友链 %d 插入 RSS 源 %s: %v", friendLinkID, rssURL, err)
-			} else {
-				log.Printf("已为友链 ID: %d 插入 RSS 源: %s", friendLinkID, rssURL)
-			}
-		} else {
-			log.Printf("友链 %d 的 RSS 源 %s 已存在，跳过", friendLinkID, rssURL)
+		if err != gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("failed to check for existing RSS feed: %w", err)
 		}
+
+		newRSS := model.FriendRss{
+			FriendLinkID: friendLinkID,
+			RssURL:       rssURL,
+			Status:       "survival",
+		}
+		if err := db.Create(&newRSS).Error; err != nil {
+			log.Printf("Failed to insert RSS feed '%s' for friend link ID %d: %v", rssURL, friendLinkID, err)
+			continue
+		}
+		createdFeeds = append(createdFeeds, newRSS)
+		log.Printf("Successfully inserted RSS feed '%s' for friend link ID %d.", rssURL, friendLinkID)
 	}
 
-	log.Printf("友链 ID: %d 的 RSS 源插入流程完成", friendLinkID)
-	return nil
-}
-
-// GetAllFriendRss 从数据库获取所有有效的 RSS 源
-func GetAllFriendRss(db *gorm.DB) ([]model.FriendRss, error) {
-	var rssFeeds []model.FriendRss
-	if err := db.Table("friend_rss").
-		Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
-		Where("friend_link.status NOT IN ?", []string{"ignored", "died"}).
-		Find(&rssFeeds).Error; err != nil {
-		return nil, fmt.Errorf("无法查询 friend_rss: %w", err)
-	}
-
-	return rssFeeds, nil
-}
-
-// CreateFriendRss 创建新的 friend_rss 记录并返回其 ID
-func CreateFriendRss(db *gorm.DB, friendLinkID int, rssURL string) (int64, error) {
-	// 首先检查该友链是否已存在此 RSS 源，避免重复
-	var count int64
-	if err := db.Model(&model.FriendRss{}).Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).Count(&count).Error; err != nil {
-		return 0, fmt.Errorf("无法检查已存在的 friend_rss: %w", err)
-	}
-	if count > 0 {
-		return 0, fmt.Errorf("RSS 地址 '%s' 已存在于友链 ID %d", rssURL, friendLinkID)
-	}
-
-	// 插入新记录
-	newRSS := model.FriendRss{FriendLinkID: friendLinkID, RssURL: rssURL}
-	if err := db.Create(&newRSS).Error; err != nil {
-		return 0, fmt.Errorf("无法执行 friend_rss 插入语句: %w", err)
-	}
-
-	log.Printf("成功为友链 ID %d 插入 RSS 源 %s，新 ID 为 %d", friendLinkID, rssURL, newRSS.ID)
-	return int64(newRSS.ID), nil
+	return createdFeeds, nil
 }
 
 // DeleteFriendRssByURL deletes a friend_rss entry and all associated posts by its URL.

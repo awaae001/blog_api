@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/model"
 	"blog_api/src/repositories"
 	"blog_api/src/service"
 	"log"
@@ -13,11 +14,16 @@ import (
 // RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源
 func RunFriendLinkCrawlerJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行友链爬取任务...")
-	links, err := repositories.GetAllFriendLinks(db)
+	opts := model.FriendLinkQueryOptions{
+		Statuses: []string{"died", "ignored"},
+		NotIn:    true,
+	}
+	resp, err := repositories.QueryFriendLinks(db, opts)
 	if err != nil {
 		log.Printf("[Cron] 获取全部友链失败： %v", err)
 		return
 	}
+	links := resp.Links
 
 	for _, link := range links {
 		result := service.CrawlWebsite(link.Link)
@@ -27,7 +33,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 		}
 		// 更新友链后，发现并插入 RSS 订阅源
 		if len(result.RssURLs) > 0 {
-			err = repositories.InsertFriendRss(db, link.ID, result.RssURLs)
+			_, err = repositories.CreateFriendRssFeeds(db, link.ID, result.RssURLs)
 			if err != nil {
 				log.Printf("[Cron] 在 cron 任务中为 %s 插入 RSS 订阅源失败: %v", link.Name, err)
 			}
@@ -38,11 +44,15 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 // RunDiedFriendLinkCheckJob 执行失效友链的检查
 func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行失效友链检查任务...")
-	links, err := repositories.GetAllDiedFriendLinks(db)
+	opts := model.FriendLinkQueryOptions{
+		Status: "died",
+	}
+	resp, err := repositories.QueryFriendLinks(db, opts)
 	if err != nil {
 		log.Printf("[Cron] 获取全部 died 友链失败： %v", err)
 		return
 	}
+	links := resp.Links
 
 	for _, link := range links {
 		result := service.CrawlWebsite(link.Link)
@@ -57,11 +67,13 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 // RunRssParserJob 获取所有 RSS 订阅源并解析它们
 func RunRssParserJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行 RSS 解析任务...")
-	rssFeeds, err := repositories.GetAllFriendRss(db)
+	opts := model.FriendRssQueryOptions{Status: "valid"}
+	resp, err := repositories.QueryFriendRss(db, opts)
 	if err != nil {
 		log.Printf("[Cron] 获取所有 RSS 订阅源失败: %v", err)
 		return
 	}
+	rssFeeds := resp.Feeds
 
 	for _, rss := range rssFeeds {
 		service.ParseRssFeed(db, rss.ID, rss.RssURL)

@@ -50,68 +50,58 @@ func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
 	return nil
 }
 
-// GetAllFriendLinks retrieves all friend links from the database, excluding 'died' and 'ignored' ones.
-func GetAllFriendLinks(db *gorm.DB) ([]model.FriendWebsite, error) {
-	var links []model.FriendWebsite
-	if err := db.Where("status NOT IN ?", []string{"died", "ignored"}).
-		Select("id, website_name, website_url, website_icon_url, description, times, status").
-		Find(&links).Error; err != nil {
-		return nil, fmt.Errorf("could not query friend links: %w", err)
-	}
-
-	return links, nil
-}
-
-// GetAllDiedFriendLinks retrieves all friend links from the database with 'died' status.
-func GetAllDiedFriendLinks(db *gorm.DB) ([]model.FriendWebsite, error) {
-	var links []model.FriendWebsite
-	if err := db.Where("status = ?", "died").
-		Select("id, website_name, website_url, website_icon_url, description, times, status").
-		Find(&links).Error; err != nil {
-		return nil, fmt.Errorf("could not query died friend links: %w", err)
-	}
-
-	return links, nil
-}
-
-// GetFriendLinksWithFilter retrieves friend links with filtering and pagination support.
-func GetFriendLinksWithFilter(db *gorm.DB, status string, search string, offset int, limit int) ([]model.FriendWebsite, error) {
+// QueryFriendLinks provides a unified interface for querying friend links.
+func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.QueryFriendLinksResponse, error) {
+	var resp model.QueryFriendLinksResponse
 	query := db.Model(&model.FriendWebsite{})
-	if status != "" {
-		query = query.Where("status = ?", status)
+
+	// Apply status filters
+	if opts.Status != "" {
+		query = query.Where("status = ?", opts.Status)
+	}
+	if len(opts.Statuses) > 0 {
+		if opts.NotIn {
+			query = query.Where("status NOT IN ?", opts.Statuses)
+		} else {
+			query = query.Where("status IN ?", opts.Statuses)
+		}
 	}
 
-	if search != "" {
-		searchPattern := "%" + search + "%"
+	// Apply search filter
+	if opts.Search != "" {
+		searchPattern := "%" + opts.Search + "%"
 		query = query.Where("website_name LIKE ? OR website_url LIKE ? OR description LIKE ?", searchPattern, searchPattern, searchPattern)
 	}
 
-	var links []model.FriendWebsite
-	if err := query.Select("id, website_name, website_url, website_icon_url, description, email, times, status, enable_rss, updated_at").Order("updated_at DESC").Offset(offset).Limit(limit).Find(&links).Error; err != nil {
-		return nil, fmt.Errorf("could not query friend links: %w", err)
+	// Handle count-only query
+	if opts.Count {
+		if err := query.Count(&resp.Count).Error; err != nil {
+			return resp, fmt.Errorf("could not count friend links: %w", err)
+		}
+		return resp, nil
 	}
 
-	return links, nil
-}
+	// Apply pagination and ordering
+	if opts.Limit > 0 {
+		query = query.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		query = query.Offset(opts.Offset)
+	}
+	query = query.Order("updated_at DESC")
 
-// CountFriendLinks counts the total number of friend links matching the filter.
-func CountFriendLinks(db *gorm.DB, status string, search string) (int, error) {
-	query := db.Model(&model.FriendWebsite{})
-	if status != "" {
-		query = query.Where("status = ?", status)
+	// Select specific fields for the final query
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, enable_rss, updated_at"
+	if err := query.Select(selectFields).Find(&resp.Links).Error; err != nil {
+		return resp, fmt.Errorf("could not query friend links: %w", err)
 	}
 
-	if search != "" {
-		searchPattern := "%" + search + "%"
-		query = query.Where("website_name LIKE ? OR website_url LIKE ? OR description LIKE ?", searchPattern, searchPattern, searchPattern)
+	// If a count is also needed along with the data
+	if err := query.Limit(-1).Offset(-1).Count(&resp.Count).Error; err != nil {
+		return resp, fmt.Errorf("could not count friend links for pagination: %w", err)
 	}
 
-	var count int64
-	if err := query.Count(&count).Error; err != nil {
-		return 0, fmt.Errorf("could not count friend links: %w", err)
-	}
-
-	return int(count), nil
+	return resp, nil
 }
 
 // UpdateFriendLink updates the details of a friend link after crawling.
