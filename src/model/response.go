@@ -1,7 +1,5 @@
 package model
 
-import "time"
-
 // ApiResponse 统一API响应结构
 type ApiResponse struct {
 	Code    int         `json:"code"`    // HTTP状态码
@@ -19,16 +17,16 @@ type PaginatedResponse struct {
 
 // FriendLinkDTO 友链数据传输对象（不包含敏感字段times）
 type FriendLinkDTO struct {
-	ID             int       `json:"id"`
-	WebsiteName    string    `json:"website_name"`
-	WebsiteURL     string    `json:"website_url"`
-	WebsiteIconURL string    `json:"website_icon_url"`
-	Description    string    `json:"description"`
-	Status         string    `json:"status"`
-	Email          string    `json:"email,omitempty"`
-	Times          int       `json:"times,omitempty"`
-	EnableRss      bool      `json:"enable_rss"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             int    `json:"id"`
+	WebsiteName    string `json:"website_name"`
+	WebsiteURL     string `json:"website_url"`
+	WebsiteIconURL string `json:"website_icon_url"`
+	Description    string `json:"description"`
+	Status         string `json:"status"`
+	Email          string `json:"email,omitempty"`
+	Times          int    `json:"times,omitempty"`
+	EnableRss      bool   `json:"enable_rss"`
+	UpdatedAt      int64  `json:"updated_at"`
 }
 
 // StatusData holds the statistical data for the system.
@@ -42,7 +40,7 @@ type StatusData struct {
 type SystemStatus struct {
 	Uptime     string     `json:"uptime"`
 	StatusData StatusData `json:"status_data"`
-	Time       time.Time  `json:"time"`
+	Time       int64      `json:"time"`
 }
 
 // NewSuccessResponse 创建成功响应

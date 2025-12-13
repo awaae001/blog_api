@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // InitDB initializes the database and runs migrations.
@@ -22,7 +24,17 @@ func InitDB(cfg *model.Config) (*gorm.DB, error) {
 
 	log.Printf("初始化数据库于: %s", dbPath)
 
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second, // Slow SQL threshold
+			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error
+		},
+	)
+
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %w", err)
 	}

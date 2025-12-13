@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS friend_rss (
     'error',
     'pause'  
   )),
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at INTEGER NOT NULL DEFAULT 0
 )

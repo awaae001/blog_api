@@ -36,7 +36,7 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 			Title:       item.Title,
 			Link:        item.Link,
 			Description: p.Sanitize(item.Description),
-			Time:        *publishedTime,
+			Time:        publishedTime.Unix(),
 		}
 
 		err := repositories.InsertRssPost(db, post)

@@ -4,6 +4,7 @@ import (
 	"blog_api/src/model"
 	"fmt"
 	"log"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -126,7 +127,7 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 		"description": gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
 		"status":      link.Status,
 		"times":       link.Times,
-		"updated_at":  gorm.Expr("CURRENT_TIMESTAMP"),
+		"updated_at":  time.Now().Unix(),
 	}
 
 	// 仅当现有 icon 为空时才覆盖，避免已有 icon 被新结果替换
@@ -211,7 +212,6 @@ func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, erro
 	updates := map[string]interface{}{}
 	for col, val := range req.Data {
 		if !updatableColumns[col] {
-			log.Printf("[db][friend][WARN] 尝试更新不可更新的列: %s", col)
 			continue
 		}
 		if !req.Opt.OverwriteIfBlank {
@@ -226,8 +226,6 @@ func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, erro
 		log.Println("[db][friend] No valid fields to update after filtering.")
 		return 0, nil
 	}
-
-	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
 
 	// Check if enable_rss is being set to false
 	disableRss := false

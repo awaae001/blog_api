@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
     'ignored'
   )),
   enable_rss BOOLEAN NOT NULL DEFAULT 1,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at INTEGER NOT NULL DEFAULT 0
 );
 
 -- 创建索引

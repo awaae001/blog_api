@@ -32,7 +32,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 			log.Printf("[Cron] 在 cron 任务中更新友链 %s 失败: %v", link.Name, err)
 		}
 		// 更新友链后，发现并插入 RSS 订阅源
-		if len(result.RssURLs) > 0 {
+		if link.EnableRss && len(result.RssURLs) > 0 {
 			_, err = repositories.CreateFriendRssFeeds(db, link.ID, result.RssURLs)
 			if err != nil {
 				log.Printf("[Cron] 在 cron 任务中为 %s 插入 RSS 订阅源失败: %v", link.Name, err)
