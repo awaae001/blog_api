@@ -10,8 +10,9 @@ export interface FriendLink {
   website_url: string
   website_icon_url: string
   description: string
-  status: 'survival' | 'timeout' | 'error' | 'died' | 'pending'
+  status: 'survival' | 'timeout' | 'error' | 'died' | 'pending' | 'ignored'
   email?: string
+  times?: number
   updated_at: string
 }
 
@@ -22,6 +23,7 @@ export interface FriendLinkListParams {
   page?: number
   page_size?: number
   status?: string
+  search?: string
 }
 
 /**
@@ -39,7 +41,7 @@ export interface PaginatedFriendLinks {
  */
 export const getFriendLinks = (params: FriendLinkListParams): Promise<ApiResponse<PaginatedFriendLinks>> => {
   return request({
-    url: '/friend',
+    url: '/action/friend',
     method: 'get',
     params
   })

@@ -70,6 +70,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 		{
 			friendActionGroup := actionGroup.Group("/friend")
 			{
+				friendActionGroup.GET("/", friendLinkHandler.GetFullFriendLinks)
 				friendActionGroup.POST("/", updataHandler.CreateFriendLink)
 				friendActionGroup.PUT("/", updataHandler.EditFriendLink)
 				friendActionGroup.DELETE("/", updataHandler.DeleteFriendLink)

@@ -20,13 +20,31 @@ func NewFriendLinkHandler(db *gorm.DB) *FriendLinkHandler {
 	return &FriendLinkHandler{DB: db}
 }
 
-// GetAllFriendLinks handles GET /api/friend/ request
-// Query parameters:
-//   - status: filter by status (optional)
-//   - search: search keyword for fuzzy matching (optional)
-//   - page: page number, default 1 (optional)
-//   - page_size: items per page, default 20, max 100 (optional)
-func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
+// toFriendLinkDTOs converts a slice of FriendWebsite models to a slice of FriendLinkDTOs.
+// If isPrivate is true, it includes sensitive fields like Email and Times.
+func toFriendLinkDTOs(links []model.FriendWebsite, isPrivate bool) []model.FriendLinkDTO {
+	dtoLinks := make([]model.FriendLinkDTO, 0, len(links))
+	for _, link := range links {
+		dto := model.FriendLinkDTO{
+			ID:             link.ID,
+			WebsiteName:    link.Name,
+			WebsiteURL:     link.Link,
+			WebsiteIconURL: link.Avatar,
+			Description:    link.Info,
+			Status:         link.Status,
+			UpdatedAt:      link.UpdatedAt,
+		}
+		if isPrivate {
+			dto.Email = link.Email
+			dto.Times = link.Times
+		}
+		dtoLinks = append(dtoLinks, dto)
+	}
+	return dtoLinks
+}
+
+// getFriendLinks is a helper function to get friend links with common logic.
+func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 	// Parse query parameters
 	status := c.Query("status")
 	search := c.Query("search")
@@ -82,19 +100,8 @@ func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
 		return
 	}
 
-	// Convert to DTO (Data Transfer Object) to hide sensitive fields like 'times'
-	dtoLinks := make([]model.FriendLinkDTO, 0, len(links))
-	for _, link := range links {
-		dtoLinks = append(dtoLinks, model.FriendLinkDTO{
-			ID:             link.ID,
-			WebsiteName:    link.Name,
-			WebsiteURL:     link.Link,
-			WebsiteIconURL: link.Avatar,
-			Description:    link.Info,
-			Status:         link.Status,
-			UpdatedAt:      link.UpdatedAt,
-		})
-	}
+	// Convert to DTO based on the context (public or private)
+	dtoLinks := toFriendLinkDTOs(links, isPrivate)
 
 	// Build paginated response
 	paginatedData := model.PaginatedResponse{
@@ -105,4 +112,15 @@ func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(paginatedData))
+}
+
+// GetAllFriendLinks handles GET /api/friend/ request
+func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
+	h.getFriendLinks(c, false)
+}
+
+// GetFullFriendLinks handles GET /api/action/friend/ request (authenticated)
+// It returns the full friend link data, including sensitive fields.
+func (h *FriendLinkHandler) GetFullFriendLinks(c *gin.Context) {
+	h.getFriendLinks(c, true)
 }

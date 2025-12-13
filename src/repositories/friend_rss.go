@@ -48,10 +48,13 @@ func InsertFriendRss(db *gorm.DB, friendLinkID int, rssURLs []string) error {
 	return nil
 }
 
-// GetAllFriendRss 从数据库获取所有 RSS 源
+// GetAllFriendRss 从数据库获取所有有效的 RSS 源
 func GetAllFriendRss(db *gorm.DB) ([]model.FriendRss, error) {
 	var rssFeeds []model.FriendRss
-	if err := db.Find(&rssFeeds).Error; err != nil {
+	if err := db.Table("friend_rss").
+		Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
+		Where("friend_link.status NOT IN ?", []string{"ignored", "died"}).
+		Find(&rssFeeds).Error; err != nil {
 		return nil, fmt.Errorf("无法查询 friend_rss: %w", err)
 	}
 

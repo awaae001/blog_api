@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS friend_link (
     'timeout',
     'error',
     'died',
-    'pending'
+    'pending',
+    'ignored'
   )),
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

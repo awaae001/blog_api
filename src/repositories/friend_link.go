@@ -49,10 +49,10 @@ func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
 	return nil
 }
 
-// GetAllFriendLinks retrieves all friend links from the database, excluding 'died' ones.
+// GetAllFriendLinks retrieves all friend links from the database, excluding 'died' and 'ignored' ones.
 func GetAllFriendLinks(db *gorm.DB) ([]model.FriendWebsite, error) {
 	var links []model.FriendWebsite
-	if err := db.Where("status != ?", "died").
+	if err := db.Where("status NOT IN ?", []string{"died", "ignored"}).
 		Select("id, website_name, website_url, website_icon_url, description, times, status").
 		Find(&links).Error; err != nil {
 		return nil, fmt.Errorf("could not query friend links: %w", err)

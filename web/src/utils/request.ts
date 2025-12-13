@@ -28,12 +28,16 @@ request.interceptors.response.use(
   },
   (error: AxiosError<any>) => {
     if (error.response) {
-      const { status, data } = error.response
+      const { status, data, config } = error.response
 
       if (status === 401) {
-        localStorage.removeItem('token')
-        router.push('/panel/login')
-        ElMessage.error('登录已过期，请重新登录')
+        if (config.url === '/verify') {
+          ElMessage.error(data?.message || '用户名或密码错误')
+        } else {
+          localStorage.removeItem('token')
+          router.push('/panel/login')
+          ElMessage.error('登录已过期，请重新登录')
+        }
       } else {
         ElMessage.error(data?.message || '请求失败')
       }

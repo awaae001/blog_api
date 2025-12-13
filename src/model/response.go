@@ -25,6 +25,8 @@ type FriendLinkDTO struct {
 	WebsiteIconURL string    `json:"website_icon_url"`
 	Description    string    `json:"description"`
 	Status         string    `json:"status"`
+	Email          string    `json:"email,omitempty"`
+	Times          int       `json:"times,omitempty"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 

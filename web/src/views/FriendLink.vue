@@ -24,7 +24,15 @@
           <el-option label="超时" value="timeout"></el-option>
           <el-option label="错误" value="error"></el-option>
           <el-option label="失效" value="died"></el-option>
+          <el-option label="忽略" value="ignored"></el-option>
         </el-select>
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索友链"
+          clearable
+          @input="handleSearch"
+          style="width: 200px; margin-right: 10px"
+        />
         <el-button
           type="danger"
           :icon="Delete"
@@ -49,6 +57,8 @@
             <a :href="row.website_url" target="_blank">{{ row.website_url }}</a>
           </template>
         </el-table-column>
+        <el-table-column prop="email" label="邮箱" width="200" />
+        <el-table-column prop="times" label="失败次数" width="100" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
@@ -104,6 +114,9 @@
         <el-form-item label="站长邮箱" prop="email">
           <el-input v-model="form.email" />
         </el-form-item>
+        <el-form-item label="失败次数" prop="times" v-if="isEditMode">
+          <el-input-number v-model="form.times" :min="0" />
+        </el-form-item>
         <el-form-item label="状态" prop="status" v-if="isEditMode">
           <el-select v-model="form.status">
             <el-option label="正常" value="survival"></el-option>
@@ -111,6 +124,7 @@
             <el-option label="超时" value="timeout"></el-option>
             <el-option label="错误" value="error"></el-option>
             <el-option label="失效" value="died"></el-option>
+            <el-option label="忽略" value="ignored"></el-option>
           </el-select>
         </el-form-item>
       </el-form>
@@ -143,6 +157,7 @@ const totalLinks = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const filterStatus = ref('')
+const searchQuery = ref('')
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
 const formRef = ref<FormInstance>()
@@ -153,7 +168,8 @@ const form = reactive<{
   website_icon_url: string
   description: string
   email: string
-  status: 'survival' | 'timeout' | 'error' | 'died' | 'pending'
+  times: number
+  status: 'survival' | 'timeout' | 'error' | 'died' | 'pending' | 'ignored'
 }>({
   id: 0,
   website_name: '',
@@ -161,6 +177,7 @@ const form = reactive<{
   website_icon_url: '',
   description: '',
   email: '',
+  times: 0,
   status: 'pending'
 })
 
@@ -176,7 +193,8 @@ const fetchFriendLinks = async () => {
     const res = await getFriendLinks({
       page: currentPage.value,
       page_size: pageSize.value,
-      status: filterStatus.value
+      status: filterStatus.value,
+      search: searchQuery.value
     })
     if (res.code === 200) {
       friendLinks.value = res.data.items
@@ -214,6 +232,11 @@ const handleFilter = () => {
   fetchFriendLinks()
 }
 
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchFriendLinks()
+}
+
 // Dialog and Form
 const openFormDialog = (link?: FriendLink) => {
   if (link) {
@@ -234,6 +257,7 @@ const resetForm = () => {
     website_icon_url: '',
     description: '',
     email: '',
+    times: 0,
     status: 'pending'
   })
 }
@@ -297,6 +321,7 @@ const statusTagType = (status: string) => {
     case 'survival':
       return 'success'
     case 'pending':
+    case 'ignored':
       return 'info'
     case 'timeout':
       return 'warning'
