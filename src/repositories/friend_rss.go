@@ -29,7 +29,11 @@ func InsertFriendRss(db *gorm.DB, friendLinkID int, rssURLs []string) error {
 		}
 
 		if !exists {
-			newRSS := model.FriendRss{FriendLinkID: friendLinkID, RssURL: rssURL}
+			newRSS := model.FriendRss{
+				FriendLinkID: friendLinkID,
+				RssURL:       rssURL,
+				Status:       "survival", // 避免空字符串触发 CHECK 约束
+			}
 			if err := db.Create(&newRSS).Error; err != nil {
 				log.Printf("无法为友链 %d 插入 RSS 源 %s: %v", friendLinkID, rssURL, err)
 			} else {

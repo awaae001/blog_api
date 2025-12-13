@@ -32,6 +32,7 @@ func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
 				Link:   link.Link,
 				Avatar: link.Avatar,
 				Info:   link.Info,
+				Status: "survival", // 保持与表的默认值一致，避免空字符串触发 CHECK 约束
 			}
 			if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&newLink).Error; err != nil {
 				log.Printf("[db][friend][ERR]无法插入友链 %s: %v", link.Name, err)
@@ -73,10 +74,15 @@ func GetAllDiedFriendLinks(db *gorm.DB) ([]model.FriendWebsite, error) {
 }
 
 // GetFriendLinksWithFilter retrieves friend links with filtering and pagination support.
-func GetFriendLinksWithFilter(db *gorm.DB, status string, offset int, limit int) ([]model.FriendWebsite, error) {
+func GetFriendLinksWithFilter(db *gorm.DB, status string, search string, offset int, limit int) ([]model.FriendWebsite, error) {
 	query := db.Model(&model.FriendWebsite{})
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("website_name LIKE ? OR website_url LIKE ? OR description LIKE ?", searchPattern, searchPattern, searchPattern)
 	}
 
 	var links []model.FriendWebsite
@@ -88,10 +94,15 @@ func GetFriendLinksWithFilter(db *gorm.DB, status string, offset int, limit int)
 }
 
 // CountFriendLinks counts the total number of friend links matching the filter.
-func CountFriendLinks(db *gorm.DB, status string) (int, error) {
+func CountFriendLinks(db *gorm.DB, status string, search string) (int, error) {
 	query := db.Model(&model.FriendWebsite{})
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query = query.Where("website_name LIKE ? OR website_url LIKE ? OR description LIKE ?", searchPattern, searchPattern, searchPattern)
 	}
 
 	var count int64
@@ -122,12 +133,16 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 	}
 
 	updates := map[string]interface{}{
-		"website_url":      link.Link,
-		"description":      gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
-		"website_icon_url": gorm.Expr("CASE WHEN website_icon_url = '' THEN ? ELSE website_icon_url END", result.IconURL),
-		"status":           link.Status,
-		"times":            link.Times,
-		"updated_at":       gorm.Expr("CURRENT_TIMESTAMP"),
+		"website_url": link.Link,
+		"description": gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
+		"status":      link.Status,
+		"times":       link.Times,
+		"updated_at":  gorm.Expr("CURRENT_TIMESTAMP"),
+	}
+
+	// 仅当现有 icon 为空时才覆盖，避免已有 icon 被新结果替换
+	if link.Avatar == "" && result.IconURL != "" {
+		updates["website_icon_url"] = result.IconURL
 	}
 
 	if err := db.Model(&model.FriendWebsite{}).Where("id = ?", link.ID).Updates(updates).Error; err != nil {

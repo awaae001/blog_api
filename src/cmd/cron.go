@@ -73,28 +73,19 @@ func StartCronJobs(db *gorm.DB) {
 	c := cron.New()
 
 	// 安排友链爬取任务每 6 小时运行一次
-	_, err := c.AddFunc("0 */6 * * *", func() {
+	c.AddFunc("0 */6 * * *", func() {
 		RunFriendLinkCrawlerJob(db)
 	})
-	if err != nil {
-		log.Fatalf("[Cron] 无法添加友链爬取 cron 任务: %v", err)
-	}
 
 	// 安排失效友链检查任务每 24 小时运行一次
-	_, err = c.AddFunc("0 0 * * *", func() {
+	c.AddFunc("0 0 * * *", func() {
 		RunDiedFriendLinkCheckJob(db)
 	})
-	if err != nil {
-		log.Fatalf("[Cron] 无法添加失效友链检查 cron 任务: %v", err)
-	}
 
 	// 安排 RSS 解析任务每小时运行一次
-	_, err = c.AddFunc("0 * * * *", func() {
+	c.AddFunc("0 * * * *", func() {
 		RunRssParserJob(db)
 	})
-	if err != nil {
-		log.Fatalf("[Cron] 无法添加 RSS 解析 cron 任务: %v", err)
-	}
 
 	// 如果配置了启动时扫描，则立即运行一次任务
 	if config.GetConfig().CronScanOnStartup {

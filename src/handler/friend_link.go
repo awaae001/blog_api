@@ -23,11 +23,13 @@ func NewFriendLinkHandler(db *gorm.DB) *FriendLinkHandler {
 // GetAllFriendLinks handles GET /api/friend/ request
 // Query parameters:
 //   - status: filter by status (optional)
+//   - search: search keyword for fuzzy matching (optional)
 //   - page: page number, default 1 (optional)
 //   - page_size: items per page, default 20, max 100 (optional)
 func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
 	// Parse query parameters
 	status := c.Query("status")
+	search := c.Query("search")
 
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
@@ -67,14 +69,14 @@ func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
 	offset := (page - 1) * pageSize
 
 	// Get total count
-	total, err := repositories.CountFriendLinks(h.DB, status)
+	total, err := repositories.CountFriendLinks(h.DB, status, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to count friend links"))
 		return
 	}
 
 	// Get friend links
-	links, err := repositories.GetFriendLinksWithFilter(h.DB, status, offset, pageSize)
+	links, err := repositories.GetFriendLinksWithFilter(h.DB, status, search, offset, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend links"))
 		return
