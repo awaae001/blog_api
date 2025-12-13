@@ -27,6 +27,7 @@ type FriendLinkDTO struct {
 	Status         string    `json:"status"`
 	Email          string    `json:"email,omitempty"`
 	Times          int       `json:"times,omitempty"`
+	EnableRss      bool      `json:"enable_rss"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 

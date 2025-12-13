@@ -31,6 +31,10 @@ const routes: RouteRecordRaw[] = [
         component: FriendLink
       }
     ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 

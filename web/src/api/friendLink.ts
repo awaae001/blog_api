@@ -11,10 +11,11 @@ export interface FriendLink {
   website_icon_url: string
   description: string
   status: 'survival' | 'timeout' | 'error' | 'died' | 'pending' | 'ignored'
+  enable_rss: boolean
   email?: string
   times?: number
   updated_at: string
-}
+ }
 
 /**
  * 分页查询参数

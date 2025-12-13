@@ -28,11 +28,12 @@ func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
 
 		if !exists {
 			newLink := model.FriendWebsite{
-				Name:   link.Name,
-				Link:   link.Link,
-				Avatar: link.Avatar,
-				Info:   link.Info,
-				Status: "survival", // 保持与表的默认值一致，避免空字符串触发 CHECK 约束
+				Name:      link.Name,
+				Link:      link.Link,
+				Avatar:    link.Avatar,
+				Info:      link.Info,
+				Status:    "survival",
+				EnableRss: true,
 			}
 			if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&newLink).Error; err != nil {
 				log.Printf("[db][friend][ERR]无法插入友链 %s: %v", link.Name, err)
@@ -86,7 +87,7 @@ func GetFriendLinksWithFilter(db *gorm.DB, status string, search string, offset 
 	}
 
 	var links []model.FriendWebsite
-	if err := query.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&links).Error; err != nil {
+	if err := query.Select("id, website_name, website_url, website_icon_url, description, email, times, status, enable_rss, updated_at").Order("updated_at DESC").Offset(offset).Limit(limit).Find(&links).Error; err != nil {
 		return nil, fmt.Errorf("could not query friend links: %w", err)
 	}
 
@@ -126,8 +127,6 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 	} else {
 		link.Status = result.Status
 	}
-
-	// If there was a redirect, update the URL
 	if result.RedirectURL != "" {
 		link.Link = result.RedirectURL
 	}
@@ -156,12 +155,13 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 // CreateFriendLink inserts a single new friend link into the database.
 func CreateFriendLink(db *gorm.DB, link model.FriendWebsite) (int64, error) {
 	newLink := model.FriendWebsite{
-		Name:   link.Name,
-		Link:   link.Link,
-		Avatar: link.Avatar,
-		Info:   link.Info,
-		Email:  link.Email,
-		Status: "pending",
+		Name:      link.Name,
+		Link:      link.Link,
+		Avatar:    link.Avatar,
+		Info:      link.Info,
+		Email:     link.Email,
+		Status:    "pending",
+		EnableRss: link.EnableRss,
 	}
 
 	if err := db.Create(&newLink).Error; err != nil {
@@ -201,7 +201,7 @@ func DeleteFriendLinksByID(db *gorm.DB, ids []int) ([]model.FriendWebsite, error
 	return deletedLinks, nil
 }
 
-// UpdateFriendLinkByID updates a friend link by its ID based on the provided data.
+// UpdateFriendLinkByID updates a friend link by its ID and handles cascading deletes for RSS data if necessary.
 func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, error) {
 	if len(req.Data) == 0 {
 		return 0, fmt.Errorf("no data provided for update")
@@ -215,38 +215,58 @@ func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, erro
 		"description":      true,
 		"email":            true,
 		"status":           true,
+		"enable_rss":       true,
 	}
 
 	updates := map[string]interface{}{}
-
 	for col, val := range req.Data {
 		if !updatableColumns[col] {
 			log.Printf("[db][friend][WARN] 尝试更新不可更新的列: %s", col)
 			continue
 		}
-
 		if !req.Opt.OverwriteIfBlank {
 			if s, ok := val.(string); ok && s == "" {
 				continue
 			}
 		}
-
 		updates[col] = val
 	}
 
 	if len(updates) == 0 {
 		log.Println("[db][friend] No valid fields to update after filtering.")
-		return 0, nil // Nothing to update
+		return 0, nil
 	}
 
 	updates["updated_at"] = gorm.Expr("CURRENT_TIMESTAMP")
 
-	result := db.Model(&model.FriendWebsite{}).Where("id = ?", req.ID).Updates(updates)
-	if result.Error != nil {
-		return 0, fmt.Errorf("could not execute update statement for friend link with id %d: %w", req.ID, result.Error)
+	// Check if enable_rss is being set to false
+	disableRss := false
+	if val, ok := updates["enable_rss"].(bool); ok && !val {
+		disableRss = true
 	}
 
-	rowsAffected := result.RowsAffected
+	var rowsAffected int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// If disabling RSS, delete related data first
+		if disableRss {
+			if err := DeleteRssDataByFriendLinkID(tx, req.ID); err != nil {
+				return err
+			}
+		}
+
+		// Perform the update
+		result := tx.Model(&model.FriendWebsite{}).Where("id = ?", req.ID).Updates(updates)
+		if result.Error != nil {
+			return fmt.Errorf("could not execute update for friend link id %d: %w", req.ID, result.Error)
+		}
+		rowsAffected = result.RowsAffected
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
 	log.Printf("[db][friend] 为 ID: %d 更新友链. Rows affected: %d", req.ID, rowsAffected)
 	return rowsAffected, nil
 }

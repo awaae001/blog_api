@@ -112,3 +112,36 @@ func DeleteFriendRssByURL(db *gorm.DB, rssURL string) (int64, error) {
 	log.Printf("成功删除 RSS 源 %s 及其所有文章，ID 为 %d", rssURL, deletedID)
 	return deletedID, nil
 }
+
+// DeleteRssDataByFriendLinkID deletes all RSS feeds and their posts for a given friend_link_id within a transaction.
+func DeleteRssDataByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
+	// Find all RSS feeds associated with the friend link
+	var rssFeeds []model.FriendRss
+	if err := tx.Where("friend_link_id = ?", friendLinkID).Find(&rssFeeds).Error; err != nil {
+		return fmt.Errorf("could not query rss feeds for friend_link_id %d: %w", friendLinkID, err)
+	}
+
+	if len(rssFeeds) == 0 {
+		log.Printf("No RSS feeds to delete for friend_link_id %d", friendLinkID)
+		return nil // Nothing to do
+	}
+
+	// Collect all RSS feed IDs
+	rssIDs := make([]int, len(rssFeeds))
+	for i, feed := range rssFeeds {
+		rssIDs[i] = feed.ID
+	}
+
+	// Delete all posts associated with these RSS feeds
+	if err := tx.Where("friend_rss_id IN ?", rssIDs).Delete(&model.RssPost{}).Error; err != nil {
+		return fmt.Errorf("could not delete rss posts for friend_link_id %d: %w", friendLinkID, err)
+	}
+
+	// Delete the RSS feeds themselves
+	if err := tx.Where("friend_link_id = ?", friendLinkID).Delete(&model.FriendRss{}).Error; err != nil {
+		return fmt.Errorf("could not delete rss feeds for friend_link_id %d: %w", friendLinkID, err)
+	}
+
+	log.Printf("Successfully deleted %d RSS feeds and their posts for friend_link_id %d", len(rssFeeds), friendLinkID)
+	return nil
+}

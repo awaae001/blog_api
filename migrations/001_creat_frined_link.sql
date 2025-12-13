@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
     'pending',
     'ignored'
   )),
+  enable_rss BOOLEAN NOT NULL DEFAULT 1,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -35,7 +35,7 @@ request.interceptors.response.use(
           ElMessage.error(data?.message || '用户名或密码错误')
         } else {
           localStorage.removeItem('token')
-          router.push('/panel/login')
+          router.push('/login')
           ElMessage.error('登录已过期，请重新登录')
         }
       } else {

@@ -32,6 +32,7 @@ func toFriendLinkDTOs(links []model.FriendWebsite, isPrivate bool) []model.Frien
 			WebsiteIconURL: link.Avatar,
 			Description:    link.Info,
 			Status:         link.Status,
+			EnableRss:      link.EnableRss,
 			UpdatedAt:      link.UpdatedAt,
 		}
 		if isPrivate {

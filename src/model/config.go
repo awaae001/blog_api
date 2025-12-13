@@ -60,6 +60,7 @@ type FriendWebsite struct {
 	Email     string    `json:"email,omitempty" gorm:"column:email"`
 	Times     int       `json:"times,omitempty" gorm:"column:times"`
 	Status    string    `json:"status,omitempty" gorm:"column:status"`
+	EnableRss bool      `json:"enable_rss,omitempty" gorm:"column:enable_rss"`
 	UpdatedAt time.Time `json:"updated_at,omitempty" gorm:"column:updated_at"`
 }
 

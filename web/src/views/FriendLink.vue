@@ -65,6 +65,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" label="更新时间" width="180" />
+        <el-table-column label="订阅 RSS" width="100">
+          <template #default="{ row }">
+            <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
@@ -113,6 +118,9 @@
         </el-form-item>
         <el-form-item label="站长邮箱" prop="email">
           <el-input v-model="form.email" />
+        </el-form-item>
+        <el-form-item label="订阅 RSS" prop="enable_rss">
+          <el-switch v-model="form.enable_rss" />
         </el-form-item>
         <el-form-item label="失败次数" prop="times" v-if="isEditMode">
           <el-input-number v-model="form.times" :min="0" />
@@ -170,6 +178,7 @@ const form = reactive<{
   email: string
   times: number
   status: 'survival' | 'timeout' | 'error' | 'died' | 'pending' | 'ignored'
+  enable_rss: boolean
 }>({
   id: 0,
   website_name: '',
@@ -178,7 +187,8 @@ const form = reactive<{
   description: '',
   email: '',
   times: 0,
-  status: 'pending'
+  status: 'pending',
+  enable_rss: true
 })
 
 const rules = reactive<FormRules>({
@@ -258,7 +268,8 @@ const resetForm = () => {
     description: '',
     email: '',
     times: 0,
-    status: 'pending'
+    status: 'pending',
+    enable_rss: true
   })
 }
 
@@ -330,6 +341,46 @@ const statusTagType = (status: string) => {
       return 'danger'
     default:
       return 'info'
+  }
+}
+const handleRssToggle = async (link: FriendLink) => {
+  const originalValue = link.enable_rss
+  const newValue = !originalValue
+
+  // If turning off, show confirmation dialog
+  if (!newValue) {
+    try {
+      await ElMessageBox.confirm(
+        '关闭 RSS 订阅将删除所有相关的订阅源和已抓取的文章。此操作不可逆，确定要继续吗？',
+        '警告',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    } catch {
+      // User canceled, do nothing, the switch state is not yet changed in the UI data
+      return
+    }
+  }
+
+  // Optimistically update the UI
+  link.enable_rss = newValue
+
+  // Proceed with the API call
+  try {
+    await updateFriendLink({
+      id: link.id,
+      data: { enable_rss: newValue }
+    })
+    ElMessage.success(`已${newValue ? '开启' : '关闭'} RSS 订阅`)
+    // On success, fetch the data again to ensure consistency
+    fetchFriendLinks()
+  } catch (error) {
+    ElMessage.error('更新 RSS 订阅状态失败')
+    // Revert the switch on API failure
+    link.enable_rss = originalValue
   }
 }
 </script>
