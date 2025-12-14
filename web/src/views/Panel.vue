@@ -39,7 +39,7 @@
           </el-menu-item>
           <el-menu-item index="rss">
             <el-icon><Document /></el-icon>
-            <span>RSS文章</span>
+            <span>RSS 管理</span>
           </el-menu-item>
           <el-menu-item index="settings">
             <el-icon><Setting /></el-icon>

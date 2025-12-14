@@ -34,7 +34,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { statsApi, type SystemStatus } from '@/api/stats'
+import { statsApi } from '@/api/stats'
+import type { SystemStatus } from '@/model/stats'
 
 const username = ref('')
 const stats = ref<SystemStatus>({

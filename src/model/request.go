@@ -14,10 +14,10 @@ type EditFriendLinkReq struct {
 	} `json:"opt"`
 }
 
-// CreateFriendRssReq defines the request body for creating a friend rss link.
-type CreateFriendRssReq struct {
-	FriendLinkID int    `json:"friend_link_id" binding:"required"`
-	RssURL       string `json:"rss_url" binding:"required"`
+// EditFriendRssReq defines the request body for editing a friend rss link.
+type EditFriendRssReq struct {
+	ID   int                    `json:"id" binding:"required"`
+	Data map[string]interface{} `json:"data" binding:"required"`
 }
 
 // PostQuery defines the query parameters for fetching posts.
@@ -30,7 +30,7 @@ type PostQuery struct {
 
 // DeleteFriendRssReq defines the request body for deleting a friend rss link.
 type DeleteFriendRssReq struct {
-	RssURL string `json:"rss_url" binding:"required"`
+	IDs []int `json:"ids" binding:"required"`
 }
 
 // CreateRssReq defines the request body for creating a rss link.

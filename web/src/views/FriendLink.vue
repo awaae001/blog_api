@@ -153,9 +153,9 @@ import {
   getFriendLinks,
   createFriendLink,
   updateFriendLink,
-  deleteFriendLink,
-  type FriendLink
+  deleteFriendLink
 } from '@/api/friendLink'
+import type { FriendLink } from '@/model/friendLink'
 
 // Reactive State
 const friendLinks = ref<FriendLink[]>([])

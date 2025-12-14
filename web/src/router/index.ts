@@ -29,6 +29,11 @@ const routes: RouteRecordRaw[] = [
         path: 'friend',
         name: 'Friend',
         component: FriendLink
+      },
+      {
+        path: 'rss',
+        name: 'Rss',
+        component: () => import('@/views/Rss.vue')
       }
     ]
   },

@@ -75,8 +75,8 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 			rssActionGroup := actionGroup.Group("/rss")
 			{
 				rssActionGroup.GET("/", RssHandler.GetRss)
-				rssActionGroup.POST("/", RssHandler.CreateFriendRss)
-				rssActionGroup.PUT("/", RssHandler.CreateRss)
+				rssActionGroup.POST("/", RssHandler.CreateRss)
+				rssActionGroup.PUT("/", RssHandler.EditRss)
 				rssActionGroup.DELETE("/", RssHandler.DeleteFriendRss)
 			}
 		}

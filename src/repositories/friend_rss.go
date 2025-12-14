@@ -75,31 +75,33 @@ func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name str
 	return &newRSS, nil
 }
 
-// DeleteFriendRssByURL deletes a friend_rss entry and all associated posts by its URL.
-func DeleteFriendRssByURL(db *gorm.DB, rssURL string) (int64, error) {
-	var deletedID int64
+// DeleteFriendRssByIDs deletes friend_rss entries and all associated posts by their IDs.
+func DeleteFriendRssByIDs(db *gorm.DB, ids []int) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	var rowsAffected int64
+
 	err := db.Transaction(func(tx *gorm.DB) error {
-		var rss model.FriendRss
-		if err := tx.Where("rss_url = ?", rssURL).First(&rss).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return fmt.Errorf("未找到 RSS URL: %s", rssURL)
-			}
-			return fmt.Errorf("查询 RSS ID 失败: %w", err)
+		// GORM can delete with a slice of primary keys
+		result := tx.Delete(&model.FriendRss{}, ids)
+		if result.Error != nil {
+			return fmt.Errorf("删除 RSS 源失败: %w", result.Error)
 		}
-
-		if err := tx.Delete(&rss).Error; err != nil {
-			return fmt.Errorf("删除 RSS 源失败: %w", err)
-		}
-
-		deletedID = int64(rss.ID)
+		rowsAffected = result.RowsAffected
 		return nil
 	})
+
 	if err != nil {
 		return 0, err
 	}
 
-	log.Printf("成功删除 RSS 源 %s 及其所有文章，ID 为 %d", rssURL, deletedID)
-	return deletedID, nil
+	if rowsAffected > 0 {
+		log.Printf("成功删除 %d 个 RSS 源", rowsAffected)
+	}
+
+	return rowsAffected, nil
 }
 
 // DeleteRssDataByFriendLinkID deletes all RSS feeds and their posts for a given friend_link_id within a transaction.
@@ -128,4 +130,49 @@ func DeleteRssDataByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
 
 	log.Printf("Successfully deleted %d RSS feeds and their posts for friend_link_id %d", len(rssFeeds), friendLinkID)
 	return nil
+}
+
+// UpdateFriendRssByID updates a friend_rss entry by its ID.
+func UpdateFriendRssByID(db *gorm.DB, req model.EditFriendRssReq) (int64, error) {
+	if len(req.Data) == 0 {
+		return 0, fmt.Errorf("no data provided for update")
+	}
+
+	// Whitelist of updatable columns
+	updatableColumns := map[string]bool{
+		"name":           true,
+		"rss_url":        true,
+		"status":         true,
+		"friend_link_id": true,
+	}
+
+	updates := make(map[string]interface{})
+	for col, val := range req.Data {
+		if updatableColumns[col] {
+			updates[col] = val
+		}
+	}
+
+	if len(updates) == 0 {
+		log.Println("[db][friend_rss] No valid fields to update after filtering.")
+		return 0, nil
+	}
+
+	var rowsAffected int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// Perform the update
+		result := tx.Model(&model.FriendRss{}).Where("id = ?", req.ID).Updates(updates)
+		if result.Error != nil {
+			return fmt.Errorf("could not execute update for friend_rss id %d: %w", req.ID, result.Error)
+		}
+		rowsAffected = result.RowsAffected
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	log.Printf("[db][friend_rss] Updated friend_rss with ID: %d. Rows affected: %d", req.ID, rowsAffected)
+	return rowsAffected, nil
 }
