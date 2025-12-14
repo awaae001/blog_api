@@ -15,10 +15,7 @@ import (
 // SetupRouter initializes and configures the Gin router
 func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
-
 	router := gin.Default()
-
-	// Configure CORS middleware
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.Safe.CorsAllowHostlist,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -77,6 +74,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 			}
 			rssActionGroup := actionGroup.Group("/rss")
 			{
+				rssActionGroup.GET("/", RssHandler.GetRss)
 				rssActionGroup.POST("/", RssHandler.CreateFriendRss)
 				rssActionGroup.PUT("/", RssHandler.CreateRss)
 				rssActionGroup.DELETE("/", RssHandler.DeleteFriendRss)

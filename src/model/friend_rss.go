@@ -4,6 +4,7 @@ package model
 type FriendRss struct {
 	ID           int    `json:"id" gorm:"column:id;primaryKey"`
 	FriendLinkID int    `json:"friend_link_id" gorm:"column:friend_link_id"`
+	Name         string `json:"name" gorm:"column:name"`
 	RssURL       string `json:"rss_url" gorm:"column:rss_url"`
 	Status       string `json:"status" gorm:"column:status"`
 	UpdatedAt    int64  `json:"updated_at" gorm:"column:updated_at"`
@@ -12,7 +13,7 @@ type FriendRss struct {
 // RssPost represents an article from an RSS feed.
 type RssPost struct {
 	ID          int    `json:"id" gorm:"column:id;primaryKey"`
-	FriendRssID int    `json:"friend_rss_id" gorm:"column:friend_rss_id"`
+	RssID       int    `json:"rss_id" gorm:"column:rss_id"`
 	Title       string `json:"title" gorm:"column:title"`
 	Link        string `json:"link" gorm:"column:link"`
 	Description string `json:"description" gorm:"column:description"`
@@ -33,11 +34,12 @@ func (RssPost) TableName() string {
 type FriendRssQueryOptions struct {
 	FriendLinkID int    // Filter by friend link ID
 	Status       string // Filter by status
-	Count        bool   // If true, only return the count
+	Page         int    // Page number for pagination
+	PageSize     int    // Number of items per page
 }
 
 // QueryFriendRssResponse defines the response for the unified friend RSS query.
 type QueryFriendRssResponse struct {
-	Feeds []FriendRss
-	Count int64
+	Feeds []FriendRss `json:"feeds"`
+	Total int64       `json:"total"`
 }

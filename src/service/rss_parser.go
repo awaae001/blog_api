@@ -32,7 +32,7 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 		}
 
 		post := &model.RssPost{
-			FriendRssID: friendRssID,
+			RssID:       friendRssID,
 			Title:       item.Title,
 			Link:        item.Link,
 			Description: p.Sanitize(item.Description),
@@ -44,4 +44,15 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 			log.Printf("插入文章 '%s' 时出错: %v", item.Title, err)
 		}
 	}
+}
+
+// GetRssTitle fetches and returns the title of an RSS feed.
+func GetRssTitle(rssURL string) (string, error) {
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseURL(rssURL)
+	if err != nil {
+		log.Printf("解析 RSS feed %s 时出错: %v", rssURL, err)
+		return "", err
+	}
+	return feed.Title, nil
 }

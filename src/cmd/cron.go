@@ -33,9 +33,16 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 		}
 		// 更新友链后，发现并插入 RSS 订阅源
 		if link.EnableRss && len(result.RssURLs) > 0 {
-			_, err = repositories.CreateFriendRssFeeds(db, link.ID, result.RssURLs)
-			if err != nil {
-				log.Printf("[Cron] 在 cron 任务中为 %s 插入 RSS 订阅源失败: %v", link.Name, err)
+			for _, rssURL := range result.RssURLs {
+				name, err := service.GetRssTitle(rssURL)
+				if err != nil {
+					log.Printf("[Cron] 获取 RSS 标题失败 %s: %v", rssURL, err)
+					continue
+				}
+				_, err = repositories.CreateFriendRssFeeds(db, link.ID, rssURL, name)
+				if err != nil {
+					log.Printf("[Cron] 在 cron 任务中为 %s 插入 RSS 订阅源失败: %v", link.Name, err)
+				}
 			}
 		}
 	}

@@ -17,21 +17,24 @@ func QueryFriendRss(db *gorm.DB, opts model.FriendRssQueryOptions) (model.QueryF
 		query = query.Where("friend_link_id = ?", opts.FriendLinkID)
 	}
 	if opts.Status != "" {
-		query = query.Where("status = ?", opts.Status)
-	}
-
-	// Special case for getting all valid RSS feeds
-	if opts.Status == "valid" {
-		query = db.Table("friend_rss").
-			Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
-			Where("friend_link.status NOT IN ?", []string{"ignored", "died"})
-	}
-
-	if opts.Count {
-		if err := query.Count(&resp.Count).Error; err != nil {
-			return resp, fmt.Errorf("could not count friend rss feeds: %w", err)
+		if opts.Status == "valid" {
+			query = db.Table("friend_rss").
+				Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
+				Where("friend_link.status NOT IN ?", []string{"ignored", "died"})
+		} else {
+			query = query.Where("status = ?", opts.Status)
 		}
-		return resp, nil
+	}
+
+	// Get total count
+	if err := query.Count(&resp.Total).Error; err != nil {
+		return resp, fmt.Errorf("could not count friend rss feeds: %w", err)
+	}
+
+	// Apply pagination
+	if opts.Page > 0 && opts.PageSize > 0 {
+		offset := (opts.Page - 1) * opts.PageSize
+		query = query.Offset(offset).Limit(opts.PageSize)
 	}
 
 	if err := query.Find(&resp.Feeds).Error; err != nil {
@@ -41,38 +44,35 @@ func QueryFriendRss(db *gorm.DB, opts model.FriendRssQueryOptions) (model.QueryF
 	return resp, nil
 }
 
-// CreateFriendRssFeeds creates new friend_rss records from a slice of URLs, avoiding duplicates.
-func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURLs []string) ([]model.FriendRss, error) {
-	if len(rssURLs) == 0 {
-		return nil, nil
+// CreateFriendRssFeeds creates a new friend_rss record, avoiding duplicates.
+func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name string) (*model.FriendRss, error) {
+	if rssURL == "" {
+		return nil, fmt.Errorf("rssURL cannot be empty")
 	}
 
-	var createdFeeds []model.FriendRss
-	for _, rssURL := range rssURLs {
-		var existing model.FriendRss
-		err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error
-		if err == nil {
-			log.Printf("RSS feed '%s' already exists for friend link ID %d, skipping.", rssURL, friendLinkID)
-			continue
-		}
-		if err != gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("failed to check for existing RSS feed: %w", err)
-		}
-
-		newRSS := model.FriendRss{
-			FriendLinkID: friendLinkID,
-			RssURL:       rssURL,
-			Status:       "survival",
-		}
-		if err := db.Create(&newRSS).Error; err != nil {
-			log.Printf("Failed to insert RSS feed '%s' for friend link ID %d: %v", rssURL, friendLinkID, err)
-			continue
-		}
-		createdFeeds = append(createdFeeds, newRSS)
-		log.Printf("Successfully inserted RSS feed '%s' for friend link ID %d.", rssURL, friendLinkID)
+	var existing model.FriendRss
+	err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error
+	if err == nil {
+		log.Printf("RSS feed '%s' already exists for friend link ID %d, skipping.", rssURL, friendLinkID)
+		return nil, fmt.Errorf("RSS feed '%s' already exists", rssURL)
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, fmt.Errorf("failed to check for existing RSS feed: %w", err)
 	}
 
-	return createdFeeds, nil
+	newRSS := model.FriendRss{
+		FriendLinkID: friendLinkID,
+		RssURL:       rssURL,
+		Name:         name,
+		Status:       "survival",
+	}
+	if err := db.Create(&newRSS).Error; err != nil {
+		log.Printf("Failed to insert RSS feed '%s' for friend link ID %d: %v", rssURL, friendLinkID, err)
+		return nil, err
+	}
+
+	log.Printf("Successfully inserted RSS feed '%s' for friend link ID %d.", rssURL, friendLinkID)
+	return &newRSS, nil
 }
 
 // DeleteFriendRssByURL deletes a friend_rss entry and all associated posts by its URL.
@@ -85,10 +85,6 @@ func DeleteFriendRssByURL(db *gorm.DB, rssURL string) (int64, error) {
 				return fmt.Errorf("未找到 RSS URL: %s", rssURL)
 			}
 			return fmt.Errorf("查询 RSS ID 失败: %w", err)
-		}
-
-		if err := DeleteRssPostsByRssIDWithTx(tx, int64(rss.ID)); err != nil {
-			return fmt.Errorf("删除关联的 RSS 文章失败: %w", err)
 		}
 
 		if err := tx.Delete(&rss).Error; err != nil {
@@ -123,11 +119,6 @@ func DeleteRssDataByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
 	rssIDs := make([]int, len(rssFeeds))
 	for i, feed := range rssFeeds {
 		rssIDs[i] = feed.ID
-	}
-
-	// Delete all posts associated with these RSS feeds
-	if err := tx.Where("friend_rss_id IN ?", rssIDs).Delete(&model.RssPost{}).Error; err != nil {
-		return fmt.Errorf("could not delete rss posts for friend_link_id %d: %w", friendLinkID, err)
 	}
 
 	// Delete the RSS feeds themselves

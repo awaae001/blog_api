@@ -32,8 +32,8 @@ func InsertRssPost(db *gorm.DB, post *model.RssPost) error {
 func GetPostsByFriendLinkID(db *gorm.DB, friendLinkID int) ([]model.RssPost, error) {
 	var posts []model.RssPost
 	if err := db.Table("friend_rss_post AS p").
-		Select("p.id, p.friend_rss_id, p.title, p.link, p.description, p.time").
-		Joins("JOIN friend_rss r ON p.friend_rss_id = r.id").
+		Select("p.id, p.rss_id, p.title, p.link, p.description, p.time").
+		Joins("JOIN friend_rss r ON p.rss_id = r.id").
 		Where("r.friend_link_id = ?", friendLinkID).
 		Order("p.time DESC").
 		Scan(&posts).Error; err != nil {
@@ -61,12 +61,4 @@ func GetAllPosts(db *gorm.DB, page, pageSize int) ([]model.RssPost, int, error) 
 	}
 
 	return posts, int(total), nil
-}
-
-// DeleteRssPostsByRssIDWithTx deletes all posts associated with a given friend_rss_id using a transaction.
-func DeleteRssPostsByRssIDWithTx(tx *gorm.DB, friendRssID int64) error {
-	if err := tx.Where("friend_rss_id = ?", friendRssID).Delete(&model.RssPost{}).Error; err != nil {
-		return fmt.Errorf("无法删除 friend_rss_id 为 %d 的文章: %w", friendRssID, err)
-	}
-	return nil
 }
