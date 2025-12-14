@@ -20,6 +20,14 @@ type CreateFriendRssReq struct {
 	RssURL       string `json:"rss_url" binding:"required"`
 }
 
+// PostQuery defines the query parameters for fetching posts.
+type PostQuery struct {
+	RssID        *int `form:"rss_id"`
+	FriendLinkID *int `form:"friend_link_id"`
+	Page         int  `form:"page"`
+	PageSize     int  `form:"page_size"`
+}
+
 // DeleteFriendRssReq defines the request body for deleting a friend rss link.
 type DeleteFriendRssReq struct {
 	RssURL string `json:"rss_url" binding:"required"`
