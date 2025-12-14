@@ -84,6 +84,11 @@ func DeleteFriendRssByIDs(db *gorm.DB, ids []int) (int64, error) {
 	var rowsAffected int64
 
 	err := db.Transaction(func(tx *gorm.DB) error {
+		// Delete associated posts first
+		if err := tx.Where("rss_id IN ?", ids).Delete(&model.RssPost{}).Error; err != nil {
+			return fmt.Errorf("删除 RSS 文章失败: %w", err)
+		}
+
 		// GORM can delete with a slice of primary keys
 		result := tx.Delete(&model.FriendRss{}, ids)
 		if result.Error != nil {
@@ -121,6 +126,11 @@ func DeleteRssDataByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
 	rssIDs := make([]int, len(rssFeeds))
 	for i, feed := range rssFeeds {
 		rssIDs[i] = feed.ID
+	}
+
+	// Delete associated posts first (manual cascade for SQLite safety)
+	if err := tx.Where("rss_id IN ?", rssIDs).Delete(&model.RssPost{}).Error; err != nil {
+		return fmt.Errorf("could not delete rss posts for friend_link_id %d: %w", friendLinkID, err)
 	}
 
 	// Delete the RSS feeds themselves

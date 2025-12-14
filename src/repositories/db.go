@@ -39,6 +39,11 @@ func InitDB(cfg *model.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("could not open database: %w", err)
 	}
 
+	// Enable foreign keys
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		return nil, fmt.Errorf("could not enable foreign keys: %w", err)
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("could not get sql.DB from gorm: %w", err)

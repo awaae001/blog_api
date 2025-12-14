@@ -133,6 +133,12 @@ func unmarshalConfig(cfg *model.Config) error {
 	cfg.Data.Image.Path = v.GetString("system_conf.data_conf.image.path")
 	cfg.Data.Image.ConvTo = v.GetString("system_conf.data_conf.image.conv_to")
 
+	// 解析爬虫配置
+	cfg.Crawler.Concurrency = v.GetInt("system_conf.crawler_conf.concurrency")
+	if cfg.Crawler.Concurrency <= 0 {
+		cfg.Crawler.Concurrency = 5 // 默认并发数为 5
+	}
+
 	// 手动解析友链配置
 	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")
 	friendListData, err := ioutil.ReadFile(friendListPath)

@@ -235,7 +235,7 @@ onMounted(() => {
 }
 
 .posts-main {
-  padding-left: 10px;
+  padding: 0px;
 }
 
 .full-height-card {

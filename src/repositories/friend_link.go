@@ -12,6 +12,17 @@ import (
 
 // InsertFriendLinks inserts friend links from the configuration if they don't already exist.
 func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
+	var count int64
+	if err := db.Model(&model.FriendWebsite{}).Count(&count).Error; err != nil {
+		log.Printf("[db][friend][ERR]无法检查友链是否存在: %v", err)
+		return err
+	}
+
+	if count > 0 {
+		log.Println("[db][friend][init]检测到已有友链，跳过初始化")
+		return nil
+	}
+
 	if len(friendLinks) == 0 {
 		log.Println("No friend links to insert.")
 		return nil

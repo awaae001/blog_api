@@ -11,9 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源
+// RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源（并发模式）
 func RunFriendLinkCrawlerJob(db *gorm.DB) {
-	log.Println("[Cron] 正在运行友链爬取任务...")
+	log.Println("[Cron] 正在运行友链爬取任务（并发模式）...")
 	opts := model.FriendLinkQueryOptions{
 		Statuses: []string{"died", "ignored"},
 		NotIn:    true,
@@ -25,8 +25,19 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 	}
 	links := resp.Links
 
-	for _, link := range links {
-		result := service.CrawlWebsite(link.Link)
+	if len(links) == 0 {
+		log.Println("[Cron] 没有需要爬取的友链")
+		return
+	}
+
+	// 使用并发爬虫
+	results := service.CrawlWebsitesConcurrently(links)
+
+	// 处理爬取结果
+	for _, crawlResult := range results {
+		link := crawlResult.Link
+		result := crawlResult.Result
+
 		err := repositories.UpdateFriendLink(db, link, result)
 		if err != nil {
 			log.Printf("[Cron] 在 cron 任务中更新友链 %s 失败: %v", link.Name, err)
@@ -46,11 +57,12 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 			}
 		}
 	}
+	log.Println("[Cron] 友链爬取任务完成")
 }
 
-// RunDiedFriendLinkCheckJob 执行失效友链的检查
+// RunDiedFriendLinkCheckJob 执行失效友链的检查（并发模式）
 func RunDiedFriendLinkCheckJob(db *gorm.DB) {
-	log.Println("[Cron] 正在运行失效友链检查任务...")
+	log.Println("[Cron] 正在运行失效友链检查任务（并发模式）...")
 	opts := model.FriendLinkQueryOptions{
 		Status: "died",
 	}
@@ -61,19 +73,30 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 	}
 	links := resp.Links
 
-	for _, link := range links {
-		result := service.CrawlWebsite(link.Link)
-		// 如果链接仍然有效，状态将更新为“存活”并重置计数
+	if len(links) == 0 {
+		log.Println("[Cron] 没有需要检查的失效友链")
+		return
+	}
+
+	// 使用并发爬虫
+	results := service.CrawlWebsitesConcurrently(links)
+
+	// 处理爬取结果
+	for _, crawlResult := range results {
+		link := crawlResult.Link
+		result := crawlResult.Result
+		// 如果链接仍然有效，状态将更新为"存活"并重置计数
 		err := repositories.UpdateFriendLink(db, link, result)
 		if err != nil {
 			log.Printf("[Cron] 在 cron 任务中更新失效友链 %s 失败: %v", link.Name, err)
 		}
 	}
+	log.Println("[Cron] 失效友链检查任务完成")
 }
 
-// RunRssParserJob 获取所有 RSS 订阅源并解析它们
+// RunRssParserJob 获取所有 RSS 订阅源并解析它们（并发模式）
 func RunRssParserJob(db *gorm.DB) {
-	log.Println("[Cron] 正在运行 RSS 解析任务...")
+	log.Println("[Cron] 正在运行 RSS 解析任务（并发模式）...")
 	opts := model.FriendRssQueryOptions{Status: "valid"}
 	resp, err := repositories.QueryFriendRss(db, opts)
 	if err != nil {
@@ -82,9 +105,16 @@ func RunRssParserJob(db *gorm.DB) {
 	}
 	rssFeeds := resp.Feeds
 
-	for _, rss := range rssFeeds {
-		service.ParseRssFeed(db, rss.ID, rss.RssURL)
+	if len(rssFeeds) == 0 {
+		log.Println("[Cron] 没有需要解析的 RSS 订阅源")
+		return
 	}
+
+	// 使用并发解析
+	service.ParseRssFeedsConcurrently(rssFeeds, func(friendRssID int, rssURL string) {
+		service.ParseRssFeed(db, friendRssID, rssURL)
+	})
+	log.Println("[Cron] RSS 解析任务完成")
 }
 
 // StartCronJobs 初始化并启动 cron 任务
