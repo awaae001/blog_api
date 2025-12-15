@@ -9,6 +9,7 @@ type Config struct {
 	WebPanelPwd       string
 	ConfigPath        string
 	CronScanOnStartup bool
+	EnableStatusLog   bool
 
 	// 系统配置 - 使用小写字段名，通过 Safe 和 Data 访问
 	Safe    SafeConfig

@@ -136,12 +136,23 @@ func StartCronJobs(db *gorm.DB) {
 		RunRssParserJob(db)
 	})
 
+	// 如果启用了状态日志，则安排任务
+	if config.GetConfig().EnableStatusLog {
+		// 安排系统状态日志记录任务每 5 分钟运行一次
+		c.AddFunc("*/5 * * * *", func() {
+			service.LogSystemStatus(db)
+		})
+		log.Println("[Cron] 已启用系统状态日志记录任务")
+	}
+
 	// 如果配置了启动时扫描，则立即运行一次任务
 	if config.GetConfig().CronScanOnStartup {
 		go func() {
-			log.Println("[Cron] 正在运行初始友链爬取任务...")
+			log.Println("[Cron] 调度启动时扫描任务")
+			if config.GetConfig().EnableStatusLog {
+				service.LogSystemStatus(db)
+			}
 			RunFriendLinkCrawlerJob(db)
-			log.Println("[Cron] 正在运行初始 RSS 解析任务...")
 			RunRssParserJob(db)
 		}()
 	} else {

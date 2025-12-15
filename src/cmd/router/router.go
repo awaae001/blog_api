@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -26,6 +27,7 @@ func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engin
 	}))
 
 	registerRoutes(router, db, startTime)
+	pprof.Register(router)
 
 	// Serve static files and handle SPA
 	router.NoRoute(staticFileHandler(cfg))
