@@ -2,7 +2,7 @@ package handlerAction
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"blog_api/src/service"
 	"fmt"
 	"net/http"
@@ -37,7 +37,7 @@ func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 
 	if friendLinkID != -1 {
 		// 检查 friend_link_id 是否真实存在
-		exists, err := repositories.FriendLinkExists(h.DB, friendLinkID)
+		exists, err := friendsRepositories.FriendLinkExists(h.DB, friendLinkID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "检查友链是否存在时出错: "+err.Error()))
 			return
@@ -54,7 +54,7 @@ func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 		return
 	}
 
-	createdFeed, err := repositories.CreateFriendRssFeeds(h.DB, friendLinkID, req.RssURL, name)
+	createdFeed, err := friendsRepositories.CreateFriendRssFeeds(h.DB, friendLinkID, req.RssURL, name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "创建 RSS 失败: "+err.Error()))
 		return
@@ -76,7 +76,7 @@ func (h *FriendRssHandler) DeleteFriendRss(c *gin.Context) {
 		return
 	}
 
-	rowsAffected, err := repositories.DeleteFriendRssByID(h.DB, uint(id))
+	rowsAffected, err := friendsRepositories.DeleteFriendRssByID(h.DB, uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "删除 RSS 失败: "+err.Error()))
 		return
@@ -100,7 +100,7 @@ func (h *FriendRssHandler) EditRss(c *gin.Context) {
 		return
 	}
 
-	rowsAffected, err := repositories.UpdateFriendRssByID(h.DB, uint(id), req)
+	rowsAffected, err := friendsRepositories.UpdateFriendRssByID(h.DB, uint(id), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "更新 RSS 失败: "+err.Error()))
 		return
@@ -159,7 +159,7 @@ func (h *FriendRssHandler) GetRss(c *gin.Context) {
 		Page:     page,
 		PageSize: pageSize,
 	}
-	resp, err := repositories.QueryFriendRss(h.DB, opts)
+	resp, err := friendsRepositories.QueryFriendRss(h.DB, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "获取友链列表失败"))
 		return

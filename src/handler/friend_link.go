@@ -2,7 +2,7 @@ package handler
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"net/http"
 	"strconv"
 
@@ -94,7 +94,7 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 		Offset: offset,
 		Limit:  pageSize,
 	}
-	resp, err := repositories.QueryFriendLinks(h.DB, opts)
+	resp, err := friendsRepositories.QueryFriendLinks(h.DB, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend links"))
 		return

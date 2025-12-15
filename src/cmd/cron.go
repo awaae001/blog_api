@@ -3,7 +3,7 @@ package cmd
 import (
 	"blog_api/src/config"
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"blog_api/src/service"
 	"log"
 
@@ -18,7 +18,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 		Statuses: []string{"died", "ignored"},
 		NotIn:    true,
 	}
-	resp, err := repositories.QueryFriendLinks(db, opts)
+	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
 	if err != nil {
 		log.Printf("[Cron] 获取全部友链失败： %v", err)
 		return
@@ -38,7 +38,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 		link := crawlResult.Link
 		result := crawlResult.Result
 
-		err := repositories.UpdateFriendLink(db, link, result)
+		err := friendsRepositories.UpdateFriendLink(db, link, result)
 		if err != nil {
 			log.Printf("[Cron] 在 cron 任务中更新友链 %s 失败: %v", link.Name, err)
 		}
@@ -50,7 +50,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 					log.Printf("[Cron] 获取 RSS 标题失败 %s: %v", rssURL, err)
 					continue
 				}
-				_, err = repositories.CreateFriendRssFeeds(db, link.ID, rssURL, name)
+				_, err = friendsRepositories.CreateFriendRssFeeds(db, link.ID, rssURL, name)
 				if err != nil {
 					log.Printf("[Cron] 在 cron 任务中为 %s 插入 RSS 订阅源失败: %v", link.Name, err)
 				}
@@ -66,7 +66,7 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 	opts := model.FriendLinkQueryOptions{
 		Status: "died",
 	}
-	resp, err := repositories.QueryFriendLinks(db, opts)
+	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
 	if err != nil {
 		log.Printf("[Cron] 获取全部 died 友链失败： %v", err)
 		return
@@ -86,7 +86,7 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 		link := crawlResult.Link
 		result := crawlResult.Result
 		// 如果链接仍然有效，状态将更新为"存活"并重置计数
-		err := repositories.UpdateFriendLink(db, link, result)
+		err := friendsRepositories.UpdateFriendLink(db, link, result)
 		if err != nil {
 			log.Printf("[Cron] 在 cron 任务中更新失效友链 %s 失败: %v", link.Name, err)
 		}
@@ -98,7 +98,7 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 func RunRssParserJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行 RSS 解析任务（并发模式）...")
 	opts := model.FriendRssQueryOptions{Status: "valid"}
-	resp, err := repositories.QueryFriendRss(db, opts)
+	resp, err := friendsRepositories.QueryFriendRss(db, opts)
 	if err != nil {
 		log.Printf("[Cron] 获取所有 RSS 订阅源失败: %v", err)
 		return

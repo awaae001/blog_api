@@ -2,7 +2,7 @@ package handler
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +42,7 @@ func (h *RssPostHandler) GetRssPosts(c *gin.Context) {
 		query.PageSize = 10
 	}
 
-	posts, total, err := repositories.GetPosts(h.DB, &query)
+	posts, total, err := friendsRepositories.GetPosts(h.DB, &query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve posts"))
 		return

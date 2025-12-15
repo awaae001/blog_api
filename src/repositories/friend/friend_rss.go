@@ -1,4 +1,4 @@
-package repositories
+package friendsRepositories
 
 import (
 	"blog_api/src/model"

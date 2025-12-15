@@ -2,7 +2,7 @@ package handlerAction
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"log"
 	"net/http"
 	"strconv"
@@ -39,7 +39,7 @@ func (h *UpdataHandler) CreateFriendLink(c *gin.Context) {
 	}
 
 	// Insert into database
-	id, err := repositories.CreateFriendLink(h.DB, req)
+	id, err := friendsRepositories.CreateFriendLink(h.DB, req)
 	if err != nil {
 		log.Printf("[handler][updata][ERR] 创建友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create friend link"))
@@ -61,7 +61,7 @@ func (h *UpdataHandler) DeleteFriendLink(c *gin.Context) {
 
 	log.Printf("[handler][updata] Received friend link deletion request for ID: %d", id)
 
-	deletedLink, err := repositories.DeleteFriendLinkByID(h.DB, uint(id))
+	deletedLink, err := friendsRepositories.DeleteFriendLinkByID(h.DB, uint(id))
 	if err != nil {
 		log.Printf("[handler][updata][ERR] 删除友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete friend link"))
@@ -90,7 +90,7 @@ func (h *UpdataHandler) EditFriendLink(c *gin.Context) {
 
 	log.Printf("[handler][updata] Received friend link edit data for ID %d: %+v", id, req)
 
-	rowsAffected, err := repositories.UpdateFriendLinkByID(h.DB, uint(id), req)
+	rowsAffected, err := friendsRepositories.UpdateFriendLinkByID(h.DB, uint(id), req)
 	if err != nil {
 		log.Printf("[handler][updata][ERR] 更新友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to update friend link"))

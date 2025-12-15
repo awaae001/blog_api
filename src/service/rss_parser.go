@@ -2,7 +2,7 @@ package service
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"log"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -39,7 +39,7 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 			Time:        publishedTime.Unix(),
 		}
 
-		err := repositories.InsertRssPost(db, post)
+		err := friendsRepositories.InsertRssPost(db, post)
 		if err != nil {
 			log.Printf("插入文章 '%s' 时出错: %v", item.Title, err)
 		}

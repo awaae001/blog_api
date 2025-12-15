@@ -4,6 +4,7 @@ import (
 	cmd "blog_api/src/cmd/router"
 	"blog_api/src/config"
 	"blog_api/src/repositories"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"fmt"
 	"log"
 	"time"
@@ -30,7 +31,7 @@ func Run() {
 	defer sqlDB.Close()
 
 	// Insert friend links from config
-	if err := repositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
+	if err := friendsRepositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
 		log.Printf("[main]无法插入友链: %v", err)
 	}
 
