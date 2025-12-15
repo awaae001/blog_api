@@ -4,7 +4,6 @@ import (
 	"blog_api/src/model"
 	"fmt"
 	"log"
-	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -138,7 +137,6 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 		"description": gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
 		"status":      link.Status,
 		"times":       link.Times,
-		"updated_at":  time.Now().Unix(),
 	}
 
 	// 仅当现有 icon 为空时才覆盖，避免已有 icon 被新结果替换

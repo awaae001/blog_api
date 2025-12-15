@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"gorm.io/driver/sqlite"
@@ -67,17 +66,9 @@ func InitDB(cfg *model.Config) (*gorm.DB, error) {
 			return nil, fmt.Errorf("could not read migration file %s: %w", file, err)
 		}
 
-		// Split the content by semicolon to execute multiple statements
-		statements := strings.Split(string(content), ";")
-		for _, stmt := range statements {
-			// Trim whitespace and skip empty statements
-			stmt = strings.TrimSpace(stmt)
-			if stmt == "" {
-				continue
-			}
-			if err := db.Exec(stmt).Error; err != nil {
-				return nil, fmt.Errorf("could not execute migration statement in file %s: %w", file, err)
-			}
+		// Execute the entire migration file content at once
+		if err := db.Exec(string(content)).Error; err != nil {
+			return nil, fmt.Errorf("could not execute migration statement in file %s: %w", file, err)
 		}
 	}
 

@@ -6,6 +6,6 @@ CREATE TABLE IF NOT EXISTS friend_rss_post (
     description TEXT NOT NULL,
     time INTEGER NOT NULL,
 
-    -- 连级
+    -- 级联
     FOREIGN KEY (rss_id) REFERENCES friend_rss(id) ON DELETE CASCADE
 )

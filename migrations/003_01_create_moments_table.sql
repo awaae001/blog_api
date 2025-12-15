@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS moments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  content TEXT NOT NULL,
+  -- 这里原本要有一个 media ，但是为了可扩展性，现在在 003_02_create_moment_media_table.sql 里单独创建
+  status TEXT NOT NULL DEFAULT 'visible' CHECK ( status IN (
+    'visible',
+    'hidden',
+    'deleted'
+  )),
+  chat_id INTEGER ,
+  message_id INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_moments_status ON moments (status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_moments_chat_message ON moments(chat_id, message_id);
+
+-- 添加触发器，自动更新 updated_at 字段
+CREATE TRIGGER IF NOT EXISTS trg_moments_updated_at
+AFTER UPDATE ON moments
+FOR EACH ROW
+BEGIN
+  UPDATE moments SET updated_at = strftime('%s','now') WHERE id = OLD.id;
+END;

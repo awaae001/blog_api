@@ -21,3 +21,11 @@ CREATE TABLE IF NOT EXISTS friend_link (
 
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_friend_link_status ON friend_link (status);
+
+-- 为 friend_link 表创建触发器, 用于自动更新 updated_at
+CREATE TRIGGER IF NOT EXISTS trg_friend_link_updated_at
+AFTER UPDATE ON friend_link
+FOR EACH ROW
+BEGIN
+  UPDATE friend_link SET updated_at = strftime('%s','now') WHERE id = OLD.id;
+END;
