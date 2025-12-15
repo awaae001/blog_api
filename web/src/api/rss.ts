@@ -44,11 +44,8 @@ export const getPostsByFeed = (
  */
 export const deleteRssFeed = (ids: number[]): Promise<ApiResponse> => {
   return request({
-    url: '/action/rss',
-    method: 'delete',
-    data: {
-      ids
-    }
+    url: `/action/rss/${ids[0]}`,
+    method: 'delete'
   })
 }
 
@@ -63,10 +60,9 @@ export const updateRssFeed = (
   data: { name?: string; rss_url?: string; status?: string }
 ): Promise<ApiResponse> => {
   return request({
-    url: '/action/rss',
+    url: `/action/rss/${id}`,
     method: 'put',
     data: {
-      id,
       data
     }
   })

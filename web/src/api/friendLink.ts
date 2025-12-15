@@ -4,8 +4,7 @@ import type {
   FriendLinkListParams,
   PaginatedFriendLinks,
   CreateFriendLinkPayload,
-  UpdateFriendLinkPayload,
-  DeleteFriendLinkPayload
+  UpdateFriendLinkPayload
 } from '@/model/friendLink'
 
 /**
@@ -35,9 +34,9 @@ export const createFriendLink = (data: CreateFriendLinkPayload): Promise<ApiResp
 /**
  * 更新友链
  */
-export const updateFriendLink = (payload: UpdateFriendLinkPayload): Promise<ApiResponse> => {
+export const updateFriendLink = (id: number, payload: UpdateFriendLinkPayload): Promise<ApiResponse> => {
   return request({
-    url: '/action/friend',
+    url: `/action/friend/${id}`,
     method: 'put',
     data: payload
   })
@@ -47,10 +46,9 @@ export const updateFriendLink = (payload: UpdateFriendLinkPayload): Promise<ApiR
 /**
  * 删除友链
  */
-export const deleteFriendLink = (data: DeleteFriendLinkPayload): Promise<ApiResponse> => {
+export const deleteFriendLink = (id: number): Promise<ApiResponse> => {
   return request({
-    url: '/action/friend',
-    method: 'delete',
-    data
+    url: `/action/friend/${id}`,
+    method: 'delete'
   })
 }

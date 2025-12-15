@@ -75,22 +75,18 @@ func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name str
 	return &newRSS, nil
 }
 
-// DeleteFriendRssByIDs deletes friend_rss entries and all associated posts by their IDs.
-func DeleteFriendRssByIDs(db *gorm.DB, ids []int) (int64, error) {
-	if len(ids) == 0 {
-		return 0, nil
-	}
-
+// DeleteFriendRssByID deletes a friend_rss entry and all associated posts by its ID.
+func DeleteFriendRssByID(db *gorm.DB, id uint) (int64, error) {
 	var rowsAffected int64
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// Delete associated posts first
-		if err := tx.Where("rss_id IN ?", ids).Delete(&model.RssPost{}).Error; err != nil {
+		if err := tx.Where("rss_id = ?", id).Delete(&model.RssPost{}).Error; err != nil {
 			return fmt.Errorf("删除 RSS 文章失败: %w", err)
 		}
 
-		// GORM can delete with a slice of primary keys
-		result := tx.Delete(&model.FriendRss{}, ids)
+		// GORM can delete with a primary key
+		result := tx.Delete(&model.FriendRss{}, id)
 		if result.Error != nil {
 			return fmt.Errorf("删除 RSS 源失败: %w", result.Error)
 		}
@@ -143,7 +139,7 @@ func DeleteRssDataByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
 }
 
 // UpdateFriendRssByID updates a friend_rss entry by its ID.
-func UpdateFriendRssByID(db *gorm.DB, req model.EditFriendRssReq) (int64, error) {
+func UpdateFriendRssByID(db *gorm.DB, id uint, req model.EditFriendRssReq) (int64, error) {
 	if len(req.Data) == 0 {
 		return 0, fmt.Errorf("no data provided for update")
 	}
@@ -171,9 +167,9 @@ func UpdateFriendRssByID(db *gorm.DB, req model.EditFriendRssReq) (int64, error)
 	var rowsAffected int64
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// Perform the update
-		result := tx.Model(&model.FriendRss{}).Where("id = ?", req.ID).Updates(updates)
+		result := tx.Model(&model.FriendRss{}).Where("id = ?", id).Updates(updates)
 		if result.Error != nil {
-			return fmt.Errorf("could not execute update for friend_rss id %d: %w", req.ID, result.Error)
+			return fmt.Errorf("could not execute update for friend_rss id %d: %w", id, result.Error)
 		}
 		rowsAffected = result.RowsAffected
 		return nil
@@ -183,6 +179,6 @@ func UpdateFriendRssByID(db *gorm.DB, req model.EditFriendRssReq) (int64, error)
 		return 0, err
 	}
 
-	log.Printf("[db][friend_rss] Updated friend_rss with ID: %d. Rows affected: %d", req.ID, rowsAffected)
+	log.Printf("[db][friend_rss] Updated friend_rss with ID: %d. Rows affected: %d", id, rowsAffected)
 	return rowsAffected, nil
 }

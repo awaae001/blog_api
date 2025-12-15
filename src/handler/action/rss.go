@@ -67,20 +67,16 @@ func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 	c.JSON(http.StatusCreated, model.NewSuccessResponse(gin.H{"id": createdFeed.ID}))
 }
 
-// DeleteFriendRss 处理 DELETE /api/action/rss 请求
+// DeleteFriendRss 处理 DELETE /api/action/rss/:id 请求
 func (h *FriendRssHandler) DeleteFriendRss(c *gin.Context) {
-	var req model.DeleteFriendRssReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体: "+err.Error()))
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的 RSS ID"))
 		return
 	}
 
-	if len(req.IDs) == 0 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "请提供要删除的 RSS ID"))
-		return
-	}
-
-	rowsAffected, err := repositories.DeleteFriendRssByIDs(h.DB, req.IDs)
+	rowsAffected, err := repositories.DeleteFriendRssByID(h.DB, uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "删除 RSS 失败: "+err.Error()))
 		return
@@ -89,15 +85,22 @@ func (h *FriendRssHandler) DeleteFriendRss(c *gin.Context) {
 	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"rows_affected": rowsAffected}))
 }
 
-// EditRss 处理 PUT /api/action/rss 请求，用于更新现有的 RSS feed。
+// EditRss 处理 PUT /api/action/rss/:id 请求，用于更新现有的 RSS feed。
 func (h *FriendRssHandler) EditRss(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的 RSS ID"))
+		return
+	}
+
 	var req model.EditFriendRssReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体: "+err.Error()))
 		return
 	}
 
-	rowsAffected, err := repositories.UpdateFriendRssByID(h.DB, req)
+	rowsAffected, err := repositories.UpdateFriendRssByID(h.DB, uint(id), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "更新 RSS 失败: "+err.Error()))
 		return

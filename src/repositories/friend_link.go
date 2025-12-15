@@ -174,37 +174,33 @@ func CreateFriendLink(db *gorm.DB, link model.FriendWebsite) (int64, error) {
 	return int64(newLink.ID), nil
 }
 
-// DeleteFriendLinksByID deletes friend links by their IDs and returns the deleted links.
-func DeleteFriendLinksByID(db *gorm.DB, ids []int) ([]model.FriendWebsite, error) {
-	if len(ids) == 0 {
-		return []model.FriendWebsite{}, nil
-	}
-
-	var deletedLinks []model.FriendWebsite
+// DeleteFriendLinkByID deletes a friend link by its ID and returns the deleted link.
+func DeleteFriendLinkByID(db *gorm.DB, id uint) (model.FriendWebsite, error) {
+	var deletedLink model.FriendWebsite
 	var rowsDeleted int64
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id IN ?", ids).Find(&deletedLinks).Error; err != nil {
-			return fmt.Errorf("could not query friend links for deletion: %w", err)
+		if err := tx.Where("id = ?", id).First(&deletedLink).Error; err != nil {
+			return fmt.Errorf("could not query friend link for deletion: %w", err)
 		}
 
-		res := tx.Where("id IN ?", ids).Delete(&model.FriendWebsite{})
+		res := tx.Where("id = ?", id).Delete(&model.FriendWebsite{})
 		if res.Error != nil {
-			return fmt.Errorf("could not delete friend links: %w", res.Error)
+			return fmt.Errorf("could not delete friend link: %w", res.Error)
 		}
 		rowsDeleted = res.RowsAffected
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return model.FriendWebsite{}, err
 	}
 
 	log.Printf("[db][friend] 已删除 %d 个友链", rowsDeleted)
 
-	return deletedLinks, nil
+	return deletedLink, nil
 }
 
 // UpdateFriendLinkByID updates a friend link by its ID and handles cascading deletes for RSS data if necessary.
-func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, error) {
+func UpdateFriendLinkByID(db *gorm.DB, id uint, req model.EditFriendLinkReq) (int64, error) {
 	if len(req.Data) == 0 {
 		return 0, fmt.Errorf("no data provided for update")
 	}
@@ -248,15 +244,15 @@ func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, erro
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// If disabling RSS, delete related data first
 		if disableRss {
-			if err := DeleteRssDataByFriendLinkID(tx, req.ID); err != nil {
+			if err := DeleteRssDataByFriendLinkID(tx, int(id)); err != nil {
 				return err
 			}
 		}
 
 		// Perform the update
-		result := tx.Model(&model.FriendWebsite{}).Where("id = ?", req.ID).Updates(updates)
+		result := tx.Model(&model.FriendWebsite{}).Where("id = ?", id).Updates(updates)
 		if result.Error != nil {
-			return fmt.Errorf("could not execute update for friend link id %d: %w", req.ID, result.Error)
+			return fmt.Errorf("could not execute update for friend link id %d: %w", id, result.Error)
 		}
 		rowsAffected = result.RowsAffected
 		return nil
@@ -266,7 +262,7 @@ func UpdateFriendLinkByID(db *gorm.DB, req model.EditFriendLinkReq) (int64, erro
 		return 0, err
 	}
 
-	log.Printf("[db][friend] 为 ID: %d 更新友链. Rows affected: %d", req.ID, rowsAffected)
+	log.Printf("[db][friend] 为 ID: %d 更新友链. Rows affected: %d", id, rowsAffected)
 	return rowsAffected, nil
 }
 

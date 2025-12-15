@@ -1,13 +1,7 @@
 package model
 
-// DeleteFriendLinkReq defines the request body for deleting friend links
-type DeleteFriendLinkReq struct {
-	IDs []int `json:"ids" binding:"required"`
-}
-
 // EditFriendLinkReq defines the request body for editing a friend link.
 type EditFriendLinkReq struct {
-	ID   int                    `json:"id" binding:"required"`
 	Data map[string]interface{} `json:"data" binding:"required"`
 	Opt  struct {
 		OverwriteIfBlank bool `json:"overwrite_if_blank"`
@@ -16,7 +10,6 @@ type EditFriendLinkReq struct {
 
 // EditFriendRssReq defines the request body for editing a friend rss link.
 type EditFriendRssReq struct {
-	ID   int                    `json:"id" binding:"required"`
 	Data map[string]interface{} `json:"data" binding:"required"`
 }
 
@@ -26,11 +19,6 @@ type PostQuery struct {
 	FriendLinkID *int `form:"friend_link_id"`
 	Page         int  `form:"page"`
 	PageSize     int  `form:"page_size"`
-}
-
-// DeleteFriendRssReq defines the request body for deleting a friend rss link.
-type DeleteFriendRssReq struct {
-	IDs []int `json:"ids" binding:"required"`
 }
 
 // CreateRssReq defines the request body for creating a rss link.

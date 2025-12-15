@@ -49,16 +49,8 @@ export interface CreateFriendLinkPayload {
  * 更新友链的请求体
  */
 export interface UpdateFriendLinkPayload {
-  id: number
   data: Partial<Omit<FriendLink, 'id' | 'updated_at'>>
   opt?: {
     overwrite_if_blank?: boolean
   }
-}
-
-/**
- * 删除友链的请求体
- */
-export interface DeleteFriendLinkPayload {
-  ids: number[]
 }
