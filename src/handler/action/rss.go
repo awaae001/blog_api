@@ -48,10 +48,14 @@ func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 		}
 	}
 
-	name, err := service.GetRssTitle(req.RssURL)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "无法获取 RSS 标题: "+err.Error()))
-		return
+	name := req.Name
+	if name == "" {
+		var err error
+		name, err = service.GetRssTitle(req.RssURL)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "无法获取 RSS 标题: "+err.Error()))
+			return
+		}
 	}
 
 	createdFeed, err := friendsRepositories.CreateFriendRssFeeds(h.DB, friendLinkID, req.RssURL, name)

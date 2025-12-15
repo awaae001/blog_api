@@ -7,18 +7,56 @@ import (
 	"gorm.io/gorm"
 )
 
-// GetSystemStats retrieves all system statistics in a single query.
+// GetSystemStats retrieves all system statistics.
 func GetSystemStats(db *gorm.DB) (model.StatusData, error) {
 	var stats model.StatusData
-	query := `
+	var pieData []model.FriendLinkStatusCount
+	var monthlyData []model.RssPostCountMonthly
+
+	// Get basic counts
+	countsQuery := `
 		SELECT
 			(SELECT COUNT(*) FROM friend_link) AS friend_link_count,
 			(SELECT COUNT(*) FROM friend_rss) AS rss_count,
 			(SELECT COUNT(*) FROM friend_rss_post) AS rss_post_count
 	`
-	err := db.Raw(query).Scan(&stats).Error
-	if err != nil {
+	var counts struct {
+		FriendLinkCount int
+		RssCount        int
+		RssPostCount    int
+	}
+
+	if err := db.Raw(countsQuery).Scan(&counts).Error; err != nil {
 		return stats, fmt.Errorf("could not query system stats: %w", err)
 	}
+
+	stats.FriendLinkCount = counts.FriendLinkCount
+	stats.RssCount = counts.RssCount
+	stats.RssPostCount = counts.RssPostCount
+
+	// Get friend link status distribution
+	pieQuery := `
+		SELECT status, COUNT(*) as count
+		FROM friend_link
+		GROUP BY status
+	`
+	if err := db.Raw(pieQuery).Scan(&pieData).Error; err != nil {
+		return stats, fmt.Errorf("could not query friend link status pie: %w", err)
+	}
+	stats.FriendLinkStatusPie = pieData
+
+	// Get monthly RSS post count (for the last 12 months)
+	monthlyQuery := `
+		SELECT strftime('%Y-%m', datetime(time, 'unixepoch')) as month, COUNT(*) as count
+		FROM friend_rss_post
+		WHERE time >= strftime('%s', date('now', '-12 months'))
+		GROUP BY month
+		ORDER BY month
+	`
+	if err := db.Raw(monthlyQuery).Scan(&monthlyData).Error; err != nil {
+		return stats, fmt.Errorf("could not query monthly rss post count: %w", err)
+	}
+	stats.RssPostCountMonthly = monthlyData
+
 	return stats, nil
 }

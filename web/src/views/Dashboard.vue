@@ -2,17 +2,7 @@
   <div class="dashboard-container">
     <el-card class="welcome-card">
       <h3>欢迎使用管理面板</h3>
-      <p>当前登录用户: <strong>{{ username }}</strong></p>
-      <el-divider />
-      <div class="info-section">
-        <h4>快速开始</h4>
-        <ul>
-          <li>左侧菜单可以切换不同的管理模块</li>
-          <li>友链管理：查看、创建、编辑、删除友链</li>
-          <li>RSS文章：查看爬取的RSS文章内容</li>
-          <li>系统设置：配置CORS、数据库等参数</li>
-        </ul>
-      </div>
+      <p>当前登录用户: <strong>{{ username }} </strong>，欢迎您</p>
       <el-divider />
       <div class="stats-section">
         <el-row :gutter="20">
@@ -28,6 +18,16 @@
         </el-row>
       </div>
     </el-card>
+    <el-card class="chart-card">
+      <el-row :gutter="20">
+        <el-col :span="12">
+          <div ref="pieChart" style="width: 100%; height: 400px"></div>
+        </el-col>
+        <el-col :span="12">
+          <div ref="lineChart" style="width: 100%; height: 400px"></div>
+        </el-col>
+      </el-row>
+    </el-card>
   </div>
 </template>
 
@@ -36,16 +36,22 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { statsApi } from '@/api/stats'
 import type { SystemStatus } from '@/model/stats'
+import * as echarts from 'echarts'
 
 const username = ref('')
+const pieChart = ref<HTMLElement | null>(null)
+const lineChart = ref<HTMLElement | null>(null)
+
 const stats = ref<SystemStatus>({
   uptime: '0s',
   status_data: {
     friend_link_count: 0,
     rss_count: 0,
-    rss_post_count: 0
+    rss_post_count: 0,
+    friend_link_status_pie: [],
+    rss_post_count_monthly: []
   },
-  time: ''
+  time: 0
 })
 
 onMounted(async () => {
@@ -54,6 +60,7 @@ onMounted(async () => {
     const res = await statsApi.getSystemStatus()
     if (res.code === 200) {
       stats.value = res.data
+      initCharts()
     } else {
       ElMessage.error(res.message || '获取状态信息失败')
     }
@@ -61,15 +68,80 @@ onMounted(async () => {
     ElMessage.error('请求状态信息时出错')
   }
 })
+
+const initCharts = () => {
+  if (pieChart.value) {
+    const pie = echarts.init(pieChart.value)
+    pie.setOption({
+      title: {
+        text: '友链存活状态',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          name: '友链状态',
+          type: 'pie',
+          radius: '50%',
+          data: stats.value.status_data.friend_link_status_pie.map((item) => ({
+            value: item.count,
+            name: item.status
+          })),
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }
+      ]
+    })
+  }
+
+  if (lineChart.value) {
+    const line = echarts.init(lineChart.value)
+    line.setOption({
+      title: {
+        text: '每月 Feed Post 数量',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      xAxis: {
+        type: 'category',
+        data: stats.value.status_data.rss_post_count_monthly.map((item) => item.month)
+      },
+      yAxis: {
+        type: 'value'
+      },
+      series: [
+        {
+          name: '文章数量',
+          type: 'line',
+          data: stats.value.status_data.rss_post_count_monthly.map((item) => item.count)
+        }
+      ]
+    })
+  }
+}
 </script>
 
 <style scoped>
 .dashboard-container {
   padding: 20px;
 }
-.welcome-card {
+.welcome-card,
+.chart-card {
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 0 auto 20px auto;
 }
 .welcome-card h3 {
   margin: 0 0 16px 0;

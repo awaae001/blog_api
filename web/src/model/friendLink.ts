@@ -11,7 +11,7 @@ export interface FriendLink {
   enable_rss: boolean
   email?: string
   times?: number
-  updated_at: string
+  updated_at: number
 }
 
 /**

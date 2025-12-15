@@ -46,24 +46,20 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 	// API routes
 	apiGroup := router.Group("/api")
 	{
-		// Status router
-		apiGroup.GET("/status", statusHandler.GetSystemStatus)
+
 		// Authentication routes
 		apiGroup.POST("/verify", authHandler.Login)
-
-		// Friend link routes
 		friendGroup := apiGroup.Group("/friend")
 		{
 			friendGroup.GET("/", friendLinkHandler.GetAllFriendLinks)
 		}
-
-		// RSS post routes
 		rssGroup := apiGroup.Group("/rss")
 		{
 			rssGroup.GET("/", rssPostHandler.GetRssPosts)
 		}
+		// Status router (protected)
+		apiGroup.GET("/status", middleware.JWTAuth(), statusHandler.GetSystemStatus)
 
-		// Action routes (requires JWT authentication)
 		actionGroup := apiGroup.Group("/action")
 		actionGroup.Use(middleware.JWTAuth())
 		{

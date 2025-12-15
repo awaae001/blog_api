@@ -6,6 +6,9 @@
         <template #header>
           <div class="card-header">
             <span>RSS 订阅源</span>
+            <el-button type="primary" @click="handleCreate" style="margin-left: auto">
+              创建
+            </el-button>
           </div>
         </template>
         <el-table
@@ -16,7 +19,20 @@
           height="calc(100vh - 210px)"
           style="width: 100%"
         >
-          <el-table-column prop="name" label="名称" />
+          <el-table-column prop="name" label="名称">
+            <template #default="{ row }">
+              <el-tooltip :content="row.rss_url" placement="top">
+                <a
+                  :href="row.rss_url"
+                  target="_blank"
+                  style="margin-right: 8px; vertical-align: middle; color: inherit"
+                >
+                  <el-icon><Link /></el-icon>
+                </a>
+              </el-tooltip>
+              <span>{{ row.name }}</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="status" label="状态" width="90">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.status)" size="small">{{ row.status }}</el-tag>
@@ -33,6 +49,17 @@
             </template>
           </el-table-column>
         </el-table>
+        <el-pagination
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="totalFeeds"
+          :page-sizes="[10, 20, 50]"
+          :page-size="feedPageSize"
+          :current-page="currentFeedPage"
+          @size-change="handleFeedSizeChange"
+          @current-change="handleFeedPageChange"
+          class="pagination-container"
+        />
       </el-card>
     </el-aside>
 
@@ -57,10 +84,21 @@
           </el-table-column>
           <el-table-column prop="time" label="发布时间" width="180">
             <template #default="{ row }">
-              {{ new Date(row.time * 1000).toLocaleString() }}
+              {{ formatDate(row.time) }}
             </template>
           </el-table-column>
         </el-table>
+        <el-pagination
+          background
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalPosts"
+          :page-sizes="[10, 20, 50, 100]"
+          :page-size="postPageSize"
+          :current-page="currentPostPage"
+          @size-change="handlePostSizeChange"
+          @current-change="handlePostPageChange"
+          class="pagination-container"
+        />
       </el-card>
     </el-main>
 
@@ -87,18 +125,37 @@
         <el-button type="primary" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- Create Dialog -->
+    <el-dialog v-model="createDialogVisible" title="创建订阅源" width="500px">
+      <el-form :model="createForm" ref="createFormRef" label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input v-model="createForm.name" />
+        </el-form-item>
+        <el-form-item label="URL" prop="rss_url">
+          <el-input v-model="createForm.rss_url" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleCreateSave">保存</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
+import { usePagination } from '@/utils/pagination'
+import { formatDate } from '@/utils/date'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete } from '@element-plus/icons-vue'
+import { Edit, Delete, Link } from '@element-plus/icons-vue'
 import {
   getRssFeeds,
   getPostsByFeed,
   updateRssFeed,
-  deleteRssFeed
+  deleteRssFeed,
+  createRssFeed
 } from '@/api/rss'
 import type { RssFeed, RssPost } from '@/model/rss'
 
@@ -117,12 +174,38 @@ const editForm = reactive({
   status: 'survival'
 })
 
+const createDialogVisible = ref(false)
+const createForm = reactive({
+  name: '',
+  rss_url: ''
+})
+
+const handleCreate = () => {
+  createDialogVisible.value = true
+}
+
+const handleCreateSave = async () => {
+  try {
+    const res = await createRssFeed(createForm.name, createForm.rss_url)
+    if (res.code === 201) {
+      ElMessage.success('创建成功')
+      createDialogVisible.value = false
+      await fetchFeeds()
+    } else {
+      ElMessage.error(res.message || '创建失败')
+    }
+  } catch (error) {
+    // The request interceptor handles error messages
+  }
+}
+
 const fetchFeeds = async () => {
   feedsLoading.value = true
   try {
-    const res = await getRssFeeds()
+    const res = await getRssFeeds(currentFeedPage.value, feedPageSize.value)
     if (res.code === 200) {
       feeds.value = res.data.items
+      totalFeeds.value = res.data.total
     } else {
       ElMessage.error(res.message || '获取订阅源失败')
     }
@@ -133,15 +216,14 @@ const fetchFeeds = async () => {
   }
 }
 
-const handleFeedSelect = async (feed: RssFeed) => {
-  if (selectedFeed.value?.id === feed.id) return
-  selectedFeed.value = feed
+const fetchPosts = async () => {
+  if (!selectedFeed.value) return
   postsLoading.value = true
-  posts.value = []
   try {
-    const res = await getPostsByFeed(feed.id)
+    const res = await getPostsByFeed(selectedFeed.value.id, currentPostPage.value, postPageSize.value)
     if (res.code === 200) {
       posts.value = res.data.items
+      totalPosts.value = res.data.total
     } else {
       ElMessage.error(res.message || '获取文章列表失败')
     }
@@ -150,6 +232,32 @@ const handleFeedSelect = async (feed: RssFeed) => {
   } finally {
     postsLoading.value = false
   }
+}
+
+// Feeds pagination
+const {
+  currentPage: currentFeedPage,
+  pageSize: feedPageSize,
+  total: totalFeeds,
+  handlePageChange: handleFeedPageChange,
+  handleSizeChange: handleFeedSizeChange
+} = usePagination(fetchFeeds, 20)
+
+// Posts pagination
+const {
+  currentPage: currentPostPage,
+  pageSize: postPageSize,
+  total: totalPosts,
+  handlePageChange: handlePostPageChange,
+  handleSizeChange: handlePostSizeChange,
+  reset: resetPostPagination
+} = usePagination(fetchPosts, 20)
+
+const handleFeedSelect = (feed: RssFeed) => {
+  if (selectedFeed.value?.id === feed.id) return
+  selectedFeed.value = feed
+  resetPostPagination()
+  fetchPosts()
 }
 
 const handleEdit = (feed: RssFeed) => {
@@ -251,6 +359,7 @@ onMounted(() => {
 
 .card-header {
   font-weight: bold;
+  display: flex;
 }
 
 .post-link {
@@ -260,5 +369,11 @@ onMounted(() => {
 
 .post-link:hover {
   text-decoration: underline;
+}
+
+.pagination-container {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

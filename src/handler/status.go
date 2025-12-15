@@ -24,7 +24,7 @@ func NewStatusHandler(db *gorm.DB, startTime time.Time) *StatusHandler {
 
 // GetSystemStatus handles the GET /api/status request.
 func (h *StatusHandler) GetSystemStatus(c *gin.Context) {
-	// Get counts from repositories
+	// Get all stats from repositories, including chart data
 	stats, err := repositories.GetSystemStats(h.DB)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve system stats"))

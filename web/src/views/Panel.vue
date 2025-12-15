@@ -151,7 +151,7 @@ const handleCommand = (command: string) => {
 
 .panel-main {
   background: #f0f2f5;
-  padding: 20px;
+  padding: 6px;
   overflow-y: auto;
 }
 

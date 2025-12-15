@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS moments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   content TEXT NOT NULL,
-  -- 这里原本要有一个 media ，但是为了可扩展性，现在在 003_02_create_moment_media_table.sql 里单独创建
+  -- 这里原本要有一个 media ，但我懒得实现了
   status TEXT NOT NULL DEFAULT 'visible' CHECK ( status IN (
     'visible',
     'hidden',

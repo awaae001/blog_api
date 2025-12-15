@@ -64,7 +64,11 @@
             <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="180" />
+        <el-table-column prop="updated_at" label="更新时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.updated_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="订阅 RSS" width="100">
           <template #default="{ row }">
             <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
@@ -156,14 +160,13 @@ import {
   deleteFriendLink
 } from '@/api/friendLink'
 import type { FriendLink } from '@/model/friendLink'
+import { usePagination } from '@/utils/pagination'
+import { formatDate } from '@/utils/date'
 
 // Reactive State
 const friendLinks = ref<FriendLink[]>([])
 const selectedLinks = ref<FriendLink[]>([])
 const loading = ref(false)
-const totalLinks = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(10)
 const filterStatus = ref('')
 const searchQuery = ref('')
 const dialogVisible = ref(false)
@@ -196,6 +199,13 @@ const rules = reactive<FormRules>({
   website_url: [{ required: true, message: '请输入网站链接', trigger: 'blur' }]
 })
 
+// Pagination
+const { currentPage, pageSize, total, handlePageChange, handleSizeChange, reset } = usePagination(
+  () => fetchFriendLinks(),
+  10
+)
+const totalLinks = total // Alias for template
+
 // Fetch data
 const fetchFriendLinks = async () => {
   loading.value = true
@@ -221,29 +231,18 @@ const fetchFriendLinks = async () => {
 
 onMounted(fetchFriendLinks)
 
-// Table and Pagination
+// Table and Actions
 const handleSelectionChange = (selection: FriendLink[]) => {
   selectedLinks.value = selection
 }
 
-const handlePageChange = (page: number) => {
-  currentPage.value = page
-  fetchFriendLinks()
-}
-
-const handleSizeChange = (size: number) => {
-  pageSize.value = size
-  currentPage.value = 1 // Reset to the first page
-  fetchFriendLinks()
-}
-
 const handleFilter = () => {
-  currentPage.value = 1
+  reset()
   fetchFriendLinks()
 }
 
 const handleSearch = () => {
-  currentPage.value = 1
+  reset()
   fetchFriendLinks()
 }
 
@@ -280,7 +279,7 @@ const submitForm = async () => {
       try {
         if (isEditMode.value) {
           const { id, ...data } = form
-          await updateFriendLink({ id, data })
+          await updateFriendLink(id, { data })
           ElMessage.success('更新成功')
         } else {
           const { id, status, ...payload } = form
@@ -302,7 +301,7 @@ const handleDelete = (id: number) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await deleteFriendLink({ ids: [id] })
+      await deleteFriendLink(id)
       ElMessage.success('删除成功')
       fetchFriendLinks()
     } catch (error) {
@@ -317,7 +316,7 @@ const handleBulkDelete = () => {
   }).then(async () => {
     try {
       const ids = selectedLinks.value.map((link) => link.id)
-      await deleteFriendLink({ ids })
+      await Promise.all(ids.map((id) => deleteFriendLink(id)))
       ElMessage.success('批量删除成功')
       fetchFriendLinks()
     } catch (error) {
@@ -370,10 +369,7 @@ const handleRssToggle = async (link: FriendLink) => {
 
   // Proceed with the API call
   try {
-    await updateFriendLink({
-      id: link.id,
-      data: { enable_rss: newValue }
-    })
+    await updateFriendLink(link.id, { data: { enable_rss: newValue } })
     ElMessage.success(`已${newValue ? '开启' : '关闭'} RSS 订阅`)
     // On success, fetch the data again to ensure consistency
     fetchFriendLinks()
@@ -386,9 +382,6 @@ const handleRssToggle = async (link: FriendLink) => {
 </script>
 
 <style scoped>
-.friend-link-container {
-  padding: 20px;
-}
 .card-header {
   display: flex;
   justify-content: space-between;

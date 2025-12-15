@@ -7,10 +7,17 @@ import type { RssFeed, RssPost, PaginatedResponse } from '@/model/rss'
  * Fetches the list of all RSS feeds.
  * Corresponds to GET /api/action/rss
  */
-export const getRssFeeds = (): Promise<ApiResponse<PaginatedResponse<RssFeed>>> => {
+export const getRssFeeds = (
+  page = 1,
+  pageSize = 20
+): Promise<ApiResponse<PaginatedResponse<RssFeed>>> => {
   return request({
     url: '/action/rss',
-    method: 'get'
+    method: 'get',
+    params: {
+      page,
+      page_size: pageSize
+    }
   })
 }
 
@@ -64,6 +71,26 @@ export const updateRssFeed = (
     method: 'put',
     data: {
       data
+    }
+  })
+}
+
+/**
+ * Creates a new RSS feed.
+ * Corresponds to POST /api/action/rss
+ * @param name - The name of the RSS feed.
+ * @param rss_url - The URL of the RSS feed to create.
+ */
+export const createRssFeed = (
+  name: string,
+  rss_url: string
+): Promise<ApiResponse> => {
+  return request({
+    url: '/action/rss',
+    method: 'post',
+    data: {
+      name,
+      rss_url
     }
   })
 }

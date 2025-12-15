@@ -25,4 +25,5 @@ type PostQuery struct {
 type CreateRssReq struct {
 	FriendLinkID int    `json:"friend_link_id"`
 	RssURL       string `json:"rss_url" binding:"required"`
+	Name         string `json:"name"`
 }
