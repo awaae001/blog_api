@@ -54,3 +54,45 @@ func QueryImages(db *gorm.DB, opts model.ImageQueryOptions) (model.QueryImageRes
 
 	return resp, nil
 }
+
+// CreateImage inserts a single image record into the database.
+func CreateImage(db *gorm.DB, image *model.Image) error {
+	err := db.Create(image).Error
+	if err != nil {
+		log.Printf("[db][image][ERR] 无法创建图片: %v", err)
+		return err
+	}
+	log.Printf("[db][image] 成功创建图片记录，ID: %d", image.ID)
+	return nil
+}
+
+// UpdateImage updates an existing image record in the database.
+func UpdateImage(db *gorm.DB, image *model.Image) error {
+	result := db.Model(&model.Image{}).Where("id = ?", image.ID).Updates(map[string]interface{}{
+		"name":       image.Name,
+		"url":        image.URL,
+		"local_path": image.LocalPath,
+		"is_local":   image.IsLocal,
+		"status":     image.Status,
+	})
+
+	if result.RowsAffected == 0 {
+		log.Printf("[db][image][WARN] 未找到要更新的图片，ID: %d", image.ID)
+		return gorm.ErrRecordNotFound
+	}
+
+	log.Printf("[db][image] 成功更新图片记录，ID: %d", image.ID)
+	return nil
+}
+
+// DeleteImage deletes an image record from the database by its ID.
+func DeleteImage(db *gorm.DB, id int) error {
+	result := db.Delete(&model.Image{}, id)
+	if result.RowsAffected == 0 {
+		log.Printf("[db][image][WARN] 未找到要删除的图片，ID: %d", id)
+		return gorm.ErrRecordNotFound
+	}
+
+	log.Printf("[db][image] 成功删除图片记录，ID: %d", id)
+	return nil
+}

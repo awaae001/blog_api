@@ -7,7 +7,16 @@ CREATE TABLE IF NOT EXISTS images (
     status TEXT NOT NULL DEFAULT 'normal' CHECK (status IN (
         'normal',
         'pause',
-        'broken'
+        'broken',
         'pending'
     ))
+    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
+
+-- 为 images 表创建触发器, 用于自动更新 updated_at
+CREATE TRIGGER IF NOT EXISTS trg_images_updated_at
+AFTER UPDATE ON images
+FOR EACH ROW
+BEGIN
+  UPDATE images SET updated_at = strftime('%s','now') WHERE id = OLD.id;
+END;

@@ -82,6 +82,9 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			imageActionGroup := actionGroup.Group("/image")
 			{
 				imageActionGroup.GET("/", imageHandler.GetImages)
+				imageActionGroup.POST("/", imageHandler.CreateImage)
+				imageActionGroup.PUT("/:id", imageHandler.UpdateImage)
+				imageActionGroup.DELETE("/:id", imageHandler.DeleteImage)
 			}
 			resourceActionGroup := actionGroup.Group("/resource")
 			{
