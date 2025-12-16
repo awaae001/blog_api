@@ -34,7 +34,7 @@ export const getPostsByFeed = (
   pageSize = 20
 ): Promise<ApiResponse<PaginatedResponse<RssPost>>> => {
   return request({
-    url: '/rss',
+    url: '/public/rss',
     method: 'get',
     params: {
       rss_id: rssId,

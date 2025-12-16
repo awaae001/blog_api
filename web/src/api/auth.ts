@@ -16,6 +16,6 @@ export interface LoginResponse {
 
 export const authApi = {
   login(data: LoginRequest) {
-    return request.post<any, LoginResponse>('/verify', data)
+    return request.post<any, LoginResponse>('/verify/passwd', data)
   }
 }
