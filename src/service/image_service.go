@@ -1,0 +1,163 @@
+package service
+
+import (
+	"blog_api/src/config"
+	"blog_api/src/model"
+	imageRepositories "blog_api/src/repositories/image"
+	"fmt"
+	"image"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/disintegration/imaging"
+	"gorm.io/gorm"
+)
+
+// ScanAndSaveImages 扫描指定目录下的图片，根据配置进行格式转换，并将其信息保存到数据库
+func ScanAndSaveImages(db *gorm.DB) error {
+	cfg := config.GetConfig()
+	imagePath := cfg.Data.Image.Path
+	if imagePath == "" {
+		log.Println("[service][image] Image path is not configured, skipping scan.")
+		return nil
+	}
+
+	var images []model.Image
+	targetFormat := strings.ToLower(cfg.Data.Image.ConvTo)
+	walkErr := filepath.Walk(imagePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("[service][image][WARN] Error accessing path %s: %v. Skipping.", path, err)
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		// 处理单个图片文件
+		img, err := processSingleImage(path, imagePath, targetFormat)
+		if err != nil {
+			log.Printf("[service][image][DEBUG] Skipping file %s: %v", path, err)
+			return nil
+		}
+
+		if img != nil {
+			images = append(images, *img)
+		}
+		return nil
+	})
+
+	if walkErr != nil {
+		log.Printf("[service][image][ERR] Failed to walk through image directory: %v", walkErr)
+		return walkErr
+	}
+
+	if len(images) > 0 {
+		log.Printf("[service][image] Found and processed %d images.", len(images))
+		return imageRepositories.BatchInsertImages(db, images)
+	}
+
+	log.Println("[service][image] No new images found to process.")
+	return nil
+}
+
+// processSingleImage 处理单个图片文件：检查格式、转换（如果需要）、构建模型对象
+func processSingleImage(filePath, rootPath, targetFormat string) (*model.Image, error) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if !isSupportedImage(ext) {
+		return nil, fmt.Errorf("unsupported image format")
+	}
+
+	finalPath := filePath
+
+	// 判断是否需要转换：
+	// 1. 配置了目标格式
+	// 2. 当前文件格式与目标格式不同
+	if targetFormat != "" && ext != "."+targetFormat {
+		newPath := strings.TrimSuffix(filePath, ext) + "." + targetFormat
+
+		// 检查目标文件是否已存在，不存在才进行转换
+		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+			if err := convertImage(filePath, newPath, targetFormat); err != nil {
+				log.Printf("[service][image][WARN] Failed to convert %s: %v", filePath, err)
+				return nil, err
+			}
+			log.Printf("[service][image] Converted %s to %s", filePath, newPath)
+
+			// 转换成功后，删除原文件
+			if err := os.Remove(filePath); err != nil {
+				log.Printf("[service][image][WARN] Failed to remove original file %s: %v", filePath, err)
+			} else {
+				log.Printf("[service][image] Removed original file: %s", filePath)
+			}
+		}
+		finalPath = newPath
+	}
+
+	// 构建相对路径和 URL
+	relPath, err := filepath.Rel(rootPath, finalPath)
+	if err != nil {
+		log.Printf("[service][image][WARN] Failed to get relative path for %s: %v", finalPath, err)
+		return nil, err
+	}
+	url := filepath.ToSlash(filepath.Join("/image", relPath))
+
+	return &model.Image{
+		Name:      filepath.Base(finalPath),
+		URL:       url,
+		LocalPath: finalPath,
+		IsLocal:   1,
+		Status:    "normal",
+	}, nil
+}
+
+// isSupportedImage 检查文件扩展名是否为支持的图片格式
+func isSupportedImage(ext string) bool {
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+		return true
+	default:
+		return false
+	}
+}
+
+// convertImage 将源图片转换为目标格式并保存
+func convertImage(srcPath, destPath, targetFormat string) error {
+	srcFile, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("could not open source file: %w", err)
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("could not create destination file: %w", err)
+	}
+	defer destFile.Close()
+
+	// 特殊处理：如果目标是 webp，我们选择直接复制而不是重新编码
+	// 这样可以避免潜在的质量损失，且速度更快
+	if targetFormat == "webp" {
+		_, err := io.Copy(destFile, srcFile)
+		return err
+	}
+
+	// 其他格式则进行解码和重新编码
+	img, _, err := image.Decode(srcFile)
+	if err != nil {
+		return fmt.Errorf("could not decode image: %w", err)
+	}
+
+	switch targetFormat {
+	case "jpg", "jpeg":
+		return imaging.Encode(destFile, img, imaging.JPEG, imaging.JPEGQuality(85))
+	case "png":
+		return imaging.Encode(destFile, img, imaging.PNG)
+	case "gif":
+		return imaging.Encode(destFile, img, imaging.GIF)
+	default:
+		return fmt.Errorf("unsupported target format: %s", targetFormat)
+	}
+}

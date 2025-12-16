@@ -1,0 +1,16 @@
+package model
+
+// Image 对应于数据库中的 'images' 表
+type Image struct {
+	ID        int    `json:"id" gorm:"column:id;primaryKey"`
+	Name      string `json:"name" gorm:"column:name"`
+	URL       string `json:"url" gorm:"column:url"`
+	LocalPath string `json:"local_path" gorm:"column:local_path"`
+	IsLocal   int    `json:"is_local" gorm:"column:is_local"`
+	Status    string `json:"status" gorm:"column:status"`
+}
+
+// TableName sets the insert table name for this struct type.
+func (Image) TableName() string {
+	return "images"
+}

@@ -4,7 +4,10 @@ go 1.25.4
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
+	github.com/chai2010/webp v1.4.0
+	github.com/disintegration/imaging v1.6.2
 	github.com/gin-contrib/cors v1.7.6
+	github.com/gin-contrib/pprof v1.5.3
 	github.com/gin-gonic/gin v1.11.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/microcosm-cc/bluemonday v1.0.27
@@ -25,7 +28,6 @@ require (
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
-	github.com/gin-contrib/pprof v1.5.3 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -48,7 +50,6 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.57.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
-	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
@@ -59,10 +60,8 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/mod v0.31.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/image v0.0.0-20211028202545-6944b10bf410 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
-	golang.org/x/tools v0.40.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

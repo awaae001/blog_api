@@ -5,6 +5,7 @@ import (
 	"blog_api/src/config"
 	"blog_api/src/repositories"
 	friendsRepositories "blog_api/src/repositories/friend"
+	"blog_api/src/service"
 	"fmt"
 	"log"
 	"time"
@@ -33,6 +34,11 @@ func Run() {
 	// Insert friend links from config
 	if err := friendsRepositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
 		log.Printf("[main]无法插入友链: %v", err)
+	}
+
+	// Scan and save images on startup
+	if err := service.ScanAndSaveImages(db); err != nil {
+		log.Printf("[main]无法扫描和保存图片: %v", err)
 	}
 
 	// Setup HTTP router
