@@ -15,9 +15,11 @@ import (
 // RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源（并发模式）
 func RunFriendLinkCrawlerJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行友链爬取任务（并发模式）...")
+	isDied := false
 	opts := model.FriendLinkQueryOptions{
-		Statuses: []string{"died", "ignored"},
+		Statuses: []string{"ignored"},
 		NotIn:    true,
+		IsDied:   &isDied,
 	}
 	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
 	if err != nil {
@@ -64,8 +66,9 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 // RunDiedFriendLinkCheckJob 执行失效友链的检查（并发模式）
 func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 	log.Println("[Cron] 正在运行失效友链检查任务（并发模式）...")
+	isDied := true
 	opts := model.FriendLinkQueryOptions{
-		Status: "died",
+		IsDied: &isDied,
 	}
 	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
 	if err != nil {

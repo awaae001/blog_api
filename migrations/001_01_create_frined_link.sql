@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
     'pending',
     'ignored'
   )),
+  is_died BOOLEAN NOT NULL DEFAULT 0,
   enable_rss BOOLEAN NOT NULL DEFAULT 1,
   updated_at INTEGER NOT NULL DEFAULT 0
 );

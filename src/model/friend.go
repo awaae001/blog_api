@@ -10,6 +10,7 @@ type FriendWebsite struct {
 	Email     string `json:"email,omitempty" gorm:"column:email"`
 	Times     int    `json:"times,omitempty" gorm:"column:times"`
 	Status    string `json:"status,omitempty" gorm:"column:status"`
+	IsDied    bool   `json:"is_died,omitempty" gorm:"column:is_died"`
 	EnableRss bool   `json:"enable_rss,omitempty" gorm:"column:enable_rss"`
 	UpdatedAt int64  `json:"updated_at,omitempty" gorm:"column:updated_at"`
 }
@@ -22,7 +23,8 @@ func (FriendWebsite) TableName() string {
 // FriendLinkQueryOptions defines the options for querying friend links.
 type FriendLinkQueryOptions struct {
 	Status   string   // Single status filter, e.g., "pending"
-	Statuses []string // Multiple statuses for IN or NOT IN clauses, e.g., {"died", "ignored"}
+	Statuses []string // Multiple statuses for IN or NOT IN clauses, e.g., {"ignored"}
+	IsDied   *bool    // Filter by is_died status
 	NotIn    bool     // If true, use NOT IN for Statuses
 	Search   string   // Search keyword
 	Offset   int      // Pagination offset

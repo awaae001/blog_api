@@ -38,6 +38,7 @@ func toFriendLinkDTOs(links []model.FriendWebsite, isPrivate bool) []model.Frien
 		if isPrivate {
 			dto.Email = link.Email
 			dto.Times = link.Times
+			dto.IsDied = link.IsDied
 		}
 		dtoLinks = append(dtoLinks, dto)
 	}
@@ -49,6 +50,14 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 	// Parse query parameters
 	status := c.Query("status")
 	search := c.Query("search")
+	isDiedStr := c.Query("is_died")
+	var isDied *bool
+	if isDiedStr != "" {
+		val, err := strconv.ParseBool(isDiedStr)
+		if err == nil {
+			isDied = &val
+		}
+	}
 
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
@@ -75,7 +84,6 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 			"survival": true,
 			"timeout":  true,
 			"error":    true,
-			"died":     true,
 			"pending":  true,
 		}
 		if !validStatuses[status] {
@@ -93,6 +101,7 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 		Search: search,
 		Offset: offset,
 		Limit:  pageSize,
+		IsDied: isDied,
 	}
 	resp, err := friendsRepositories.QueryFriendLinks(h.DB, opts)
 	if err != nil {

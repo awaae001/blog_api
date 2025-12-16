@@ -20,7 +20,8 @@ func QueryFriendRss(db *gorm.DB, opts model.FriendRssQueryOptions) (model.QueryF
 		if opts.Status == "valid" {
 			query = db.Table("friend_rss").
 				Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
-				Where("friend_link.status NOT IN ?", []string{"ignored", "died"})
+				Where("friend_link.is_died = ?", false).
+				Where("friend_link.status != ?", "ignored")
 		} else {
 			query = query.Where("status = ?", opts.Status)
 		}

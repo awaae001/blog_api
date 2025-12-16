@@ -7,8 +7,9 @@ export interface FriendLink {
   website_url: string
   website_icon_url: string
   description: string
-  status: 'survival' | 'timeout' | 'error' | 'died' | 'pending' | 'ignored'
+  status: 'survival' | 'timeout' | 'error' | 'pending' | 'ignored'
   enable_rss: boolean
+  is_died?: boolean
   email?: string
   times?: number
   updated_at: number
@@ -20,6 +21,7 @@ export interface FriendLink {
 export interface FriendLinkListParams {
   page?: number
   page_size?: number
+  is_died?: boolean
   status?: string
   search?: string
 }

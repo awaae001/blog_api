@@ -78,6 +78,10 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 		}
 	}
 
+	if opts.IsDied != nil {
+		query = query.Where("is_died = ?", *opts.IsDied)
+	}
+
 	// Apply search filter
 	if opts.Search != "" {
 		searchPattern := "%" + opts.Search + "%"
@@ -102,7 +106,7 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 	query = query.Order("updated_at DESC")
 
 	// Select specific fields for the final query
-	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, enable_rss, updated_at"
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, is_died, enable_rss, updated_at"
 	if err := query.Select(selectFields).Find(&resp.Links).Error; err != nil {
 		return resp, fmt.Errorf("could not query friend links: %w", err)
 	}
@@ -119,15 +123,17 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlResult) error {
 	if result.Status == "survival" {
 		link.Times = 0 // Reset times on success
+		link.IsDied = false
 	} else {
 		link.Times++
 	}
 
 	if link.Times >= 4 {
-		link.Status = "died"
-	} else {
-		link.Status = result.Status
+		link.IsDied = true
 	}
+
+	link.Status = result.Status
+
 	if result.RedirectURL != "" {
 		link.Link = result.RedirectURL
 	}
@@ -137,6 +143,7 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 		"description": gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
 		"status":      link.Status,
 		"times":       link.Times,
+		"is_died":     link.IsDied,
 	}
 
 	// 仅当现有 icon 为空时才覆盖，避免已有 icon 被新结果替换
@@ -148,7 +155,7 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 		return fmt.Errorf("could not update friend link with id %d: %w", link.ID, err)
 	}
 
-	log.Printf("为 ID  %d 更新友链. 状态: %s, 时间: %d", link.ID, link.Status, link.Times)
+	log.Printf("为 ID  %d 更新友链. 状态: %s, 时间: %d, is_died: %t", link.ID, link.Status, link.Times, link.IsDied)
 	return nil
 }
 
@@ -212,6 +219,7 @@ func UpdateFriendLinkByID(db *gorm.DB, id uint, req model.EditFriendLinkReq) (in
 		"email":            true,
 		"status":           true,
 		"enable_rss":       true,
+		"is_died":          true,
 	}
 
 	updates := map[string]interface{}{}

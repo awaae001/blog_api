@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS images (
         'pause',
         'broken',
         'pending'
-    ))
+    )),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 

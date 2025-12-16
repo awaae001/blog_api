@@ -13,6 +13,16 @@
       <!-- Filter and Actions -->
       <div class="table-actions">
         <el-select
+          v-model="filterIsDied"
+          placeholder="按失效状态筛选"
+          clearable
+          @change="handleFilter"
+          style="width: 150px; margin-right: 10px"
+        >
+          <el-option label="已失效" :value="true"></el-option>
+          <el-option label="未失效" :value="false"></el-option>
+        </el-select>
+        <el-select
           v-model="filterStatus"
           placeholder="按状态筛选"
           clearable
@@ -23,7 +33,6 @@
           <el-option label="待定" value="pending"></el-option>
           <el-option label="超时" value="timeout"></el-option>
           <el-option label="错误" value="error"></el-option>
-          <el-option label="失效" value="died"></el-option>
           <el-option label="忽略" value="ignored"></el-option>
         </el-select>
         <el-input
@@ -59,6 +68,11 @@
         </el-table-column>
         <el-table-column prop="email" label="邮箱" width="200" />
         <el-table-column prop="times" label="失败次数" width="100" />
+        <el-table-column label="是否失效" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
@@ -126,6 +140,9 @@
         <el-form-item label="订阅 RSS" prop="enable_rss">
           <el-switch v-model="form.enable_rss" />
         </el-form-item>
+        <el-form-item label="是否失效" prop="is_died" v-if="isEditMode">
+          <el-switch v-model="form.is_died" />
+        </el-form-item>
         <el-form-item label="失败次数" prop="times" v-if="isEditMode">
           <el-input-number v-model="form.times" :min="0" />
         </el-form-item>
@@ -135,7 +152,6 @@
             <el-option label="待定" value="pending"></el-option>
             <el-option label="超时" value="timeout"></el-option>
             <el-option label="错误" value="error"></el-option>
-            <el-option label="失效" value="died"></el-option>
             <el-option label="忽略" value="ignored"></el-option>
           </el-select>
         </el-form-item>
@@ -168,6 +184,7 @@ const friendLinks = ref<FriendLink[]>([])
 const selectedLinks = ref<FriendLink[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
+const filterIsDied = ref<boolean | null>(null)
 const searchQuery = ref('')
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
@@ -180,8 +197,9 @@ const form = reactive<{
   description: string
   email: string
   times: number
-  status: 'survival' | 'timeout' | 'error' | 'died' | 'pending' | 'ignored'
+  status: 'survival' | 'timeout' | 'error' | 'pending' | 'ignored'
   enable_rss: boolean
+  is_died: boolean
 }>({
   id: 0,
   website_name: '',
@@ -191,7 +209,8 @@ const form = reactive<{
   email: '',
   times: 0,
   status: 'pending',
-  enable_rss: true
+  enable_rss: true,
+  is_died: false
 })
 
 const rules = reactive<FormRules>({
@@ -214,7 +233,8 @@ const fetchFriendLinks = async () => {
       page: currentPage.value,
       page_size: pageSize.value,
       status: filterStatus.value,
-      search: searchQuery.value
+      search: searchQuery.value,
+      is_died: filterIsDied.value === null ? undefined : filterIsDied.value
     })
     if (res.code === 200) {
       friendLinks.value = res.data.items
@@ -268,7 +288,8 @@ const resetForm = () => {
     email: '',
     times: 0,
     status: 'pending',
-    enable_rss: true
+    enable_rss: true,
+    is_died: false
   })
 }
 
@@ -279,10 +300,11 @@ const submitForm = async () => {
       try {
         if (isEditMode.value) {
           const { id, ...data } = form
-          await updateFriendLink(id, { data })
+          await updateFriendLink(id, {data})
           ElMessage.success('更新成功')
         } else {
-          const { id, status, ...payload } = form
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id, status, is_died, ...payload } = form
           await createFriendLink(payload)
           ElMessage.success('创建成功')
         }
@@ -336,7 +358,6 @@ const statusTagType = (status: string) => {
     case 'timeout':
       return 'warning'
     case 'error':
-    case 'died':
       return 'danger'
     default:
       return 'info'
