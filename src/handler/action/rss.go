@@ -3,7 +3,7 @@ package handlerAction
 import (
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
-	"blog_api/src/service"
+	crawlerService "blog_api/src/service/crawler"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -51,7 +51,7 @@ func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 	name := req.Name
 	if name == "" {
 		var err error
-		name, err = service.GetRssTitle(req.RssURL)
+		name, err = crawlerService.GetRssTitle(req.RssURL)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "无法获取 RSS 标题: "+err.Error()))
 			return

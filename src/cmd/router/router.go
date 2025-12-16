@@ -26,7 +26,7 @@ func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engin
 		MaxAge:           12 * time.Hour,
 	}))
 
-	registerRoutes(router, db, startTime)
+	registerRoutes(router, db, cfg, startTime)
 	pprof.Register(router)
 
 	// Serve static files and handle SPA
@@ -34,7 +34,7 @@ func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engin
 	return router
 }
 
-func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
+func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTime time.Time) {
 	// Initialize handlers
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
 	rssPostHandler := handler.NewRssPostHandler(db)
@@ -42,6 +42,8 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 	RssHandler := handlerAction.NewRssHandler(db)
 	authHandler := handler.NewAuthHandler()
 	statusHandler := handler.NewStatusHandler(db, startTime)
+	imageHandler := handlerAction.NewImageHandler(db)
+	resourceHandler := handlerAction.NewResourceHandler(cfg)
 
 	// API routes
 	apiGroup := router.Group("/api")
@@ -76,6 +78,15 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, startTime time.Time) {
 				rssActionGroup.POST("/", RssHandler.CreateRss)
 				rssActionGroup.PUT("/:id", RssHandler.EditRss)
 				rssActionGroup.DELETE("/:id", RssHandler.DeleteFriendRss)
+			}
+			imageActionGroup := actionGroup.Group("/image")
+			{
+				imageActionGroup.GET("/", imageHandler.GetImages)
+			}
+			resourceActionGroup := actionGroup.Group("/resource")
+			{
+				resourceActionGroup.POST("/", resourceHandler.UploadResource)
+				resourceActionGroup.DELETE("/*file_path", resourceHandler.DeleteResource)
 			}
 		}
 	}

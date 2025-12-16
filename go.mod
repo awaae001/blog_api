@@ -4,7 +4,6 @@ go 1.25.4
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
-	github.com/chai2010/webp v1.4.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-contrib/pprof v1.5.3

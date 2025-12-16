@@ -36,12 +36,14 @@ type FriendLinksConf struct {
 type SafeConfig struct {
 	CorsAllowHostlist []string
 	ExcludePaths      []string
+	AllowExtension    []string
 }
 
 // DataConfig 数据配置
 type DataConfig struct {
 	Database DatabaseConfig
 	Image    ImageConfig
+	Resource ResourceConfig
 }
 
 // DatabaseConfig 数据库配置
@@ -53,4 +55,9 @@ type DatabaseConfig struct {
 type ImageConfig struct {
 	Path   string
 	ConvTo string
+}
+
+// ResourceConfig 资源配置
+type ResourceConfig struct {
+	Path string
 }

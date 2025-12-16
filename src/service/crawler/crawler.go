@@ -1,4 +1,4 @@
-package service
+package crawlerService
 
 import (
 	"blog_api/src/model"

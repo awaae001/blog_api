@@ -131,9 +131,16 @@ func unmarshalConfig(cfg *model.Config) error {
 	// 解析系统配置
 	cfg.Safe.CorsAllowHostlist = v.GetStringSlice("system_conf.safe_conf.cors_allow_hostlist")
 	cfg.Safe.ExcludePaths = v.GetStringSlice("system_conf.safe_conf.exclude_paths")
+	cfg.Safe.AllowExtension = v.GetStringSlice("system_conf.safe_conf.allow_extension")
 	cfg.Data.Database.Path = v.GetString("system_conf.data_conf.database.path")
 	cfg.Data.Image.Path = v.GetString("system_conf.data_conf.image.path")
 	cfg.Data.Image.ConvTo = v.GetString("system_conf.data_conf.image.conv_to")
+	cfg.Data.Resource.Path = v.GetString("system_conf.data_conf.resource.path")
+
+	// 动态地将核心数据路径添加到排除列表，以防止被意外删除
+	if cfg.Data.Database.Path != "" {
+		cfg.Safe.ExcludePaths = append(cfg.Safe.ExcludePaths, cfg.Data.Database.Path)
+	}
 
 	// 解析爬虫配置
 	cfg.Crawler.Concurrency = v.GetInt("system_conf.crawler_conf.concurrency")

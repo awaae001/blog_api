@@ -14,3 +14,9 @@ type Image struct {
 func (Image) TableName() string {
 	return "images"
 }
+
+// QueryImageResponse 定义了查询图片结果的结构
+type QueryImageResponse struct {
+	Images []Image
+	Total  int64
+}

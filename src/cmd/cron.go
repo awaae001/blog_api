@@ -5,6 +5,7 @@ import (
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
 	"blog_api/src/service"
+	crawlerService "blog_api/src/service/crawler"
 	"log"
 
 	"github.com/robfig/cron/v3"
@@ -31,7 +32,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 	}
 
 	// 使用并发爬虫
-	results := service.CrawlWebsitesConcurrently(links)
+	results := crawlerService.CrawlWebsitesConcurrently(links)
 
 	// 处理爬取结果
 	for _, crawlResult := range results {
@@ -45,7 +46,7 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 		// 更新友链后，发现并插入 RSS 订阅源
 		if link.EnableRss && len(result.RssURLs) > 0 {
 			for _, rssURL := range result.RssURLs {
-				name, err := service.GetRssTitle(rssURL)
+				name, err := crawlerService.GetRssTitle(rssURL)
 				if err != nil {
 					log.Printf("[Cron] 获取 RSS 标题失败 %s: %v", rssURL, err)
 					continue
@@ -79,7 +80,7 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 	}
 
 	// 使用并发爬虫
-	results := service.CrawlWebsitesConcurrently(links)
+	results := crawlerService.CrawlWebsitesConcurrently(links)
 
 	// 处理爬取结果
 	for _, crawlResult := range results {
@@ -111,8 +112,8 @@ func RunRssParserJob(db *gorm.DB) {
 	}
 
 	// 使用并发解析
-	service.ParseRssFeedsConcurrently(rssFeeds, func(friendRssID int, rssURL string) {
-		service.ParseRssFeed(db, friendRssID, rssURL)
+	crawlerService.ParseRssFeedsConcurrently(rssFeeds, func(friendRssID int, rssURL string) {
+		crawlerService.ParseRssFeed(db, friendRssID, rssURL)
 	})
 	log.Println("[Cron] RSS 解析任务完成")
 }

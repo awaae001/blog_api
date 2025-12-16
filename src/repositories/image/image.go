@@ -31,3 +31,26 @@ func BatchInsertImages(db *gorm.DB, images []model.Image) error {
 	log.Printf("[db][image] 成功插入 %d 条图片记录", len(images))
 	return nil
 }
+
+// QueryImages 根据提供的选项查询图片，并返回分页结果和总数
+func QueryImages(db *gorm.DB, opts model.ImageQueryOptions) (model.QueryImageResponse, error) {
+	var resp model.QueryImageResponse
+	query := db.Model(&model.Image{})
+
+	// Get total count
+	if err := query.Count(&resp.Total).Error; err != nil {
+		return resp, err
+	}
+
+	// Apply pagination
+	if opts.Page > 0 && opts.PageSize > 0 {
+		offset := (opts.Page - 1) * opts.PageSize
+		query = query.Offset(offset).Limit(opts.PageSize)
+	}
+
+	if err := query.Find(&resp.Images).Error; err != nil {
+		return resp, err
+	}
+
+	return resp, nil
+}

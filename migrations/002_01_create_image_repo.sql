@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS images (
     status TEXT NOT NULL DEFAULT 'normal' CHECK (status IN (
         'normal',
         'pause',
+        'broken'
         'pending'
     ))
 );
