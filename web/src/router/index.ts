@@ -34,6 +34,11 @@ const routes: RouteRecordRaw[] = [
         path: 'rss',
         name: 'Rss',
         component: () => import('@/views/Rss.vue')
+      },
+      {
+        path: 'image',
+        name: 'Image',
+        component: () => import('@/views/Image.vue')
       }
     ]
   },

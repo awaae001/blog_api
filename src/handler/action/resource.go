@@ -25,28 +25,27 @@ func (h *ResourceHandler) UploadResource(c *gin.Context) {
 	// 从表单中获取文件
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "获取文件失败: " + err.Error()})
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "获取文件失败: "+err.Error()))
 		return
 	}
 
 	// 绑定表单字段
 	var req model.UploadResourceReq
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的表单参数: " + err.Error()})
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的表单参数: "+err.Error()))
 		return
 	}
 
 	// 调用服务层保存文件
-	filePath, err := h.resourceService.SaveFile(file, req.Path, req.Overwrite)
+	_, urlPath, err := h.resourceService.SaveFile(file, req.Path, req.Overwrite)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":  "文件上传成功",
-		"filePath": filePath,
-	})
+	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
+		"url": urlPath,
+	}))
 }
 
 // DeleteResource 处理文件删除请求。

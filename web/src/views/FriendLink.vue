@@ -12,115 +12,75 @@
 
       <!-- Filter and Actions -->
       <div class="table-actions">
-        <el-select
-          v-model="filterIsDied"
-          placeholder="按失效状态筛选"
-          clearable
-          @change="handleFilter"
-          style="width: 150px; margin-right: 10px"
-        >
+        <el-select v-model="filterIsDied" placeholder="按失效状态筛选" clearable @change="handleFilter"
+          style="width: 150px; margin-right: 10px">
           <el-option label="已失效" :value="true"></el-option>
           <el-option label="未失效" :value="false"></el-option>
         </el-select>
-        <el-select
-          v-model="filterStatus"
-          placeholder="按状态筛选"
-          clearable
-          @change="handleFilter"
-          style="width: 150px; margin-right: 10px"
-        >
+        <el-select v-model="filterStatus" placeholder="按状态筛选" clearable @change="handleFilter"
+          style="width: 150px; margin-right: 10px">
           <el-option label="正常" value="survival"></el-option>
           <el-option label="待定" value="pending"></el-option>
           <el-option label="超时" value="timeout"></el-option>
           <el-option label="错误" value="error"></el-option>
           <el-option label="忽略" value="ignored"></el-option>
         </el-select>
-        <el-input
-          v-model="searchQuery"
-          placeholder="搜索友链"
-          clearable
-          @input="handleSearch"
-          style="width: 200px; margin-right: 10px"
-        />
-        <el-button
-          type="danger"
-          :icon="Delete"
-          @click="handleBulkDelete"
-          :disabled="selectedLinks.length === 0"
-        >
-          批量删除
-        </el-button>
+        <el-input v-model="searchQuery" placeholder="搜索友链" clearable @input="handleSearch"
+          style="width: 200px; margin-right: 10px" />
       </div>
 
       <!-- Friend Link Table -->
-      <el-table
-        :data="friendLinks"
-        v-loading="loading"
-        @selection-change="handleSelectionChange"
-        style="width: 100%"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="website_name" label="网站名称" width="180" />
-        <el-table-column prop="website_url" label="链接">
-          <template #default="{ row }">
-            <a :href="row.website_url" target="_blank">{{ row.website_url }}</a>
-          </template>
-        </el-table-column>
-        <el-table-column prop="email" label="邮箱" width="200" />
-        <el-table-column prop="times" label="失败次数" width="100" />
-        <el-table-column label="是否失效" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.updated_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="订阅 RSS" width="100">
-          <template #default="{ row }">
-            <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
-              编辑
-            </el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDelete(row.id)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-scrollbar height="60vh">
+          <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
+            <el-table-column prop="website_name" label="网站名称" width="180" />
+            <el-table-column prop="website_url" label="链接">
+              <template #default="{ row }">
+                <a :href="row.website_url" target="_blank">{{ row.website_url }}</a>
+              </template>
+            </el-table-column>
+            <el-table-column prop="email" label="邮箱" width="200" />
+            <el-table-column prop="times" label="失败次数" width="100" />
+            <el-table-column label="是否失效" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="updated_at" label="更新时间" width="180">
+              <template #default="{ row }">
+                {{ formatDate(row.updated_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="订阅 RSS" width="100">
+              <template #default="{ row }">
+                <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="150" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
+                  编辑
+                </el-button>
+                <el-button type="danger" link :icon="Delete" @click="handleDelete(row.id)">
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-scrollbar>
 
       <!-- Pagination -->
-      <el-pagination
-        background
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="totalLinks"
-        :page-sizes="[10, 20, 50, 100]"
-        :page-size="pageSize"
-        :current-page="currentPage"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        class="pagination-container"
-      />
+      <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="totalLinks"
+        :page-sizes="[10, 20, 50, 100]" :page-size="pageSize" :current-page="currentPage"
+        @size-change="handleSizeChange" @current-change="handlePageChange" class="pagination-container" />
     </el-card>
 
     <!-- Form Dialog for Add/Edit -->
-    <el-dialog
-      :title="isEditMode ? '编辑友链' : '新增友链'"
-      v-model="dialogVisible"
-      width="500px"
-      @close="resetForm"
-    >
+    <el-dialog :title="isEditMode ? '编辑友链' : '新增友链'" v-model="dialogVisible" width="500px" @close="resetForm">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="网站名称" prop="website_name">
           <el-input v-model="form.website_name" />
@@ -181,7 +141,6 @@ import { formatDate } from '@/utils/date'
 
 // Reactive State
 const friendLinks = ref<FriendLink[]>([])
-const selectedLinks = ref<FriendLink[]>([])
 const loading = ref(false)
 const filterStatus = ref('')
 const filterIsDied = ref<boolean | null>(null)
@@ -252,10 +211,6 @@ const fetchFriendLinks = async () => {
 onMounted(fetchFriendLinks)
 
 // Table and Actions
-const handleSelectionChange = (selection: FriendLink[]) => {
-  selectedLinks.value = selection
-}
-
 const handleFilter = () => {
   reset()
   fetchFriendLinks()
@@ -300,7 +255,7 @@ const submitForm = async () => {
       try {
         if (isEditMode.value) {
           const { id, ...data } = form
-          await updateFriendLink(id, {data})
+          await updateFriendLink(id, { data })
           ElMessage.success('更新成功')
         } else {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -328,21 +283,6 @@ const handleDelete = (id: number) => {
       fetchFriendLinks()
     } catch (error) {
       ElMessage.error('删除失败')
-    }
-  })
-}
-
-const handleBulkDelete = () => {
-  ElMessageBox.confirm('确定要删除选中的友链吗？', '警告', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      const ids = selectedLinks.value.map((link) => link.id)
-      await Promise.all(ids.map((id) => deleteFriendLink(id)))
-      ElMessage.success('批量删除成功')
-      fetchFriendLinks()
-    } catch (error) {
-      ElMessage.error('批量删除失败')
     }
   })
 }
@@ -408,9 +348,11 @@ const handleRssToggle = async (link: FriendLink) => {
   justify-content: space-between;
   align-items: center;
 }
+
 .table-actions {
   margin-bottom: 16px;
 }
+
 .pagination-container {
   margin-top: 20px;
   display: flex;

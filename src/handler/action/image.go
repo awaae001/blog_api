@@ -42,6 +42,8 @@ func (h *ImageHandler) GetImages(c *gin.Context) {
 	opts := model.ImageQueryOptions{
 		Page:     page,
 		PageSize: pageSize,
+		Status:   c.Query("status"),
+		Name:     c.Query("search"),
 	}
 
 	resp, err := imageRepositories.QueryImages(h.DB, opts)

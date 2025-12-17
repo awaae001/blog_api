@@ -56,7 +56,19 @@ func ScanAndSaveImages(db *gorm.DB) error {
 
 	if len(images) > 0 {
 		log.Printf("[service][image] Found and processed %d images.", len(images))
-		return imageRepositories.BatchInsertImages(db, images)
+		newImages, err := imageRepositories.FilterNonExistingImages(db, images)
+		if err != nil {
+			log.Printf("[service][image][ERR] Failed to filter existing images: %v", err)
+			return err
+		}
+
+		if len(newImages) == 0 {
+			log.Println("[service][image] All images already exist in database. Skipping insert.")
+			return nil
+		}
+
+		log.Printf("[service][image] Inserting %d new images...", len(newImages))
+		return imageRepositories.BatchInsertImages(db, newImages)
 	}
 
 	log.Println("[service][image] No new images found to process.")

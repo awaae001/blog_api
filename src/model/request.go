@@ -36,6 +36,8 @@ type CreateRssReq struct {
 
 // ImageQueryOptions defines the query parameters for fetching images.
 type ImageQueryOptions struct {
-	Page     int `form:"page"`
-	PageSize int `form:"page_size"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size"`
+	Status   string `form:"status"`
+	Name     string `form:"name"`
 }

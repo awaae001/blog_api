@@ -41,6 +41,10 @@
             <el-icon><Document /></el-icon>
             <span>RSS 管理</span>
           </el-menu-item>
+          <el-menu-item index="image">
+            <el-icon><Picture /></el-icon>
+            <span>图片管理</span>
+          </el-menu-item>
           <el-menu-item index="settings">
             <el-icon><Setting /></el-icon>
             <span>系统设置</span>
@@ -65,7 +69,8 @@ import {
   HomeFilled,
   Link,
   Document,
-  Setting
+  Setting,
+  Picture
 } from '@element-plus/icons-vue'
 
 const router = useRouter()

@@ -23,17 +23,17 @@ func NewResourceService(cfg *model.Config) *ResourceService {
 // SaveFile 保存上传的文件。
 // 它会检查文件扩展名是否在白名单内，并清理目标路径以防止路径遍历。
 // overwrite 参数决定如果文件已存在，是覆盖它还是生成一个新名字。
-func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, overwrite bool) (string, error) {
+func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, overwrite bool) (string, string, error) {
 	// 检查文件扩展名
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(file.Filename), "."))
 	if !s.isExtensionAllowed(ext) {
-		return "", fmt.Errorf("文件类型 '%s' 不被允许", ext)
+		return "", "", fmt.Errorf("文件类型 '%s' 不被允许", ext)
 	}
 
 	// 清理并构建保存路径，防止路径遍历攻击
 	cleanSubPath := filepath.Clean(subPath)
 	if strings.HasPrefix(cleanSubPath, "..") {
-		return "", fmt.Errorf("无效的路径")
+		return "", "", fmt.Errorf("无效的路径")
 	}
 
 	basePath := s.config.Data.Resource.Path
@@ -44,7 +44,7 @@ func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, o
 
 	// 创建目录（如果不存在）
 	if err := os.MkdirAll(saveDir, os.ModePerm); err != nil {
-		return "", fmt.Errorf("创建目录失败: %w", err)
+		return "", "", fmt.Errorf("创建目录失败: %w", err)
 	}
 
 	// 根据 overwrite 标志决定文件名
@@ -59,23 +59,30 @@ func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, o
 	// 打开源文件
 	src, err := file.Open()
 	if err != nil {
-		return "", fmt.Errorf("打开上传文件失败: %w", err)
+		return "", "", fmt.Errorf("打开上传文件失败: %w", err)
 	}
 	defer src.Close()
 
 	// 创建目标文件
 	dst, err := os.Create(filePath)
 	if err != nil {
-		return "", fmt.Errorf("创建目标文件失败: %w", err)
+		return "", "", fmt.Errorf("创建目标文件失败: %w", err)
 	}
 	defer dst.Close()
 
 	// 复制文件内容
 	if _, err := io.Copy(dst, src); err != nil {
-		return "", fmt.Errorf("保存文件失败: %w", err)
+		return "", "", fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	return filePath, nil
+	// 从文件路径生成 URL
+	urlPath := strings.TrimPrefix(filePath, strings.TrimSuffix(basePath, "/"))
+	urlPath = filepath.ToSlash(urlPath)
+	if !strings.HasPrefix(urlPath, "/") {
+		urlPath = "/" + urlPath
+	}
+
+	return filePath, urlPath, nil
 }
 
 // isExtensionAllowed 检查文件扩展名是否在白名单中。
