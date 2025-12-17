@@ -24,6 +24,8 @@ export interface PaginatedImages {
 export interface CreateImagePayload {
   name: string;
   url: string;
+  local_path?: string;
+  is_local?: number;
 }
 
 export interface UpdateImagePayload {

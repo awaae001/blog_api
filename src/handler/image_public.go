@@ -68,7 +68,6 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 		// 如果 type=metadata，返回图片的元数据
 		c.JSON(http.StatusOK, image)
 	} else {
-		// 否则，执行302重定向到图片URL
 		c.Redirect(http.StatusFound, image.URL)
 	}
 }

@@ -4,6 +4,7 @@ import type { ApiResponse } from '@/model/response'
 export interface UploadFileResponse {
   message: string
   url: string
+  local_path: string
 }
 
 /**
@@ -17,5 +18,15 @@ export const uploadFile = (data: FormData): Promise<ApiResponse<UploadFileRespon
     headers: {
       'Content-Type': 'multipart/form-data'
     }
+  })
+}
+
+/**
+ * 删除文件
+ */
+export const deleteFile = (filePath: string): Promise<ApiResponse> => {
+  return request({
+    url: `/action/resource/${filePath}`,
+    method: 'delete'
   })
 }

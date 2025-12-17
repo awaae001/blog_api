@@ -36,15 +36,15 @@ func (h *ResourceHandler) UploadResource(c *gin.Context) {
 		return
 	}
 
-	// 调用服务层保存文件
-	_, urlPath, err := h.resourceService.SaveFile(file, req.Path, req.Overwrite)
+	localPath, urlPath, err := h.resourceService.SaveFile(file, req.Path, req.Overwrite)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
-		"url": urlPath,
+		"url":        urlPath,
+		"local_path": localPath,
 	}))
 }
 

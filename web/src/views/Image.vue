@@ -62,7 +62,7 @@
               <el-button type="primary" link :icon="Edit" @click="handleShowEditDialog(row)">
                 编辑
               </el-button>
-              <el-popconfirm title="确定删除吗？" @confirm="handleDelete(row.id)">
+              <el-popconfirm title="确定删除吗？" @confirm="handleDelete(row)">
                 <template #reference>
                   <el-button type="danger" link :icon="Delete">删除</el-button>
                 </template>
@@ -141,7 +141,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit } from '@element-plus/icons-vue'
 import { getImages, createImage, updateImage, deleteImage } from '@/api/image'
-import { uploadFile } from '@/api/resource'
+import { uploadFile, deleteFile } from '@/api/resource'
 import type { Image, CreateImagePayload, UpdateImagePayload } from '@/model/image'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import { usePagination } from '@/utils/pagination'
@@ -175,7 +175,7 @@ const rules = reactive<FormRules>({
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   url: [
     {
-      validator: ( value, callback) => {
+      validator: (_rule, value, callback) => {
         if (!isEdit.value && uploadType.value === 'url' && !value) {
           callback(new Error('请输入 URL'))
         } else {
@@ -257,10 +257,18 @@ const handleSubmit = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        let imageUrl = form.url
+        if (isEdit.value) {
+          // 编辑模式
+          const payload: UpdateImagePayload = {
+            name: form.name,
+            status: form.status
+          }
+          await updateImage(form.id!, payload)
+          ElMessage.success('更新成功')
+        } else {
+          // 新增模式
+          let payload: CreateImagePayload
 
-        // 新增模式下，根据类型处理
-        if (!isEdit.value) {
           if (uploadType.value === 'upload') {
             if (!fileToUpload.value?.raw) {
               ElMessage.error('请选择要上传的图片')
@@ -270,28 +278,23 @@ const handleSubmit = async () => {
             formData.append('file', fileToUpload.value.raw)
             formData.append('path', 'image')
             const res = await uploadFile(formData)
-            imageUrl = res.data.url
+
+            payload = {
+              name: form.name,
+              url: res.data.url,
+              local_path: res.data.local_path,
+              is_local: 1
+            }
           } else {
-            // URL 模式下，imageUrl 已通过 v-model 绑定
-            if (!imageUrl) {
+            if (!form.url) {
               ElMessage.error('请输入图片 URL')
               return
             }
-          }
-        }
-
-        if (isEdit.value) {
-          const payload: UpdateImagePayload = {
-            name: form.name,
-            url: imageUrl,
-            status: form.status
-          }
-          await updateImage(form.id!, payload)
-          ElMessage.success('更新成功')
-        } else {
-          const payload: CreateImagePayload = {
-            name: form.name,
-            url: imageUrl
+            payload = {
+              name: form.name,
+              url: form.url,
+              is_local: 0
+            }
           }
           await createImage(payload)
           ElMessage.success('新增成功')
@@ -306,13 +309,20 @@ const handleSubmit = async () => {
   })
 }
 
-const handleDelete = async (id: number) => {
+const handleDelete = async (row: Image) => {
   try {
-    await deleteImage(id)
+    // 如果是本地文件，先删除文件
+    if (row.is_local === 1 && row.local_path) {
+      await deleteFile(row.local_path)
+    }
+    // 然后删除数据库记录
+    await deleteImage(row.id)
     ElMessage.success('删除成功')
     fetchImages()
   } catch (error) {
     console.error(error)
+    // 错误消息已在 api 调用中处理，或在此处提供通用消息
+    ElMessage.error('删除失败，请查看控制台获取更多信息')
   }
 }
 
