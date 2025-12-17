@@ -52,6 +52,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	statusHandler := handler.NewStatusHandler(db, startTime)
 	imageHandler := handlerAction.NewImageHandler(db)
 	resourceHandler := handlerAction.NewResourceHandler(cfg)
+	imagePublicHandler := handler.NewImagePublicHandler(db)
 
 	// API routes
 	apiGroup := router.Group("/api")
@@ -72,6 +73,10 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			rssGroup := publicGroup.Group("/rss")
 			{
 				rssGroup.GET("/", rssPostHandler.GetRssPosts)
+			}
+			imageGroup := publicGroup.Group("/image")
+			{
+				imageGroup.GET("/*id", imagePublicHandler.GetImage)
 			}
 		}
 		// Status router (protected)

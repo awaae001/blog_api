@@ -217,6 +217,7 @@ func UpdateFriendLinkByID(db *gorm.DB, id uint, req model.EditFriendLinkReq) (in
 		"website_icon_url": true,
 		"description":      true,
 		"email":            true,
+		"times":            true,
 		"status":           true,
 		"enable_rss":       true,
 		"is_died":          true,

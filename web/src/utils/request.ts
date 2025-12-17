@@ -31,7 +31,7 @@ request.interceptors.response.use(
       const { status, data, config } = error.response
 
       if (status === 401) {
-        if (config.url === '/verify') {
+        if (config.url === '/verify/passwd') {
           ElMessage.error(data?.message || '用户名或密码错误')
         } else {
           localStorage.removeItem('token')

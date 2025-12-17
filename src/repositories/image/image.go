@@ -96,3 +96,25 @@ func DeleteImage(db *gorm.DB, id int) error {
 	log.Printf("[db][image] 成功删除图片记录，ID: %d", id)
 	return nil
 }
+
+// GetImageByID retrieves a single image by its ID.
+func GetImageByID(db *gorm.DB, id int) (*model.Image, error) {
+	var image model.Image
+	err := db.First(&image, id).Error
+	if err != nil {
+		log.Printf("[db][image][ERR] 无法通过ID %d 找到图片: %v", id, err)
+		return nil, err
+	}
+	return &image, nil
+}
+
+// GetRandomImage retrieves a random image from the database.
+func GetRandomImage(db *gorm.DB) (*model.Image, error) {
+	var image model.Image
+	err := db.Order("RANDOM()").First(&image).Error
+	if err != nil {
+		log.Printf("[db][image][ERR] 无法获取随机图片: %v", err)
+		return nil, err
+	}
+	return &image, nil
+}
