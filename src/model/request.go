@@ -41,3 +41,9 @@ type ImageQueryOptions struct {
 	Status   string `form:"status"`
 	Name     string `form:"name"`
 }
+
+// UpdateConfigReq 定义了更新配置的请求体
+type UpdateConfigReq struct {
+	Key   string      `json:"key" binding:"required"`
+	Value interface{} `json:"value"`
+}

@@ -181,24 +181,52 @@ func UpdateAndSaveConfig(key string, value interface{}) error {
 		return fmt.Errorf("只支持更新 system_conf 下的配置")
 	}
 
-	v.Set(key, value)
-
-	// 提取整个 system_conf 对象
-	systemConfig := v.Get("system_conf")
-	if systemConfig == nil {
-		return fmt.Errorf("无法从 viper 中获取 system_conf")
+	// 读取现有的配置文件
+	existingData, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("读取现有配置文件失败: %w", err)
 	}
 
-	configToWrite := map[string]interface{}{
-		"system_conf": systemConfig,
+	// 解析现有配置
+	var existingConfig map[string]interface{}
+	if err := json.Unmarshal(existingData, &existingConfig); err != nil {
+		return fmt.Errorf("解析现有配置失败: %w", err)
 	}
-	jsonData, _ := json.MarshalIndent(configToWrite, "", "  ")
+
+	// 更新指定的配置项
+	// 将 key 拆分为路径 (例如: "system_conf.crawler_conf.concurrency")
+	keys := strings.Split(key, ".")
+	if len(keys) < 2 {
+		return fmt.Errorf("无效的配置键: %s", key)
+	}
+
+	// 导航到需要更新的位置
+	current := existingConfig
+	for i := 0; i < len(keys)-1; i++ {
+		if next, ok := current[keys[i]].(map[string]interface{}); ok {
+			current = next
+		} else {
+			// 如果路径不存在，创建它
+			newMap := make(map[string]interface{})
+			current[keys[i]] = newMap
+			current = newMap
+		}
+	}
+
+	// 设置最终的值
+	current[keys[len(keys)-1]] = value
+
+	// 序列化并写入文件
+	jsonData, err := json.MarshalIndent(existingConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %w", err)
+	}
 
 	// 写入文件
 	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
 		return fmt.Errorf("写入 system_config.json 失败: %w", err)
 	}
 
-	log.Printf("配置已更新并保存到 %s", filePath)
+	log.Printf("配置已更新并保存到 %s (键: %s)", filePath, key)
 	return Reload()
 }
