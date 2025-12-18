@@ -149,3 +149,57 @@ func (s *ResourceService) DeleteFile(filePath string) error {
 
 	return nil
 }
+
+// GetFileOrDir 检索文件或列出目录的内容。
+// 如果路径指向文件，它将返回文件路径和 nil 切片。
+// 如果路径指向目录，它将返回一个包含目录内容的 FileInfo 切片。
+// 如果路径不存在，则返回错误。
+func (s *ResourceService) GetFileOrDir(relativePath string) (string, []model.FileInfo, error) {
+	// 清理路径以防止路径遍历
+	cleanPath := filepath.Clean(relativePath)
+	if strings.HasPrefix(cleanPath, "..") {
+		return "", nil, fmt.Errorf("无效的路径")
+	}
+
+	basePath := s.config.Data.Resource.Path
+	if basePath == "" {
+		basePath = "data/" // 默认路径
+	}
+	fullPath := filepath.Join(basePath, cleanPath)
+
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil, fmt.Errorf("资源未找到: %s", relativePath)
+		}
+		return "", nil, fmt.Errorf("访问资源时出错: %w", err)
+	}
+
+	if info.IsDir() {
+		// 列出目录内容
+		entries, err := os.ReadDir(fullPath)
+		if err != nil {
+			return "", nil, fmt.Errorf("读取目录失败: %w", err)
+		}
+
+		var fileInfos []model.FileInfo
+		for _, entry := range entries {
+			entryInfo, err := entry.Info()
+			if err != nil {
+				// 可以选择记录错误并继续
+				continue
+			}
+			fileInfos = append(fileInfos, model.FileInfo{
+				Name:    entry.Name(),
+				Path:    filepath.ToSlash(filepath.Join(cleanPath, entry.Name())),
+				IsDir:   entry.IsDir(),
+				Size:    entryInfo.Size(),
+				ModTime: entryInfo.ModTime(),
+			})
+		}
+		return "", fileInfos, nil
+	} else {
+		// 返回文件路径
+		return fullPath, nil, nil
+	}
+}

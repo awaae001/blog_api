@@ -135,8 +135,8 @@ func StartCronJobs(db *gorm.DB) {
 		RunDiedFriendLinkCheckJob(db)
 	})
 
-	// 安排 RSS 解析任务每小时运行一次
-	c.AddFunc("0 * * * *", func() {
+	// 安排 RSS 解析任务每 3 小时运行一次
+	c.AddFunc("* */3 * * *", func() {
 		RunRssParserJob(db)
 	})
 

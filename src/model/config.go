@@ -12,9 +12,9 @@ type Config struct {
 	EnableStatusLog   bool
 
 	// 系统配置 - 使用小写字段名，通过 Safe 和 Data 访问
-	Safe    SafeConfig
-	Data    DataConfig
-	Crawler CrawlerConfig
+	Safe    SafeConfig    `mapstructure:"safe_conf"`
+	Data    DataConfig    `mapstructure:"data_conf"`
+	Crawler CrawlerConfig `mapstructure:"crawler_conf"`
 
 	// 友链配置
 	FriendLinks []FriendWebsite
@@ -22,7 +22,7 @@ type Config struct {
 
 // CrawlerConfig 爬虫配置
 type CrawlerConfig struct {
-	Concurrency int // 并发数量，默认 5
+	Concurrency int `mapstructure:"concurrency"` // 并发数量，默认 5
 }
 
 // FriendLinksConf 对应 friend_list.json 的结构
@@ -34,30 +34,30 @@ type FriendLinksConf struct {
 
 // SafeConfig 安全配置
 type SafeConfig struct {
-	CorsAllowHostlist []string
-	ExcludePaths      []string
-	AllowExtension    []string
+	CorsAllowHostlist []string `mapstructure:"cors_allow_hostlist"`
+	ExcludePaths      []string `mapstructure:"exclude_paths"`
+	AllowExtension    []string `mapstructure:"allow_extension"`
 }
 
 // DataConfig 数据配置
 type DataConfig struct {
-	Database DatabaseConfig
-	Image    ImageConfig
-	Resource ResourceConfig
+	Database DatabaseConfig `mapstructure:"database"`
+	Image    ImageConfig    `mapstructure:"image"`
+	Resource ResourceConfig `mapstructure:"resource"`
 }
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Path string
+	Path string `mapstructure:"path"`
 }
 
 // ImageConfig 图片配置
 type ImageConfig struct {
-	Path   string
-	ConvTo string
+	Path   string `mapstructure:"path"`
+	ConvTo string `mapstructure:"conv_to"`
 }
 
 // ResourceConfig 资源配置
 type ResourceConfig struct {
-	Path string
+	Path string `mapstructure:"path"`
 }

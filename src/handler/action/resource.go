@@ -66,3 +66,29 @@ func (h *ResourceHandler) DeleteResource(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "文件删除成功"})
 }
+
+// GetResource 处理获取文件或目录列表的请求。
+func (h *ResourceHandler) GetResource(c *gin.Context) {
+	// 从 URL 通配符参数中获取文件路径
+	filePath := c.Param("file_path")
+	if filePath == "" {
+		filePath = "/"
+	} else {
+		// Gin 的通配符参数会包含一个前导斜杠，需要去掉
+		filePath = filePath[1:]
+	}
+
+	fullPath, fileInfos, err := h.resourceService.GetFileOrDir(filePath)
+	if err != nil {
+		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, err.Error()))
+		return
+	}
+
+	if fileInfos != nil {
+		// 如果是目录，返回文件列表
+		c.JSON(http.StatusOK, model.NewSuccessResponse(fileInfos))
+	} else {
+		// 如果是文件，直接提供文件下载
+		c.File(fullPath)
+	}
+}

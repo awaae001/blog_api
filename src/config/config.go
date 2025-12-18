@@ -4,11 +4,12 @@ import (
 	"blog_api/src/model"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -21,8 +22,6 @@ var (
 
 // Load 加载所有配置 (单例模式)
 // 配置加载顺序:
-// 1. .env 文件 (环境变量)
-// 2. data/config/ 目录下的 JSON 文件 (通过 MergeInConfig 合并)
 // 环境变量会覆盖配置文件中的同名设置
 func Load() (*model.Config, error) {
 	var err error
@@ -48,8 +47,6 @@ func loadConfig() (*model.Config, error) {
 	// 设置默认值
 	v.SetDefault("CRON_SCAN_ON_STARTUP", true)
 	v.SetDefault("ENABLE_STATUS_LOG", false)
-
-	// 1. 从 .env 文件加载环境变量
 	v.SetConfigFile(".env")
 	v.SetConfigType("env")
 	v.AutomaticEnv()                                   // 自动读取匹配的环境变量
@@ -129,28 +126,23 @@ func unmarshalConfig(cfg *model.Config) error {
 	}
 
 	// 解析系统配置
-	cfg.Safe.CorsAllowHostlist = v.GetStringSlice("system_conf.safe_conf.cors_allow_hostlist")
-	cfg.Safe.ExcludePaths = v.GetStringSlice("system_conf.safe_conf.exclude_paths")
-	cfg.Safe.AllowExtension = v.GetStringSlice("system_conf.safe_conf.allow_extension")
-	cfg.Data.Database.Path = v.GetString("system_conf.data_conf.database.path")
-	cfg.Data.Image.Path = v.GetString("system_conf.data_conf.image.path")
-	cfg.Data.Image.ConvTo = v.GetString("system_conf.data_conf.image.conv_to")
-	cfg.Data.Resource.Path = v.GetString("system_conf.data_conf.resource.path")
+	if err := v.UnmarshalKey("system_conf", cfg); err != nil {
+		return fmt.Errorf("解析系统配置失败: %w", err)
+	}
 
 	// 动态地将核心数据路径添加到排除列表，以防止被意外删除
 	if cfg.Data.Database.Path != "" {
 		cfg.Safe.ExcludePaths = append(cfg.Safe.ExcludePaths, cfg.Data.Database.Path)
 	}
 
-	// 解析爬虫配置
-	cfg.Crawler.Concurrency = v.GetInt("system_conf.crawler_conf.concurrency")
+	// 设置爬虫默认并发数
 	if cfg.Crawler.Concurrency <= 0 {
-		cfg.Crawler.Concurrency = 5 // 默认并发数为 5
+		cfg.Crawler.Concurrency = 5
 	}
 
 	// 手动解析友链配置
 	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")
-	friendListData, err := ioutil.ReadFile(friendListPath)
+	friendListData, err := os.ReadFile(friendListPath)
 	if err != nil {
 		log.Printf("无法读取 friend_list.json 文件: %v, 将跳过加载友链", err)
 	} else {
@@ -174,4 +166,39 @@ func Reload() error {
 	globalConfig = newConfig
 	log.Println("配置已重新加载")
 	return nil
+}
+
+// UpdateAndSaveConfig 更新并保存配置到 system_config.json
+func UpdateAndSaveConfig(key string, value interface{}) error {
+	configPath := GetConfig().ConfigPath
+	if configPath == "" {
+		return fmt.Errorf("配置路径未设置")
+	}
+	filePath := filepath.Join(configPath, "system_config.json")
+
+	// 检查 key 是否以 "system_conf." 开头
+	if !strings.HasPrefix(key, "system_conf.") {
+		return fmt.Errorf("只支持更新 system_conf 下的配置")
+	}
+
+	v.Set(key, value)
+
+	// 提取整个 system_conf 对象
+	systemConfig := v.Get("system_conf")
+	if systemConfig == nil {
+		return fmt.Errorf("无法从 viper 中获取 system_conf")
+	}
+
+	configToWrite := map[string]interface{}{
+		"system_conf": systemConfig,
+	}
+	jsonData, _ := json.MarshalIndent(configToWrite, "", "  ")
+
+	// 写入文件
+	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
+		return fmt.Errorf("写入 system_config.json 失败: %w", err)
+	}
+
+	log.Printf("配置已更新并保存到 %s", filePath)
+	return Reload()
 }

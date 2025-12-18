@@ -108,6 +108,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			}
 			resourceActionGroup := actionGroup.Group("/resource")
 			{
+				resourceActionGroup.GET("/*file_path", resourceHandler.GetResource)
 				resourceActionGroup.POST("", resourceHandler.UploadResource)
 				resourceActionGroup.DELETE("/*file_path", resourceHandler.DeleteResource)
 			}
