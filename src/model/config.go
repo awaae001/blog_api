@@ -12,9 +12,10 @@ type Config struct {
 	EnableStatusLog   bool
 
 	// 系统配置 - 使用小写字段名，通过 Safe 和 Data 访问
-	Safe    SafeConfig    `mapstructure:"safe_conf"`
-	Data    DataConfig    `mapstructure:"data_conf"`
-	Crawler CrawlerConfig `mapstructure:"crawler_conf"`
+	Safe              SafeConfig              `mapstructure:"safe_conf"`
+	Data              DataConfig              `mapstructure:"data_conf"`
+	Crawler           CrawlerConfig           `mapstructure:"crawler_conf"`
+	MomentsIntegrated MomentsIntegratedConfig `mapstructure:"moments_integrated_conf"`
 
 	// 友链配置
 	FriendLinks []FriendWebsite
@@ -60,4 +61,50 @@ type ImageConfig struct {
 // ResourceConfig 资源配置
 type ResourceConfig struct {
 	Path string `mapstructure:"path"`
+}
+
+// MomentsIntegratedConfig 动态集成配置
+type MomentsIntegratedConfig struct {
+	Enable                 bool              `mapstructure:"enable"`
+	ApiSingleReturnEntries int               `mapstructure:"api_single_return_entries"`
+	OSS                    OSSConfig         `mapstructure:"oss_conf"`
+	Integrated             IntegratedTargets `mapstructure:"integrated"`
+}
+
+// OSSConfig OSS 配置
+type OSSConfig struct {
+	Enable          bool   `mapstructure:"enable"`
+	AccessKeyID     string `mapstructure:"accessKeyId"`
+	AccessKeySecret string `mapstructure:"accessKeySecret"`
+	Bucket          string `mapstructure:"bucket"`
+	Endpoint        string `mapstructure:"endpoint"`
+	Region          string `mapstructure:"region"`
+	Secure          bool   `mapstructure:"secure"`
+	Timeout         int    `mapstructure:"timeout"`
+	Prefix          string `mapstructure:"prefix"`
+}
+
+// IntegratedTargets 集成目标
+type IntegratedTargets struct {
+	Telegram TelegramConfig `mapstructure:"telegram"`
+	Discord  DiscordConfig  `mapstructure:"discord"`
+}
+
+// TelegramConfig Telegram 配置
+type TelegramConfig struct {
+	Enable       bool    `mapstructure:"enable"`
+	SyncDelete   bool    `mapstructure:"sync_delete"`
+	BotToken     string  `mapstructure:"bot_token"`
+	ChannelID    string  `mapstructure:"channel_id"`
+	FilterUserid []int64 `mapstructure:"filter_userid"`
+}
+
+// DiscordConfig Discord 配置
+type DiscordConfig struct {
+	Enable       bool    `mapstructure:"enable"`
+	SyncDelete   bool    `mapstructure:"sync_delete"`
+	BotToken     string  `mapstructure:"bot_token"`
+	GuildID      string  `mapstructure:"guild_id"`
+	ChannelID    string  `mapstructure:"channel_id"`
+	FilterUserid []int64 `mapstructure:"filter_userid"`
 }

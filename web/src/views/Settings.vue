@@ -120,6 +120,177 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
+
+        <!-- 动态集成配置 -->
+        <el-tab-pane label="动态集成" name="moments">
+          <el-form
+            v-if="config.system_conf.moments_integrated_conf"
+            :model="config.system_conf.moments_integrated_conf"
+            label-width="180px"
+          >
+            <el-form-item label="启用动态集成">
+              <el-switch v-model="config.system_conf.moments_integrated_conf.enable" />
+            </el-form-item>
+
+            <template v-if="config.system_conf.moments_integrated_conf.enable">
+              <el-divider content-position="left">通用设置</el-divider>
+              <el-form-item label="API 单次返回数量">
+                <el-input-number
+                  v-model="config.system_conf.moments_integrated_conf.api_single_return_entries"
+                  :min="1"
+                  :max="100"
+                />
+                <div class="form-item-help">设置动态 API 单次返回的最大条目数。</div>
+              </el-form-item>
+
+              <el-divider content-position="left">OSS 配置</el-divider>
+              <el-form-item label="启用 OSS">
+                <el-switch v-model="config.system_conf.moments_integrated_conf.oss_conf.enable" />
+              </el-form-item>
+              <template v-if="config.system_conf.moments_integrated_conf.oss_conf.enable">
+                <el-form-item label="Access Key ID">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.oss_conf.accessKeyId"
+                    placeholder="OSS Access Key ID"
+                  />
+                  <div class="env-override-notice">
+                    此配置可被环境变量 <code>OSS_ACCESS_KEY_ID</code> 覆盖。
+                  </div>
+                </el-form-item>
+                <el-form-item label="Access Key Secret">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.oss_conf.accessKeySecret"
+                    placeholder="OSS Access Key Secret"
+                    show-password
+                  />
+                  <div class="env-override-notice">
+                    此配置可被环境变量 <code>OSS_ACCESS_KEY_SECRET</code> 覆盖。
+                  </div>
+                </el-form-item>
+                <el-form-item label="Bucket">
+                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.bucket" />
+                </el-form-item>
+                <el-form-item label="Endpoint">
+                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.endpoint" />
+                </el-form-item>
+                <el-form-item label="Region">
+                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.region" />
+                </el-form-item>
+                <el-form-item label="上传路径前缀">
+                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.prefix" />
+                </el-form-item>
+                <el-form-item label="超时时间 (秒)">
+                  <el-input-number
+                    v-model="config.system_conf.moments_integrated_conf.oss_conf.timeout"
+                    :min="1"
+                  />
+                </el-form-item>
+                <el-form-item label="使用 HTTPS">
+                  <el-switch v-model="config.system_conf.moments_integrated_conf.oss_conf.secure" />
+                </el-form-item>
+              </template>
+
+              <el-divider content-position="left">Telegram 配置</el-divider>
+              <el-form-item label="启用 Telegram 集成">
+                <el-switch
+                  v-model="config.system_conf.moments_integrated_conf.integrated.telegram.enable"
+                />
+              </el-form-item>
+              <template v-if="config.system_conf.moments_integrated_conf.integrated.telegram.enable">
+                <el-form-item label="同步删除">
+                  <el-switch
+                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.sync_delete"
+                  />
+                </el-form-item>
+                <el-form-item label="Bot Token">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.bot_token"
+                    placeholder="Telegram Bot Token"
+                    show-password
+                  />
+                  <div class="env-override-notice">
+                    此配置可被环境变量 <code>TELEGRAM_BOT_TOKEN</code> 覆盖。
+                  </div>
+                </el-form-item>
+                <el-form-item label="Channel ID">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.channel_id"
+                  />
+                </el-form-item>
+                <el-form-item label="过滤用户 ID">
+                  <el-tag
+                    v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
+                      .telegram.filter_userid"
+                    :key="index"
+                    closable
+                    @close="removeMomentsArrayItem('telegram', 'filter_userid', index)"
+                    style="margin-right: 8px; margin-bottom: 8px"
+                  >
+                    {{ id }}
+                  </el-tag>
+                  <el-input
+                    v-model="newTelegramFilterUserid"
+                    placeholder="输入 User ID 后按回车添加"
+                    @keyup.enter="addTelegramFilterUserid"
+                    style="width: 300px"
+                  />
+                </el-form-item>
+              </template>
+
+              <el-divider content-position="left">Discord 配置</el-divider>
+              <el-form-item label="启用 Discord 集成">
+                <el-switch
+                  v-model="config.system_conf.moments_integrated_conf.integrated.discord.enable"
+                />
+              </el-form-item>
+              <template v-if="config.system_conf.moments_integrated_conf.integrated.discord.enable">
+                <el-form-item label="同步删除">
+                  <el-switch
+                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.sync_delete"
+                  />
+                </el-form-item>
+                <el-form-item label="Bot Token">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.bot_token"
+                    placeholder="Discord Bot Token"
+                    show-password
+                  />
+                  <div class="env-override-notice">
+                    此配置可被环境变量 <code>DISCORD_BOT_TOKEN</code> 覆盖。
+                  </div>
+                </el-form-item>
+                <el-form-item label="Guild ID">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.guild_id"
+                  />
+                </el-form-item>
+                <el-form-item label="Channel ID">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.channel_id"
+                  />
+                </el-form-item>
+                <el-form-item label="过滤用户 ID">
+                  <el-tag
+                    v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
+                      .discord.filter_userid"
+                    :key="index"
+                    closable
+                    @close="removeMomentsArrayItem('discord', 'filter_userid', index)"
+                    style="margin-right: 8px; margin-bottom: 8px"
+                  >
+                    {{ id }}
+                  </el-tag>
+                  <el-input
+                    v-model="newDiscordFilterUserid"
+                    placeholder="输入 User ID 后按回车添加"
+                    @keyup.enter="addDiscordFilterUserid"
+                    style="width: 300px"
+                  />
+                </el-form-item>
+              </template>
+            </template>
+          </el-form>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
@@ -136,6 +307,8 @@ const saving = ref(false)
 const newCorsHost = ref('')
 const newExcludePath = ref('')
 const newAllowExtension = ref('')
+const newTelegramFilterUserid = ref('')
+const newDiscordFilterUserid = ref('')
 
 const config = ref<SystemConfig>({
   system_conf: {
@@ -158,6 +331,38 @@ const config = ref<SystemConfig>({
     },
     crawler_conf: {
       concurrency: 5
+    },
+    moments_integrated_conf: {
+      enable: false,
+      api_single_return_entries: 20,
+      oss_conf: {
+        enable: false,
+        accessKeyId: '',
+        accessKeySecret: '',
+        bucket: '',
+        endpoint: '',
+        region: '',
+        secure: true,
+        timeout: 30,
+        prefix: ''
+      },
+      integrated: {
+        telegram: {
+          enable: false,
+          sync_delete: false,
+          bot_token: '',
+          channel_id: '',
+          filter_userid: []
+        },
+        discord: {
+          enable: false,
+          sync_delete: false,
+          bot_token: '',
+          guild_id: '',
+          channel_id: '',
+          filter_userid: []
+        }
+      }
     }
   }
 })
@@ -193,9 +398,41 @@ const addAllowExtension = () => {
   }
 }
 
+const addTelegramFilterUserid = () => {
+  if (newTelegramFilterUserid.value.trim()) {
+    const id = parseInt(newTelegramFilterUserid.value.trim(), 10)
+    if (!isNaN(id)) {
+      config.value.system_conf.moments_integrated_conf.integrated.telegram.filter_userid.push(id)
+      newTelegramFilterUserid.value = ''
+    } else {
+      ElMessage.warning('请输入有效的用户 ID (数字)')
+    }
+  }
+}
+
+const addDiscordFilterUserid = () => {
+  if (newDiscordFilterUserid.value.trim()) {
+    const id = parseInt(newDiscordFilterUserid.value.trim(), 10)
+    if (!isNaN(id)) {
+      config.value.system_conf.moments_integrated_conf.integrated.discord.filter_userid.push(id)
+      newDiscordFilterUserid.value = ''
+    } else {
+      ElMessage.warning('请输入有效的用户 ID (数字)')
+    }
+  }
+}
+
 const removeArrayItem = (field: string, index: number) => {
   const safeConf = config.value.system_conf.safe_conf as any
   safeConf[field].splice(index, 1)
+}
+
+const removeMomentsArrayItem = (
+  target: 'telegram' | 'discord',
+  field: 'filter_userid',
+  index: number
+) => {
+  config.value.system_conf.moments_integrated_conf.integrated[target][field].splice(index, 1)
 }
 
 const saveConfig = async () => {
@@ -203,14 +440,42 @@ const saveConfig = async () => {
   try {
     // 保存所有配置项
     const updates = [
-      { key: 'system_conf.safe_conf.cors_allow_hostlist', value: config.value.system_conf.safe_conf.cors_allow_hostlist },
-      { key: 'system_conf.safe_conf.exclude_paths', value: config.value.system_conf.safe_conf.exclude_paths },
-      { key: 'system_conf.safe_conf.allow_extension', value: config.value.system_conf.safe_conf.allow_extension },
-      { key: 'system_conf.data_conf.database.path', value: config.value.system_conf.data_conf.database.path },
-      { key: 'system_conf.data_conf.image.path', value: config.value.system_conf.data_conf.image.path },
-      { key: 'system_conf.data_conf.image.conv_to', value: config.value.system_conf.data_conf.image.conv_to },
-      { key: 'system_conf.data_conf.resource.path', value: config.value.system_conf.data_conf.resource.path },
-      { key: 'system_conf.crawler_conf.concurrency', value: config.value.system_conf.crawler_conf.concurrency }
+      {
+        key: 'system_conf.safe_conf.cors_allow_hostlist',
+        value: config.value.system_conf.safe_conf.cors_allow_hostlist
+      },
+      {
+        key: 'system_conf.safe_conf.exclude_paths',
+        value: config.value.system_conf.safe_conf.exclude_paths
+      },
+      {
+        key: 'system_conf.safe_conf.allow_extension',
+        value: config.value.system_conf.safe_conf.allow_extension
+      },
+      {
+        key: 'system_conf.data_conf.database.path',
+        value: config.value.system_conf.data_conf.database.path
+      },
+      {
+        key: 'system_conf.data_conf.image.path',
+        value: config.value.system_conf.data_conf.image.path
+      },
+      {
+        key: 'system_conf.data_conf.image.conv_to',
+        value: config.value.system_conf.data_conf.image.conv_to
+      },
+      {
+        key: 'system_conf.data_conf.resource.path',
+        value: config.value.system_conf.data_conf.resource.path
+      },
+      {
+        key: 'system_conf.crawler_conf.concurrency',
+        value: config.value.system_conf.crawler_conf.concurrency
+      },
+      {
+        key: 'system_conf.moments_integrated_conf',
+        value: config.value.system_conf.moments_integrated_conf
+      }
     ]
 
     for (const update of updates) {
@@ -250,5 +515,32 @@ const saveConfig = async () => {
 :deep(.el-divider__text) {
   font-weight: 600;
   color: #303133;
+}
+
+.form-item-help {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+.env-override-notice {
+  color: #e6a23c; /* warning color */
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+.env-override-notice code {
+  background-color: #f4f4f5;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: #909399;
+}
+
+/* 设置 Tab 内容区域可滚动 */
+:deep(.el-tabs__content) {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding-right: 15px; /* 为滚动条留出空间，防止内容跳动 */
 }
 </style>

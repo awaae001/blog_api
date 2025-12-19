@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS moments (
     'hidden',
     'deleted'
   )),
-  chat_id INTEGER ,
+  guild_id INTEGER,
+  channel_id INTEGER ,
   message_id INTEGER,
   created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
   updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
@@ -15,7 +16,8 @@ CREATE TABLE IF NOT EXISTS moments (
 
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_moments_status ON moments (status);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_moments_chat_message ON moments(chat_id, message_id);
+CREATE INDEX IF NOT EXISTS idx_moments_content ON moments (content);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_moments_chat_message ON moments(channel_id, message_id);
 
 -- 添加触发器，自动更新 updated_at 字段
 CREATE TRIGGER IF NOT EXISTS trg_moments_updated_at

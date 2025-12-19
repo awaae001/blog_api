@@ -140,6 +140,20 @@ func unmarshalConfig(cfg *model.Config) error {
 		cfg.Crawler.Concurrency = 5
 	}
 
+	// 从环境变量加载覆盖敏感信息
+	if telegramBotToken := v.GetString("TELEGRAM_BOT_TOKEN"); telegramBotToken != "" {
+		cfg.MomentsIntegrated.Integrated.Telegram.BotToken = telegramBotToken
+	}
+	if discordBotToken := v.GetString("DISCORD_BOT_TOKEN"); discordBotToken != "" {
+		cfg.MomentsIntegrated.Integrated.Discord.BotToken = discordBotToken
+	}
+	if ossAccessKeyId := v.GetString("OSS_ACCESS_KEY_ID"); ossAccessKeyId != "" {
+		cfg.MomentsIntegrated.OSS.AccessKeyID = ossAccessKeyId
+	}
+	if ossAccessKeySecret := v.GetString("OSS_ACCESS_KEY_SECRET"); ossAccessKeySecret != "" {
+		cfg.MomentsIntegrated.OSS.AccessKeySecret = ossAccessKeySecret
+	}
+
 	// 手动解析友链配置
 	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")
 	friendListData, err := os.ReadFile(friendListPath)

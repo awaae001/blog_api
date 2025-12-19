@@ -3,6 +3,7 @@ export interface SystemConfig {
     safe_conf: SafeConfig;
     data_conf: DataConfig;
     crawler_conf: CrawlerConfig;
+    moments_integrated_conf: MomentsIntegratedConfig;
   };
 }
 
@@ -33,4 +34,45 @@ export interface ResourceConfig {
 
 export interface CrawlerConfig {
   concurrency: number;
+}
+
+export interface MomentsIntegratedConfig {
+  enable: boolean;
+  api_single_return_entries: number;
+  oss_conf: OSSConfig;
+  integrated: IntegratedTargets;
+}
+
+export interface OSSConfig {
+  enable: boolean;
+  accessKeyId: string;
+  accessKeySecret: string;
+  bucket: string;
+  endpoint: string;
+  region: string;
+  secure: boolean;
+  timeout: number;
+  prefix: string;
+}
+
+export interface IntegratedTargets {
+  telegram: TelegramConfig;
+  discord: DiscordConfig;
+}
+
+export interface TelegramConfig {
+  enable: boolean;
+  sync_delete: boolean;
+  bot_token: string;
+  channel_id: string;
+  filter_userid: number[];
+}
+
+export interface DiscordConfig {
+  enable: boolean;
+  sync_delete: boolean;
+  bot_token: string;
+  guild_id: string;
+  channel_id: string;
+  filter_userid: number[];
 }
