@@ -19,14 +19,10 @@ export const getSystemConfig = () => {
 };
 
 /**
- * 更新系统配置项
- * @param key 配置键 (e.g., "system_conf.safe_conf.cors_allow_hostlist")
- * @param value 配置值
+ * 批量更新系统配置项
+ * @param updates 配置更新数组
  * @returns
  */
-export const updateSystemConfig = (key: string, value: any) => {
-  return request.put<any, ApiResponse<{ message: string }>>('/action/config', {
-    key,
-    value,
-  });
+export const updateSystemConfig = (updates: { key: string; value: any }[]) => {
+  return request.put<any, ApiResponse<{ message: string }>>('/action/config', updates);
 };

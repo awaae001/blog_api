@@ -315,6 +315,8 @@ const newExcludePath = ref('')
 const newAllowExtension = ref('')
 const newTelegramFilterUserid = ref('')
 const newDiscordFilterUserid = ref('')
+// 用于存储原始配置以进行比较
+const originalConfig = ref<SystemConfig | null>(null)
 
 const config = ref<SystemConfig>({
   system_conf: {
@@ -378,6 +380,8 @@ onMounted(async () => {
   try {
     const res = await getSystemConfig()
     config.value = res
+    // 深度克隆初始配置，用于后续比较
+    originalConfig.value = JSON.parse(JSON.stringify(res))
   } catch (error) {
     ElMessage.error('请求配置时出错')
     console.error(error)
@@ -445,51 +449,77 @@ const removeMomentsArrayItem = (
 const saveConfig = async () => {
   saving.value = true
   try {
-    // 保存所有配置项
-    const updates = [
+    if (!originalConfig.value) {
+      ElMessage.error('原始配置加载失败，无法保存')
+      return
+    }
+
+    // 定义所有可能的配置项及其路径
+    const configItems = [
       {
         key: 'system_conf.safe_conf.cors_allow_hostlist',
-        value: config.value.system_conf.safe_conf.cors_allow_hostlist
+        currentValue: config.value.system_conf.safe_conf.cors_allow_hostlist,
+        originalValue: originalConfig.value.system_conf.safe_conf.cors_allow_hostlist
       },
       {
         key: 'system_conf.safe_conf.exclude_paths',
-        value: config.value.system_conf.safe_conf.exclude_paths
+        currentValue: config.value.system_conf.safe_conf.exclude_paths,
+        originalValue: originalConfig.value.system_conf.safe_conf.exclude_paths
       },
       {
         key: 'system_conf.safe_conf.allow_extension',
-        value: config.value.system_conf.safe_conf.allow_extension
+        currentValue: config.value.system_conf.safe_conf.allow_extension,
+        originalValue: originalConfig.value.system_conf.safe_conf.allow_extension
       },
       {
         key: 'system_conf.data_conf.database.path',
-        value: config.value.system_conf.data_conf.database.path
+        currentValue: config.value.system_conf.data_conf.database.path,
+        originalValue: originalConfig.value.system_conf.data_conf.database.path
       },
       {
         key: 'system_conf.data_conf.image.path',
-        value: config.value.system_conf.data_conf.image.path
+        currentValue: config.value.system_conf.data_conf.image.path,
+        originalValue: originalConfig.value.system_conf.data_conf.image.path
       },
       {
         key: 'system_conf.data_conf.image.conv_to',
-        value: config.value.system_conf.data_conf.image.conv_to
+        currentValue: config.value.system_conf.data_conf.image.conv_to,
+        originalValue: originalConfig.value.system_conf.data_conf.image.conv_to
       },
       {
         key: 'system_conf.data_conf.resource.path',
-        value: config.value.system_conf.data_conf.resource.path
+        currentValue: config.value.system_conf.data_conf.resource.path,
+        originalValue: originalConfig.value.system_conf.data_conf.resource.path
       },
       {
         key: 'system_conf.crawler_conf.concurrency',
-        value: config.value.system_conf.crawler_conf.concurrency
+        currentValue: config.value.system_conf.crawler_conf.concurrency,
+        originalValue: originalConfig.value.system_conf.crawler_conf.concurrency
       },
       {
         key: 'system_conf.moments_integrated_conf',
-        value: config.value.system_conf.moments_integrated_conf
+        currentValue: config.value.system_conf.moments_integrated_conf,
+        originalValue: originalConfig.value.system_conf.moments_integrated_conf
       }
     ]
 
-    for (const update of updates) {
-      await updateSystemConfig(update.key, update.value)
+    // 过滤出被修改过的配置项
+    const updates = configItems
+      .filter((item) => JSON.stringify(item.currentValue) !== JSON.stringify(item.originalValue))
+      .map((item) => ({ key: item.key, value: item.currentValue }))
+
+    if (updates.length === 0) {
+      ElMessage.info('配置未发生更改')
+      return
     }
 
-    ElMessage.success('配置保存成功')
+    // 一次性发送所有更新
+    await updateSystemConfig(updates)
+
+    // 保存成功后，更新原始配置
+    originalConfig.value = JSON.parse(JSON.stringify(config.value))
+
+    ElMessage.success(`成功保存 ${updates.length} 项配置`)
   } catch (error) {
     ElMessage.error('保存配置失败')
     console.error(error)

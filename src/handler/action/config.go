@@ -18,13 +18,13 @@ func NewConfigHandler() *ConfigHandler {
 
 // UpdateConfig 处理 PUT /api/action/config 请求，用于更新系统配置
 func (h *ConfigHandler) UpdateConfig(c *gin.Context) {
-	var req model.UpdateConfigReq
+	var req []model.UpdateConfigReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体: "+err.Error()))
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体,请传入一个数组: "+err.Error()))
 		return
 	}
 
-	if err := config.UpdateAndSaveConfig(req.Key, req.Value); err != nil {
+	if err := config.UpdateAndSaveConfigs(req); err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "更新配置失败: "+err.Error()))
 		return
 	}

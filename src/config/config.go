@@ -98,8 +98,6 @@ func mergeJSONConfig(configName, configPath string) error {
 		}
 		return fmt.Errorf("合并配置文件 %s 时发生错误: %w", configName, err)
 	}
-
-	log.Printf("已合并配置文件: %s/%s.json", configPath, configName)
 	return nil
 }
 
@@ -182,23 +180,23 @@ func Reload() error {
 	return nil
 }
 
-// UpdateAndSaveConfig 更新并保存配置到 system_config.json
-func UpdateAndSaveConfig(key string, value interface{}) error {
+// UpdateAndSaveConfigs 批量更新并保存配置到 system_config.json
+func UpdateAndSaveConfigs(updates []model.UpdateConfigReq) error {
 	configPath := GetConfig().ConfigPath
 	if configPath == "" {
 		return fmt.Errorf("配置路径未设置")
 	}
 	filePath := filepath.Join(configPath, "system_config.json")
 
-	// 检查 key 是否以 "system_conf." 开头
-	if !strings.HasPrefix(key, "system_conf.") {
-		return fmt.Errorf("只支持更新 system_conf 下的配置")
-	}
-
 	// 读取现有的配置文件
 	existingData, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("读取现有配置文件失败: %w", err)
+		// 如果文件不存在，创建一个空的配置
+		if os.IsNotExist(err) {
+			existingData = []byte("{}")
+		} else {
+			return fmt.Errorf("读取现有配置文件失败: %w", err)
+		}
 	}
 
 	// 解析现有配置
@@ -207,28 +205,40 @@ func UpdateAndSaveConfig(key string, value interface{}) error {
 		return fmt.Errorf("解析现有配置失败: %w", err)
 	}
 
-	// 更新指定的配置项
-	// 将 key 拆分为路径 (例如: "system_conf.crawler_conf.concurrency")
-	keys := strings.Split(key, ".")
-	if len(keys) < 2 {
-		return fmt.Errorf("无效的配置键: %s", key)
-	}
-
-	// 导航到需要更新的位置
-	current := existingConfig
-	for i := 0; i < len(keys)-1; i++ {
-		if next, ok := current[keys[i]].(map[string]interface{}); ok {
-			current = next
-		} else {
-			// 如果路径不存在，创建它
-			newMap := make(map[string]interface{})
-			current[keys[i]] = newMap
-			current = newMap
+	// 批量更新指定的配置项
+	for _, update := range updates {
+		// 检查 key 是否以 "system_conf." 开头
+		if !strings.HasPrefix(update.Key, "system_conf.") {
+			log.Printf("跳过不支持的配置键: %s", update.Key)
+			continue
 		}
-	}
 
-	// 设置最终的值
-	current[keys[len(keys)-1]] = value
+		// 将 key 拆分为路径
+		keys := strings.Split(update.Key, ".")
+		if len(keys) < 2 {
+			log.Printf("跳过无效的配置键: %s", update.Key)
+			continue
+		}
+
+		// 导航到需要更新的位置
+		current := existingConfig
+		for i := 0; i < len(keys)-1; i++ {
+			// 确保路径中的每个节点都是 map[string]interface{}
+			if _, ok := current[keys[i]]; !ok {
+				current[keys[i]] = make(map[string]interface{})
+			}
+			if next, ok := current[keys[i]].(map[string]interface{}); ok {
+				current = next
+			} else {
+				// 如果路径中的某个节点不是 map，这可能是个问题，但我们尝试创建它
+				newMap := make(map[string]interface{})
+				current[keys[i]] = newMap
+				current = newMap
+			}
+		}
+		// 设置最终的值
+		current[keys[len(keys)-1]] = update.Value
+	}
 
 	// 序列化并写入文件
 	jsonData, err := json.MarshalIndent(existingConfig, "", "  ")
@@ -240,7 +250,5 @@ func UpdateAndSaveConfig(key string, value interface{}) error {
 	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
 		return fmt.Errorf("写入 system_config.json 失败: %w", err)
 	}
-
-	log.Printf("配置已更新并保存到 %s (键: %s)", filePath, key)
 	return Reload()
 }
