@@ -32,10 +32,10 @@
       <!-- Friend Link Table -->
         <el-scrollbar height="60vh">
           <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
-            <el-table-column prop="website_name" label="网站名称" width="180" />
-            <el-table-column prop="website_url" label="链接">
+            <el-table-column prop="name" label="网站名称" width="180" />
+            <el-table-column prop="link" label="链接">
               <template #default="{ row }">
-                <a :href="row.website_url" target="_blank">{{ row.website_url }}</a>
+                <a :href="row.link" target="_blank">{{ row.link }}</a>
               </template>
             </el-table-column>
             <el-table-column prop="email" label="邮箱" width="200" />
@@ -82,14 +82,14 @@
     <!-- Form Dialog for Add/Edit -->
     <el-dialog :title="isEditMode ? '编辑友链' : '新增友链'" v-model="dialogVisible" width="500px" @close="resetForm">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="网站名称" prop="website_name">
-          <el-input v-model="form.website_name" />
+        <el-form-item label="网站名称" prop="name">
+          <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="网站链接" prop="website_url">
-          <el-input v-model="form.website_url" />
+        <el-form-item label="网站链接" prop="link">
+          <el-input v-model="form.link" />
         </el-form-item>
-        <el-form-item label="网站图标" prop="website_icon_url">
-          <el-input v-model="form.website_icon_url" />
+        <el-form-item label="网站图标" prop="avatar">
+          <el-input v-model="form.avatar" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input type="textarea" v-model="form.description" />
@@ -150,9 +150,9 @@ const isEditMode = ref(false)
 const formRef = ref<FormInstance>()
 const form = reactive<{
   id: number
-  website_name: string
-  website_url: string
-  website_icon_url: string
+  name: string
+  link: string
+  avatar: string
   description: string
   email: string
   times: number
@@ -161,9 +161,9 @@ const form = reactive<{
   is_died: boolean
 }>({
   id: 0,
-  website_name: '',
-  website_url: '',
-  website_icon_url: '',
+  name: '',
+  link: '',
+  avatar: '',
   description: '',
   email: '',
   times: 0,
@@ -173,8 +173,8 @@ const form = reactive<{
 })
 
 const rules = reactive<FormRules>({
-  website_name: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
-  website_url: [{ required: true, message: '请输入网站链接', trigger: 'blur' }]
+  name: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
+  link: [{ required: true, message: '请输入网站链接', trigger: 'blur' }]
 })
 
 // Pagination
@@ -236,9 +236,9 @@ const resetForm = () => {
   formRef.value?.resetFields()
   Object.assign(form, {
     id: 0,
-    website_name: '',
-    website_url: '',
-    website_icon_url: '',
+    name: '',
+    link: '',
+    avatar: '',
     description: '',
     email: '',
     times: 0,
@@ -258,8 +258,14 @@ const submitForm = async () => {
           await updateFriendLink(id, { data })
           ElMessage.success('更新成功')
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { id, status, is_died, ...payload } = form
+          const payload = {
+            name: form.name,
+            link: form.link,
+            avatar: form.avatar,
+            description: form.description,
+            email: form.email,
+            enable_rss: form.enable_rss
+          }
           await createFriendLink(payload)
           ElMessage.success('创建成功')
         }

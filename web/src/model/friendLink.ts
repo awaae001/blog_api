@@ -3,9 +3,9 @@
  */
 export interface FriendLink {
   id: number
-  website_name: string
-  website_url: string
-  website_icon_url: string
+  name: string
+  link: string
+  avatar: string
   description: string
   status: 'survival' | 'timeout' | 'error' | 'pending' | 'ignored'
   enable_rss: boolean
@@ -40,11 +40,12 @@ export interface PaginatedFriendLinks {
  * 创建友链的请求体
  */
 export interface CreateFriendLinkPayload {
-  website_name: string
-  website_url: string
-  website_icon_url?: string
+  name: string
+  link: string
+  avatar?: string
   description?: string
   email?: string
+  enable_rss?: boolean
 }
 
 /**

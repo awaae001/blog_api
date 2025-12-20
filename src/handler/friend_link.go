@@ -26,14 +26,14 @@ func toFriendLinkDTOs(links []model.FriendWebsite, isPrivate bool) []model.Frien
 	dtoLinks := make([]model.FriendLinkDTO, 0, len(links))
 	for _, link := range links {
 		dto := model.FriendLinkDTO{
-			ID:             link.ID,
-			WebsiteName:    link.Name,
-			WebsiteURL:     link.Link,
-			WebsiteIconURL: link.Avatar,
-			Description:    link.Info,
-			Status:         link.Status,
-			EnableRss:      link.EnableRss,
-			UpdatedAt:      link.UpdatedAt,
+			ID:          link.ID,
+			Name:        link.Name,
+			Link:        link.Link,
+			Avatar:      link.Avatar,
+			Description: link.Info,
+			Status:      link.Status,
+			EnableRss:   link.EnableRss,
+			UpdatedAt:   link.UpdatedAt,
 		}
 		if isPrivate {
 			dto.Email = link.Email
