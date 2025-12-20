@@ -31,12 +31,17 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 			}
 		}
 
+		time := publishedTime.Unix()
+		if time < 0 {
+			time = 0
+		}
+
 		post := &model.RssPost{
 			RssID:       friendRssID,
 			Title:       item.Title,
 			Link:        item.Link,
 			Description: p.Sanitize(item.Description),
-			Time:        publishedTime.Unix(),
+			Time:        time,
 		}
 
 		err := friendsRepositories.InsertRssPost(db, post)

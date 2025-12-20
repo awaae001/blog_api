@@ -57,5 +57,12 @@ func GetPosts(db *gorm.DB, query *model.PostQuery) ([]model.RssPost, int, error)
 		return nil, 0, fmt.Errorf("could not query posts: %w", err)
 	}
 
+	// Ensure time is not negative
+	for i := range posts {
+		if posts[i].Time < 0 {
+			posts[i].Time = 0
+		}
+	}
+
 	return posts, int(total), nil
 }
