@@ -21,6 +21,8 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	imageHandler := handlerAction.NewImageHandler(db)
 	resourceHandler := handlerAction.NewResourceHandler(cfg)
 	imagePublicHandler := handler.NewImagePublicHandler(db)
+	momentHandler := handler.NewMomentHandler(db)
+	momentActionHandler := handlerAction.NewMomentHandler(db)
 	configHandler := handlerAction.NewConfigHandler()
 
 	// API routes
@@ -35,18 +37,10 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		}
 		publicGroup := apiGroup.Group("/public")
 		{
-			friendGroup := publicGroup.Group("/friend")
-			{
-				friendGroup.GET("/", friendLinkHandler.GetAllFriendLinks)
-			}
-			rssGroup := publicGroup.Group("/rss")
-			{
-				rssGroup.GET("/", rssPostHandler.GetRssPosts)
-			}
-			imageGroup := publicGroup.Group("/image")
-			{
-				imageGroup.GET("/*id", imagePublicHandler.GetImage)
-			}
+			publicGroup.GET("/friend/", friendLinkHandler.GetAllFriendLinks)
+			publicGroup.GET("/rss/", rssPostHandler.GetRssPosts)
+			publicGroup.GET("/image/*id", imagePublicHandler.GetImage)
+			publicGroup.GET("/moments/", momentHandler.GetMoments)
 		}
 		apiGroup.GET("/status", middleware.JWTAuth(), statusHandler.GetSystemStatus)
 
@@ -81,6 +75,12 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				resourceActionGroup.DELETE("/*file_path", resourceHandler.DeleteResource)
 			}
 			actionGroup.PUT("/config", configHandler.UpdateConfig)
+			momentsActionGroup := actionGroup.Group("/moments")
+			{
+				momentsActionGroup.GET("", momentActionHandler.GetMoments)
+				momentsActionGroup.POST("", momentActionHandler.CreateMoment)
+				momentsActionGroup.DELETE("/:id", momentActionHandler.DeleteMoment)
+			}
 		}
 	}
 }
