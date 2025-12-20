@@ -10,7 +10,12 @@ const CONFIG_FILE_PATH = '/config/system_config.json';
  * @returns SystemConfig
  */
 export const getSystemConfig = () => {
-  return request.get<any, SystemConfig>(`/action/resource/${CONFIG_FILE_PATH}`);
+  return request.get<any, SystemConfig>(`/action/resource/${CONFIG_FILE_PATH}`, {
+    params: {
+      // 添加时间戳以防止缓存
+      _t: new Date().getTime(),
+    },
+  });
 };
 
 /**

@@ -79,6 +79,7 @@ type OSSConfig struct {
 	Bucket          string `mapstructure:"bucket"`
 	Endpoint        string `mapstructure:"endpoint"`
 	Region          string `mapstructure:"region"`
+	CustomDomain    string `mapstructure:"custom_domain"`
 	Secure          bool   `mapstructure:"secure"`
 	Timeout         int    `mapstructure:"timeout"`
 	Prefix          string `mapstructure:"prefix"`

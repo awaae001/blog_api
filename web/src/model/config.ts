@@ -53,7 +53,8 @@ export interface OSSConfig {
   secure: boolean;
   timeout: number;
   prefix: string;
-}
+  customDomain: string;
+ }
 
 export interface IntegratedTargets {
   telegram: TelegramConfig;

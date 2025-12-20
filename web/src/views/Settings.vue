@@ -176,6 +176,12 @@
                 <el-form-item label="Region">
                   <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.region" />
                 </el-form-item>
+                <el-form-item label="自定义域名">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.oss_conf.customDomain"
+                    placeholder="例如: https://oss.example.com"
+                  />
+                </el-form-item>
                 <el-form-item label="上传路径前缀">
                   <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.prefix" />
                 </el-form-item>
@@ -344,7 +350,8 @@ const config = ref<SystemConfig>({
         region: '',
         secure: true,
         timeout: 30,
-        prefix: ''
+        prefix: '',
+        customDomain: ''
       },
       integrated: {
         telegram: {
