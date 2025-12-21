@@ -143,59 +143,6 @@
                 <div class="form-item-help">设置动态 API 单次返回的最大条目数。</div>
               </el-form-item>
 
-              <el-divider content-position="left">OSS 配置</el-divider>
-              <el-form-item label="启用 OSS">
-                <el-switch v-model="config.system_conf.moments_integrated_conf.oss_conf.enable" />
-              </el-form-item>
-              <template v-if="config.system_conf.moments_integrated_conf.oss_conf.enable">
-                <el-form-item label="Access Key ID">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.oss_conf.accessKeyId"
-                    placeholder="OSS Access Key ID"
-                  />
-                  <div class="env-override-notice">
-                    此配置可被环境变量 <code>OSS_ACCESS_KEY_ID</code> 覆盖。
-                  </div>
-                </el-form-item>
-                <el-form-item label="Access Key Secret">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.oss_conf.accessKeySecret"
-                    placeholder="OSS Access Key Secret"
-                    show-password
-                  />
-                  <div class="env-override-notice">
-                    此配置可被环境变量 <code>OSS_ACCESS_KEY_SECRET</code> 覆盖。
-                  </div>
-                </el-form-item>
-                <el-form-item label="Bucket">
-                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.bucket" />
-                </el-form-item>
-                <el-form-item label="Endpoint">
-                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.endpoint" />
-                </el-form-item>
-                <el-form-item label="Region">
-                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.region" />
-                </el-form-item>
-                <el-form-item label="自定义域名">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.oss_conf.customDomain"
-                    placeholder="例如: https://oss.example.com"
-                  />
-                </el-form-item>
-                <el-form-item label="上传路径前缀">
-                  <el-input v-model="config.system_conf.moments_integrated_conf.oss_conf.prefix" />
-                </el-form-item>
-                <el-form-item label="超时时间 (秒)">
-                  <el-input-number
-                    v-model="config.system_conf.moments_integrated_conf.oss_conf.timeout"
-                    :min="1"
-                  />
-                </el-form-item>
-                <el-form-item label="使用 HTTPS">
-                  <el-switch v-model="config.system_conf.moments_integrated_conf.oss_conf.secure" />
-                </el-form-item>
-              </template>
-
               <el-divider content-position="left">Telegram 配置</el-divider>
               <el-form-item label="启用 Telegram 集成">
                 <el-switch
@@ -297,6 +244,72 @@
             </template>
           </el-form>
         </el-tab-pane>
+
+        <!-- OSS 配置 -->
+        <el-tab-pane label="OSS 配置" name="oss">
+          <el-form
+            v-if="config.system_conf.oss_conf"
+            :model="config.system_conf.oss_conf"
+            label-width="180px"
+          >
+            <el-form-item label="启用 OSS">
+              <el-switch v-model="config.system_conf.oss_conf.enable" />
+            </el-form-item>
+            <template v-if="config.system_conf.oss_conf.enable">
+              <el-form-item label="提供商">
+                <el-select v-model="config.system_conf.oss_conf.provider" placeholder="选择 OSS 提供商">
+                  <el-option label="阿里云" value="aliyun" />
+                  <el-option label="腾讯云 (暂未支持)" value="tencent" disabled />
+                  <el-option label="AWS S3 (暂未支持)" value="s3" disabled />
+                </el-select>
+                <div class="form-item-help">选择您的对象存储服务提供商。</div>
+              </el-form-item>
+              <el-form-item label="Access Key ID">
+                <el-input
+                  v-model="config.system_conf.oss_conf.accessKeyId"
+                  placeholder="OSS Access Key ID"
+                />
+                <div class="env-override-notice">
+                  此配置可被环境变量 <code>OSS_ACCESS_KEY_ID</code> 覆盖。
+                </div>
+              </el-form-item>
+              <el-form-item label="Access Key Secret">
+                <el-input
+                  v-model="config.system_conf.oss_conf.accessKeySecret"
+                  placeholder="OSS Access Key Secret"
+                  show-password
+                />
+                <div class="env-override-notice">
+                  此配置可被环境变量 <code>OSS_ACCESS_KEY_SECRET</code> 覆盖。
+                </div>
+              </el-form-item>
+              <el-form-item label="Bucket">
+                <el-input v-model="config.system_conf.oss_conf.bucket" />
+              </el-form-item>
+              <el-form-item label="Endpoint">
+                <el-input v-model="config.system_conf.oss_conf.endpoint" />
+              </el-form-item>
+              <el-form-item label="Region">
+                <el-input v-model="config.system_conf.oss_conf.region" />
+              </el-form-item>
+              <el-form-item label="自定义域名">
+                <el-input
+                  v-model="config.system_conf.oss_conf.customDomain"
+                  placeholder="例如: https://oss.example.com"
+                />
+              </el-form-item>
+              <el-form-item label="上传路径前缀">
+                <el-input v-model="config.system_conf.oss_conf.prefix" />
+              </el-form-item>
+              <el-form-item label="超时时间 (秒)">
+                <el-input-number v-model="config.system_conf.oss_conf.timeout" :min="1" />
+              </el-form-item>
+              <el-form-item label="使用 HTTPS">
+                <el-switch v-model="config.system_conf.oss_conf.secure" />
+              </el-form-item>
+            </template>
+          </el-form>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
@@ -343,18 +356,6 @@ const config = ref<SystemConfig>({
     moments_integrated_conf: {
       enable: false,
       api_single_return_entries: 20,
-      oss_conf: {
-        enable: false,
-        accessKeyId: '',
-        accessKeySecret: '',
-        bucket: '',
-        endpoint: '',
-        region: '',
-        secure: true,
-        timeout: 30,
-        prefix: '',
-        customDomain: ''
-      },
       integrated: {
         telegram: {
           enable: false,
@@ -372,6 +373,19 @@ const config = ref<SystemConfig>({
           filter_userid: []
         }
       }
+    },
+    oss_conf: {
+      provider: 'aliyun',
+      enable: false,
+      accessKeyId: '',
+      accessKeySecret: '',
+      bucket: '',
+      endpoint: '',
+      region: '',
+      secure: true,
+      timeout: 30,
+      prefix: '',
+      customDomain: ''
     }
   }
 })
@@ -500,6 +514,11 @@ const saveConfig = async () => {
         key: 'system_conf.moments_integrated_conf',
         currentValue: config.value.system_conf.moments_integrated_conf,
         originalValue: originalConfig.value.system_conf.moments_integrated_conf
+      },
+      {
+        key: 'system_conf.oss_conf',
+        currentValue: config.value.system_conf.oss_conf,
+        originalValue: originalConfig.value.system_conf.oss_conf
       }
     ]
 

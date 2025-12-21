@@ -146,10 +146,10 @@ func unmarshalConfig(cfg *model.Config) error {
 		cfg.MomentsIntegrated.Integrated.Discord.BotToken = discordBotToken
 	}
 	if ossAccessKeyId := v.GetString("OSS_ACCESS_KEY_ID"); ossAccessKeyId != "" {
-		cfg.MomentsIntegrated.OSS.AccessKeyID = ossAccessKeyId
+		cfg.OSS.AccessKeyID = ossAccessKeyId
 	}
 	if ossAccessKeySecret := v.GetString("OSS_ACCESS_KEY_SECRET"); ossAccessKeySecret != "" {
-		cfg.MomentsIntegrated.OSS.AccessKeySecret = ossAccessKeySecret
+		cfg.OSS.AccessKeySecret = ossAccessKeySecret
 	}
 
 	// 手动解析友链配置

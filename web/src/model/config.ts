@@ -4,6 +4,7 @@ export interface SystemConfig {
     data_conf: DataConfig;
     crawler_conf: CrawlerConfig;
     moments_integrated_conf: MomentsIntegratedConfig;
+    oss_conf: OSSConfig;
   };
 }
 
@@ -39,11 +40,11 @@ export interface CrawlerConfig {
 export interface MomentsIntegratedConfig {
   enable: boolean;
   api_single_return_entries: number;
-  oss_conf: OSSConfig;
   integrated: IntegratedTargets;
 }
 
 export interface OSSConfig {
+  provider: string;
   enable: boolean;
   accessKeyId: string;
   accessKeySecret: string;

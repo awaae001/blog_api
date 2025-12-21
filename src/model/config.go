@@ -16,6 +16,7 @@ type Config struct {
 	Data              DataConfig              `mapstructure:"data_conf"`
 	Crawler           CrawlerConfig           `mapstructure:"crawler_conf"`
 	MomentsIntegrated MomentsIntegratedConfig `mapstructure:"moments_integrated_conf"`
+	OSS               OSSConfig               `mapstructure:"oss_conf"`
 
 	// 友链配置
 	FriendLinks []FriendWebsite
@@ -67,12 +68,12 @@ type ResourceConfig struct {
 type MomentsIntegratedConfig struct {
 	Enable                 bool              `mapstructure:"enable"`
 	ApiSingleReturnEntries int               `mapstructure:"api_single_return_entries"`
-	OSS                    OSSConfig         `mapstructure:"oss_conf"`
 	Integrated             IntegratedTargets `mapstructure:"integrated"`
 }
 
 // OSSConfig OSS 配置
 type OSSConfig struct {
+	Provider        string `mapstructure:"provider"`
 	Enable          bool   `mapstructure:"enable"`
 	AccessKeyID     string `mapstructure:"accessKeyId"`
 	AccessKeySecret string `mapstructure:"accessKeySecret"`
