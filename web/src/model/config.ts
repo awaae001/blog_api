@@ -67,6 +67,7 @@ export interface TelegramConfig {
   sync_delete: boolean;
   bot_token: string;
   channel_id: string;
+  media_path: string;
   filter_userid: number[];
 }
 

@@ -98,6 +98,7 @@ type TelegramConfig struct {
 	SyncDelete   bool    `mapstructure:"sync_delete"`
 	BotToken     string  `mapstructure:"bot_token"`
 	ChannelID    string  `mapstructure:"channel_id"`
+	MediaPath    string  `mapstructure:"media_path"`
 	FilterUserid []int64 `mapstructure:"filter_userid"`
 }
 

@@ -24,8 +24,46 @@ func NewResourceService(cfg *model.Config) *ResourceService {
 // 它会检查文件扩展名是否在白名单内，并清理目标路径以防止路径遍历。
 // overwrite 参数决定如果文件已存在，是覆盖它还是生成一个新名字。
 func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, overwrite bool) (string, string, error) {
-	// 检查文件扩展名
-	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(file.Filename), "."))
+	filePath, urlPath, err := s.prepareSavePath(file.Filename, subPath, overwrite)
+	if err != nil {
+		return "", "", err
+	}
+	// 打开源文件
+	src, err := file.Open()
+	if err != nil {
+		return "", "", fmt.Errorf("打开上传文件失败: %w", err)
+	}
+	defer src.Close()
+
+	// 创建目标文件
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return "", "", fmt.Errorf("创建目标文件失败: %w", err)
+	}
+	defer dst.Close()
+
+	// 复制文件内容
+	if _, err := io.Copy(dst, src); err != nil {
+		return "", "", fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	return filePath, urlPath, nil
+}
+
+// SaveBytes 保存二进制文件到资源目录。
+func (s *ResourceService) SaveBytes(filename string, data []byte, subPath string, overwrite bool) (string, string, error) {
+	filePath, urlPath, err := s.prepareSavePath(filename, subPath, overwrite)
+	if err != nil {
+		return "", "", err
+	}
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return "", "", fmt.Errorf("保存文件失败: %w", err)
+	}
+	return filePath, urlPath, nil
+}
+
+func (s *ResourceService) prepareSavePath(filename, subPath string, overwrite bool) (string, string, error) {
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
 	if !s.isExtensionAllowed(ext) {
 		return "", "", fmt.Errorf("文件类型 '%s' 不被允许", ext)
 	}
@@ -50,30 +88,11 @@ func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, o
 	// 根据 overwrite 标志决定文件名
 	var finalFilename string
 	if overwrite {
-		finalFilename = file.Filename
+		finalFilename = filename
 	} else {
-		finalFilename = s.findUniqueFilename(saveDir, file.Filename)
+		finalFilename = s.findUniqueFilename(saveDir, filename)
 	}
 	filePath := filepath.Join(saveDir, finalFilename)
-
-	// 打开源文件
-	src, err := file.Open()
-	if err != nil {
-		return "", "", fmt.Errorf("打开上传文件失败: %w", err)
-	}
-	defer src.Close()
-
-	// 创建目标文件
-	dst, err := os.Create(filePath)
-	if err != nil {
-		return "", "", fmt.Errorf("创建目标文件失败: %w", err)
-	}
-	defer dst.Close()
-
-	// 复制文件内容
-	if _, err := io.Copy(dst, src); err != nil {
-		return "", "", fmt.Errorf("保存文件失败: %w", err)
-	}
 
 	// 从文件路径生成 URL
 	urlPath := strings.TrimPrefix(filePath, strings.TrimSuffix(basePath, "/"))

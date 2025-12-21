@@ -6,6 +6,7 @@ import (
 	"blog_api/src/repositories"
 	friendsRepositories "blog_api/src/repositories/friend"
 	"blog_api/src/service"
+	botService "blog_api/src/service/bot"
 	"fmt"
 	"log"
 	"time"
@@ -41,6 +42,11 @@ func Run() {
 		log.Printf("[main]无法扫描和保存图片: %v", err)
 	}
 
+	// Validate OSS config when enabled
+	if err := service.ValidateOSSConfig(); err != nil {
+		log.Printf("[main][OSS]配置校验失败: %v", err)
+	}
+
 	// Setup HTTP router
 	router := cmd.SetupRouter(db, cfg, startTime)
 
@@ -52,6 +58,9 @@ func Run() {
 			log.Fatalf("[main][Http]Failed to start HTTP server: %v", err)
 		}
 	}()
+
+	// Start Telegram integration listener
+	botService.StartTelegramListener(db)
 
 	// Start the cron jobs
 	StartCronJobs(db)

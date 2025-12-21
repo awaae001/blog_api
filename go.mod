@@ -14,6 +14,7 @@ require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-contrib/pprof v1.5.3
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mmcdole/gofeed v1.3.0

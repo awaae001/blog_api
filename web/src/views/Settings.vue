@@ -170,6 +170,12 @@
                     v-model="config.system_conf.moments_integrated_conf.integrated.telegram.channel_id"
                   />
                 </el-form-item>
+                <el-form-item label="媒体目录">
+                  <el-input
+                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.media_path"
+                    placeholder="默认 telegram"
+                  />
+                </el-form-item>
                 <el-form-item label="过滤用户 ID">
                   <el-tag
                     v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
@@ -362,6 +368,7 @@ const config = ref<SystemConfig>({
           sync_delete: false,
           bot_token: '',
           channel_id: '',
+          media_path: '',
           filter_userid: []
         },
         discord: {

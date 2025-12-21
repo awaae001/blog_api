@@ -69,3 +69,12 @@ func CreateMoment(db *gorm.DB, moment *model.Moment, media []model.MomentMedia) 
 func DeleteMoment(db *gorm.DB, id int) error {
 	return db.Model(&model.Moment{}).Where("id = ?", id).Update("status", "deleted").Error
 }
+
+// MomentExistsByChannelMessage checks if a moment already exists for a channel/message pair.
+func MomentExistsByChannelMessage(db *gorm.DB, channelID, messageID int64) (bool, error) {
+	var count int64
+	if err := db.Model(&model.Moment{}).Where("channel_id = ? AND message_id = ?", channelID, messageID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

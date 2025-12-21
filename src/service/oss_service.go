@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
@@ -23,6 +24,44 @@ type OSSService interface {
 	// file: 文件内容
 	// header: 包含文件名等元数据的文件头
 	UploadFile(file multipart.File, header *multipart.FileHeader) (string, error)
+}
+
+// ValidateOSSConfig checks whether the OSS config is usable by making a minimal request.
+func ValidateOSSConfig() error {
+	cfg := config.GetConfig()
+	if !cfg.OSS.Enable {
+		return nil
+	}
+
+	switch cfg.OSS.Provider {
+	case "aliyun":
+		client, err := oss.New(cfg.OSS.Endpoint, cfg.OSS.AccessKeyID, cfg.OSS.AccessKeySecret)
+		if err != nil {
+			return fmt.Errorf("failed to create aliyun oss client: %w", err)
+		}
+		bucket, err := client.Bucket(cfg.OSS.Bucket)
+		if err != nil {
+			return fmt.Errorf("failed to get oss bucket: %w", err)
+		}
+		if _, err := bucket.ListObjects(oss.MaxKeys(1)); err != nil {
+			return fmt.Errorf("failed to list oss objects: %w", err)
+		}
+		return nil
+	case "s3":
+		s3Client, err := newS3Client(&cfg.OSS)
+		if err != nil {
+			return err
+		}
+		_, err = s3Client.HeadBucket(context.TODO(), &s3.HeadBucketInput{
+			Bucket: &cfg.OSS.Bucket,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to head s3 bucket: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported OSS provider: %s", cfg.OSS.Provider)
+	}
 }
 
 // NewOSSService 是一个工厂函数，根据配置创建并返回一个具体的 OSSService 实例
@@ -52,10 +91,11 @@ func generateFilePath(prefix, originalFilename string) string {
 	timestamp := time.Now().Unix()
 	uniqueFilename := fmt.Sprintf("%d-%s", timestamp, originalFilename)
 
-	if prefix == "" {
+	cleanPrefix := strings.Trim(prefix, "/")
+	if cleanPrefix == "" {
 		return uniqueFilename
 	}
-	return fmt.Sprintf("%s/%s", prefix, uniqueFilename)
+	return fmt.Sprintf("%s/%s", cleanPrefix, uniqueFilename)
 }
 
 // AliyunOSSService 实现了 OSSService 接口，用于阿里云 OSS
@@ -95,10 +135,12 @@ func (s *AliyunOSSService) UploadFile(file multipart.File, header *multipart.Fil
 
 	// 根据配置返回访问 URL
 	if s.config.CustomDomain != "" {
-		return fmt.Sprintf("%s/%s", s.config.CustomDomain, objectKey), nil
+		customDomain := strings.TrimRight(s.config.CustomDomain, "/")
+		return fmt.Sprintf("%s/%s", customDomain, objectKey), nil
 	}
 	// 否则，返回标准的 OSS 访问 URL
 	encodedObjectKey := url.PathEscape(objectKey)
+	encodedObjectKey = strings.ReplaceAll(encodedObjectKey, "%2F", "/")
 	return fmt.Sprintf("https://%s.%s/%s", s.config.Bucket, s.config.Endpoint, encodedObjectKey), nil
 }
 
@@ -110,6 +152,19 @@ type S3OSSService struct {
 
 // NewS3OSSService 创建一个新的 S3OSSService 实例
 func NewS3OSSService(cfg *model.OSSConfig) (OSSService, error) {
+	s3Client, err := newS3Client(cfg)
+	if err != nil {
+		return nil, err
+	}
+	uploader := manager.NewUploader(s3Client)
+
+	return &S3OSSService{
+		uploader: uploader,
+		config:   cfg,
+	}, nil
+}
+
+func newS3Client(cfg *model.OSSConfig) (*s3.Client, error) {
 	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
 		awsconfig.WithRegion(cfg.Region),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.AccessKeySecret, "")),
@@ -118,19 +173,12 @@ func NewS3OSSService(cfg *model.OSSConfig) (OSSService, error) {
 		return nil, fmt.Errorf("failed to load s3 config: %w", err)
 	}
 
-	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+	return s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		o.UsePathStyle = true
 		if cfg.Endpoint != "" {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 		}
-	})
-
-	uploader := manager.NewUploader(s3Client)
-
-	return &S3OSSService{
-		uploader: uploader,
-		config:   cfg,
-	}, nil
+	}), nil
 }
 
 // UploadFile 实现了文件上传到 S3 的逻辑
