@@ -81,7 +81,8 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				resourceActionGroup.GET("/*file_path", resourceHandler.GetResource)
 				resourceActionGroup.POST("/local", resourceHandler.UploadResourceLocal)
 				resourceActionGroup.POST("/oss", resourceHandler.UploadResourceOSS)
-				resourceActionGroup.DELETE("/*file_path", resourceHandler.DeleteResource)
+				resourceActionGroup.DELETE("/local/*file_path", resourceHandler.DeleteResourceLocal)
+				resourceActionGroup.DELETE("/oss/*file_path", resourceHandler.DeleteResourceOSS)
 			}
 			actionGroup.PUT("/config", configHandler.UpdateConfig)
 			momentsActionGroup := actionGroup.Group("/moments")

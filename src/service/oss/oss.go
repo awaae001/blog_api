@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"mime/multipart"
+	"path"
 	"strings"
 	"time"
 
@@ -17,7 +18,10 @@ type OSSService interface {
 	// UploadFile 将文件上传到 OSS，并返回文件的 URL
 	// file: 文件内容
 	// header: 包含文件名等元数据的文件头
-	UploadFile(file multipart.File, header *multipart.FileHeader) (string, error)
+	UploadFile(file multipart.File, header *multipart.FileHeader) (string, string, error)
+	// DeleteFile 从 OSS 删除文件
+	// objectKey: 文件在 OSS 中的 key
+	DeleteFile(objectKey string) error
 }
 
 // ValidateOSSConfig checks whether the OSS config is usable by making a minimal request.
@@ -81,13 +85,17 @@ func NewOSSService() (OSSService, error) {
 // generateFilePath 生成在 OSS 中存储的文件路径
 // 使用 prefix 和原始文件名，并可以添加时间戳或 UUID 以避免冲突
 func generateFilePath(prefix, originalFilename string) string {
-	// 为了避免文件名冲突，我们结合了时间戳和原始文件名
+	// 确保路径分隔符为 '/', 以兼容 OSS
+	ossFriendlyFilename := strings.ReplaceAll(originalFilename, "\\", "/")
 	timestamp := time.Now().Unix()
-	uniqueFilename := fmt.Sprintf("%d-%s", timestamp, originalFilename)
+	dir, file := path.Split(ossFriendlyFilename)
+	uniqueFile := fmt.Sprintf("%d-%s", timestamp, file)
+	fullPath := strings.Trim(path.Join(dir, uniqueFile), "/")
 
 	cleanPrefix := strings.Trim(prefix, "/")
 	if cleanPrefix == "" {
-		return uniqueFilename
+		return fullPath
 	}
-	return fmt.Sprintf("%s/%s", cleanPrefix, uniqueFilename)
+
+	return fmt.Sprintf("%s/%s", cleanPrefix, fullPath)
 }

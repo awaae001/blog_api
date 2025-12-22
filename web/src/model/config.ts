@@ -35,6 +35,7 @@ export interface ResourceConfig {
 
 export interface CrawlerConfig {
   concurrency: number;
+  rss_timeout_seconds: number;
 }
 
 export interface MomentsIntegratedConfig {

@@ -66,34 +66,56 @@ func (h *ResourceHandler) UploadResourceOSS(c *gin.Context) {
 	}
 	defer file.Close()
 
-	url, err := h.ossService.UploadFile(file, header)
+	url, objectKey, err := h.ossService.UploadFile(file, header)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "上传到 OSS 失败: "+err.Error()))
 		return
 	}
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
-		"url": url,
+		"url":       url,
+		"objectKey": objectKey,
 	}))
 }
 
-// DeleteResource 处理文件删除请求。
-func (h *ResourceHandler) DeleteResource(c *gin.Context) {
+// DeleteResourceLocal 处理本地文件删除请求。
+func (h *ResourceHandler) DeleteResourceLocal(c *gin.Context) {
 	// 从 URL 通配符参数中获取文件路径
 	filePath := c.Param("file_path")
 	if filePath == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "文件路径不能为空"})
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "文件路径不能为空"))
 		return
 	}
 
 	// Gin 的通配符参数会包含一个前导斜杠，需要去掉
 	filePath = filePath[1:]
 	if err := h.resourceService.DeleteFile(filePath); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, model.NewSuccessResponse("文件删除成功"))
+}
+
+// DeleteResourceOSS 处理 OSS 文件删除请求。
+func (h *ResourceHandler) DeleteResourceOSS(c *gin.Context) {
+	if h.ossService == nil {
+		c.JSON(http.StatusNotImplemented, model.NewErrorResponse(http.StatusNotImplemented, "OSS 服务未启用"))
+		return
+	}
+	// 从 URL 通配符参数中获取文件路径
+	objectKey := c.Param("file_path")
+	if objectKey == "" {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "文件路径不能为空"))
+		return
+	}
+	objectKey = objectKey[1:]
+
+	if err := h.ossService.DeleteFile(objectKey); err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "文件删除成功"})
+	c.JSON(http.StatusOK, model.NewSuccessResponse("文件删除成功"))
 }
 
 // GetResource 处理获取文件或目录列表的请求。
@@ -103,7 +125,6 @@ func (h *ResourceHandler) GetResource(c *gin.Context) {
 	if filePath == "" {
 		filePath = "/"
 	} else {
-		// Gin 的通配符参数会包含一个前导斜杠，需要去掉
 		filePath = filePath[1:]
 	}
 

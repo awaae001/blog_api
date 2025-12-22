@@ -1,5 +1,5 @@
 <template>
-  <div class="image-management">
+  <div class="image-management" v-loading="actionLoading" element-loading-text="处理中...">
     <el-card>
       <template #header>
         <div class="card-header">
@@ -52,6 +52,13 @@
             </template>
           </el-table-column>
           <el-table-column prop="url" label="URL" show-overflow-tooltip></el-table-column>
+          <el-table-column label="存储" width="100">
+            <template #default="{ row }">
+              <el-tag v-if="row.is_oss" type="success">OSS</el-tag>
+              <el-tag v-else-if="row.is_local" type="primary">本地</el-tag>
+              <el-tag v-else type="info">外链</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
@@ -90,12 +97,13 @@
         <el-form-item label="来源" prop="uploadType" v-if="!isEdit">
           <el-radio-group v-model="uploadType">
             <el-radio-button value="url">URL</el-radio-button>
-            <el-radio-button value="upload">上传</el-radio-button>
+            <el-radio-button value="upload">本地</el-radio-button>
+            <el-radio-button value="upload_oss">OSS</el-radio-button>
           </el-radio-group>
         </el-form-item>
 
         <template v-if="!isEdit">
-          <el-form-item label="图片" prop="file" v-if="uploadType === 'upload'">
+          <el-form-item label="图片" prop="file" v-if="uploadType === 'upload' || uploadType === 'upload_oss'">
             <el-upload
               class="image-uploader"
               :auto-upload="false"
@@ -148,11 +156,12 @@ import { usePagination } from '@/utils/pagination'
 
 const images = ref<Image[]>([])
 const loading = ref(false)
+const actionLoading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const uploadType = ref<'url' | 'upload'>('url')
+const uploadType = ref<'url' | 'upload' | 'upload_oss'>('url')
 const fileToUpload = ref<UploadFile | null>(null)
 const previewUrl = ref<string>('')
 const searchParams = reactive({
@@ -256,6 +265,7 @@ const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
     if (valid) {
+      actionLoading.value = true
       try {
         if (isEdit.value) {
           // 编辑模式
@@ -269,7 +279,7 @@ const handleSubmit = async () => {
           // 新增模式
           let payload: CreateImagePayload
 
-          if (uploadType.value === 'upload') {
+          if (uploadType.value === 'upload' || uploadType.value === 'upload_oss') {
             if (!fileToUpload.value?.raw) {
               ElMessage.error('请选择要上传的图片')
               return
@@ -277,13 +287,15 @@ const handleSubmit = async () => {
             const formData = new FormData()
             formData.append('file', fileToUpload.value.raw)
             formData.append('path', 'image')
-            const res = await uploadFile(formData)
+            const target = uploadType.value === 'upload' ? 'local' : 'oss'
+            const res = await uploadFile(formData, target)
 
             payload = {
               name: form.name,
               url: res.data.url,
-              local_path: res.data.local_path,
-              is_local: 1
+              local_path: res.data.local_path || res.data.objectKey,
+              is_local: target === 'local' ? 1 : 0,
+              is_oss: target === 'oss' ? 1 : 0
             }
           } else {
             if (!form.url) {
@@ -304,16 +316,21 @@ const handleSubmit = async () => {
       } catch (error) {
         console.error(error)
         // 错误消息已在各自的 api 调用中处理
+      } finally {
+        actionLoading.value = false
       }
     }
   })
 }
 
 const handleDelete = async (row: Image) => {
+  actionLoading.value = true
   try {
-    // 如果是本地文件，先删除文件
+    // 如果是本地或 OSS 文件，先删除文件
     if (row.is_local === 1 && row.local_path) {
-      await deleteFile(row.local_path)
+      await deleteFile(row.local_path, 'local')
+    } else if (row.is_oss === 1 && row.local_path) {
+      await deleteFile(row.local_path, 'oss')
     }
     // 然后删除数据库记录
     await deleteImage(row.id)
@@ -323,6 +340,8 @@ const handleDelete = async (row: Image) => {
     console.error(error)
     // 错误消息已在 api 调用中处理，或在此处提供通用消息
     ElMessage.error('删除失败，请查看控制台获取更多信息')
+  } finally {
+    actionLoading.value = false
   }
 }
 

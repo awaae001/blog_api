@@ -112,6 +112,7 @@ func UpdateImage(db *gorm.DB, image *model.Image) error {
 		"url":        image.URL,
 		"local_path": image.LocalPath,
 		"is_local":   image.IsLocal,
+		"is_oss":     image.IsOss,
 		"status":     image.Status,
 	})
 

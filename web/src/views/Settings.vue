@@ -118,6 +118,16 @@
                 设置 RSS 爬虫的并发数量，建议值为 5-10
               </div>
             </el-form-item>
+            <el-form-item label="RSS 超时 (秒)">
+              <el-input-number
+                v-model="config.system_conf.crawler_conf.rss_timeout_seconds"
+                :min="1"
+                :max="120"
+              />
+              <div style="color: #909399; font-size: 12px; margin-top: 8px">
+                设置 RSS 解析请求的超时时间，建议值为 10-30
+              </div>
+            </el-form-item>
           </el-form>
         </el-tab-pane>
 
@@ -357,7 +367,8 @@ const config = ref<SystemConfig>({
       }
     },
     crawler_conf: {
-      concurrency: 5
+      concurrency: 5,
+      rss_timeout_seconds: 15
     },
     moments_integrated_conf: {
       enable: false,
@@ -516,6 +527,11 @@ const saveConfig = async () => {
         key: 'system_conf.crawler_conf.concurrency',
         currentValue: config.value.system_conf.crawler_conf.concurrency,
         originalValue: originalConfig.value.system_conf.crawler_conf.concurrency
+      },
+      {
+        key: 'system_conf.crawler_conf.rss_timeout_seconds',
+        currentValue: config.value.system_conf.crawler_conf.rss_timeout_seconds,
+        originalValue: originalConfig.value.system_conf.crawler_conf.rss_timeout_seconds
       },
       {
         key: 'system_conf.moments_integrated_conf',

@@ -29,23 +29,46 @@ func NewAliyunOSSService(cfg *model.OSSConfig) (OSSService, error) {
 }
 
 // UploadFile 实现了文件上传到阿里云 OSS 的逻辑
-func (s *AliyunOSSService) UploadFile(file multipart.File, header *multipart.FileHeader) (string, error) {
+func (s *AliyunOSSService) UploadFile(file multipart.File, header *multipart.FileHeader) (string, string, error) {
+	// Debug log to check configuration
+	fmt.Printf("[AliyunOSS] Uploading file. Config CustomDomain: '%s', Bucket: '%s'\n", s.config.CustomDomain, s.config.Bucket)
+
 	bucket, err := s.client.Bucket(s.config.Bucket)
 	if err != nil {
-		return "", fmt.Errorf("failed to get oss bucket: %w", err)
+		return "", "", fmt.Errorf("failed to get oss bucket: %w", err)
 	}
 	objectKey := generateFilePath(s.config.Prefix, header.Filename)
 	err = bucket.PutObject(objectKey, file, oss.ContentType(header.Header.Get("Content-Type")))
 	if err != nil {
-		return "", fmt.Errorf("failed to upload file to oss: %w", err)
+		return "", "", fmt.Errorf("failed to upload file to oss: %w", err)
 	}
 	if s.config.CustomDomain != "" {
 		customDomain := strings.TrimRight(s.config.CustomDomain, "/")
-		return fmt.Sprintf("%s/%s", customDomain, objectKey), nil
+		return fmt.Sprintf("%s/%s", customDomain, objectKey), objectKey, nil
 	}
 
 	// 否则，返回标准的 OSS 访问 URL
 	encodedObjectKey := url.PathEscape(objectKey)
 	encodedObjectKey = strings.ReplaceAll(encodedObjectKey, "%2F", "/")
-	return fmt.Sprintf("https://%s.%s/%s", s.config.Bucket, s.config.Endpoint, encodedObjectKey), nil
+	return fmt.Sprintf("https://%s.%s/%s", s.config.Bucket, s.config.Endpoint, encodedObjectKey), objectKey, nil
+}
+
+// DeleteFile 实现了从阿里云 OSS 删除文件的逻辑
+func (s *AliyunOSSService) DeleteFile(objectKey string) error {
+	cleanKey := strings.TrimLeft(objectKey, "/")
+	cleanPrefix := strings.Trim(s.config.Prefix, "/")
+	// 安全检查：确保只删除配置路径下的文件
+	if cleanPrefix != "" && !strings.HasPrefix(cleanKey, cleanPrefix) {
+		return fmt.Errorf("delete operation is not allowed for this object key: %s", objectKey)
+	}
+	bucket, err := s.client.Bucket(s.config.Bucket)
+	if err != nil {
+		return fmt.Errorf("failed to get oss bucket: %w", err)
+	}
+
+	err = bucket.DeleteObject(cleanKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete object from oss: %w", err)
+	}
+	return nil
 }

@@ -5,6 +5,7 @@ export interface UploadFileResponse {
   message: string
   url: string
   local_path?: string
+  objectKey?: string
 }
 
 /**
@@ -24,9 +25,9 @@ export const uploadFile = (data: FormData, target: 'local' | 'oss' = 'local'): P
 /**
  * 删除文件
  */
-export const deleteFile = (filePath: string): Promise<ApiResponse> => {
+export const deleteFile = (filePath: string, target: 'local' | 'oss'): Promise<ApiResponse> => {
   return request({
-    url: `/action/resource/${filePath}`,
+    url: `/action/resource/${target}/${filePath}`,
     method: 'delete'
   })
 }

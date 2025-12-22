@@ -23,8 +23,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const defaultTelegramMediaSubPath = "telegram"
-
 type telegramListener struct {
 	db              *gorm.DB
 	bot             *tgbotapi.BotAPI
@@ -32,7 +30,6 @@ type telegramListener struct {
 	channelUsername string
 	filterUserIDs   map[int64]bool
 	ossService      oss.OSSService
-	mediaSubPath    string
 	pendingGroups   map[string]*telegramMediaGroup
 }
 
@@ -59,12 +56,7 @@ func StartTelegramListener(db *gorm.DB) {
 		db:            db,
 		bot:           bot,
 		filterUserIDs: make(map[int64]bool),
-		mediaSubPath:  tgCfg.MediaPath,
 		pendingGroups: make(map[string]*telegramMediaGroup),
-	}
-
-	if listener.mediaSubPath == "" {
-		listener.mediaSubPath = defaultTelegramMediaSubPath
 	}
 
 	for _, id := range tgCfg.FilterUserid {
@@ -390,7 +382,8 @@ func uploadToOSS(svc oss.OSSService, name, mimeType string, data []byte) (string
 	if mimeType != "" {
 		header.Header.Set("Content-Type", mimeType)
 	}
-	return svc.UploadFile(&memFile{Reader: bytes.NewReader(data)}, header)
+	url, _, err := svc.UploadFile(&memFile{Reader: bytes.NewReader(data)}, header)
+	return url, err
 }
 
 type memFile struct {

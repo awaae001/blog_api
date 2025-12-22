@@ -4,6 +4,7 @@ export interface Image {
   url: string;
   local_path: string;
   is_local: number;
+  is_oss: number;
   status: string;
 }
 
@@ -26,6 +27,7 @@ export interface CreateImagePayload {
   url: string;
   local_path?: string;
   is_local?: number;
+  is_oss?: number;
 }
 
 export interface UpdateImagePayload {

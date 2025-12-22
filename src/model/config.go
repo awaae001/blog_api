@@ -24,7 +24,8 @@ type Config struct {
 
 // CrawlerConfig 爬虫配置
 type CrawlerConfig struct {
-	Concurrency int `mapstructure:"concurrency"` // 并发数量，默认 5
+	Concurrency       int `mapstructure:"concurrency"`         // 并发数量，默认 5
+	RssTimeoutSeconds int `mapstructure:"rss_timeout_seconds"` // RSS 解析超时（秒）
 }
 
 // FriendLinksConf 对应 friend_list.json 的结构
@@ -80,7 +81,7 @@ type OSSConfig struct {
 	Bucket          string `mapstructure:"bucket"`
 	Endpoint        string `mapstructure:"endpoint"`
 	Region          string `mapstructure:"region"`
-	CustomDomain    string `mapstructure:"custom_domain"`
+	CustomDomain    string `mapstructure:"customDomain"`
 	Secure          bool   `mapstructure:"secure"`
 	Timeout         int    `mapstructure:"timeout"`
 	Prefix          string `mapstructure:"prefix"`
@@ -98,7 +99,6 @@ type TelegramConfig struct {
 	SyncDelete   bool    `mapstructure:"sync_delete"`
 	BotToken     string  `mapstructure:"bot_token"`
 	ChannelID    string  `mapstructure:"channel_id"`
-	MediaPath    string  `mapstructure:"media_path"`
 	FilterUserid []int64 `mapstructure:"filter_userid"`
 }
 

@@ -137,6 +137,9 @@ func unmarshalConfig(cfg *model.Config) error {
 	if cfg.Crawler.Concurrency <= 0 {
 		cfg.Crawler.Concurrency = 5
 	}
+	if cfg.Crawler.RssTimeoutSeconds <= 0 {
+		cfg.Crawler.RssTimeoutSeconds = 15
+	}
 
 	// 从环境变量加载覆盖敏感信息
 	if telegramBotToken := v.GetString("TELEGRAM_BOT_TOKEN"); telegramBotToken != "" {
