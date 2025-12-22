@@ -3,6 +3,7 @@ package handlerAction
 import (
 	"blog_api/src/model"
 	"blog_api/src/service"
+	"blog_api/src/service/oss"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,17 +12,19 @@ import (
 // ResourceHandler 封装了处理资源相关请求的逻辑。
 type ResourceHandler struct {
 	resourceService *service.ResourceService
+	ossService      oss.OSSService
 }
 
 // NewResourceHandler 创建一个新的 ResourceHandler 实例。
-func NewResourceHandler(cfg *model.Config) *ResourceHandler {
+func NewResourceHandler(cfg *model.Config, ossService oss.OSSService) *ResourceHandler {
 	return &ResourceHandler{
 		resourceService: service.NewResourceService(cfg),
+		ossService:      ossService,
 	}
 }
 
-// UploadResource 处理文件上传请求。
-func (h *ResourceHandler) UploadResource(c *gin.Context) {
+// UploadResourceLocal 处理本地文件上传请求。
+func (h *ResourceHandler) UploadResourceLocal(c *gin.Context) {
 	// 从表单中获取文件
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -45,6 +48,32 @@ func (h *ResourceHandler) UploadResource(c *gin.Context) {
 	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
 		"url":        urlPath,
 		"local_path": localPath,
+	}))
+}
+
+// UploadResourceOSS 处理 OSS 文件上传请求。
+func (h *ResourceHandler) UploadResourceOSS(c *gin.Context) {
+	if h.ossService == nil {
+		c.JSON(http.StatusNotImplemented, model.NewErrorResponse(http.StatusNotImplemented, "OSS 服务未启用"))
+		return
+	}
+
+	// 从表单中获取文件
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "获取文件失败: "+err.Error()))
+		return
+	}
+	defer file.Close()
+
+	url, err := h.ossService.UploadFile(file, header)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "上传到 OSS 失败: "+err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
+		"url": url,
 	}))
 }
 

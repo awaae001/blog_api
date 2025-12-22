@@ -5,6 +5,8 @@ import (
 	handlerAction "blog_api/src/handler/action"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
+	"blog_api/src/service/oss"
+	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +14,12 @@ import (
 )
 
 func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTime time.Time) {
+	ossService, err := oss.NewOSSService()
+	if err != nil {
+		// 记录错误但不中断启动，因为 OSS 可能不是必须的
+		log.Printf("Failed to initialize OSS service: %v", err)
+	}
+
 	friendLinkHandler := handler.NewFriendLinkHandler(db)
 	rssPostHandler := handler.NewRssPostHandler(db)
 	updataHandler := handlerAction.NewUpdataHandler(db)
@@ -19,7 +27,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	authHandler := handler.NewAuthHandler()
 	statusHandler := handler.NewStatusHandler(db, startTime)
 	imageHandler := handlerAction.NewImageHandler(db)
-	resourceHandler := handlerAction.NewResourceHandler(cfg)
+	resourceHandler := handlerAction.NewResourceHandler(cfg, ossService)
 	imagePublicHandler := handler.NewImagePublicHandler(db)
 	momentHandler := handler.NewMomentHandler(db)
 	momentActionHandler := handlerAction.NewMomentHandler(db)
@@ -71,7 +79,8 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			resourceActionGroup := actionGroup.Group("/resource")
 			{
 				resourceActionGroup.GET("/*file_path", resourceHandler.GetResource)
-				resourceActionGroup.POST("", resourceHandler.UploadResource)
+				resourceActionGroup.POST("/local", resourceHandler.UploadResourceLocal)
+				resourceActionGroup.POST("/oss", resourceHandler.UploadResourceOSS)
 				resourceActionGroup.DELETE("/*file_path", resourceHandler.DeleteResource)
 			}
 			actionGroup.PUT("/config", configHandler.UpdateConfig)

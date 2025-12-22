@@ -7,6 +7,7 @@ import (
 	friendsRepositories "blog_api/src/repositories/friend"
 	"blog_api/src/service"
 	botService "blog_api/src/service/bot"
+	"blog_api/src/service/oss"
 	"fmt"
 	"log"
 	"time"
@@ -26,11 +27,6 @@ func Run() {
 	if err != nil {
 		log.Fatalf("[main]Failed to initialize database: %v", err)
 	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		log.Fatalf("[main]Failed to get sql.DB from gorm: %v", err)
-	}
-	defer sqlDB.Close()
 
 	// Insert friend links from config
 	if err := friendsRepositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
@@ -43,7 +39,7 @@ func Run() {
 	}
 
 	// Validate OSS config when enabled
-	if err := service.ValidateOSSConfig(); err != nil {
+	if err := oss.ValidateOSSConfig(); err != nil {
 		log.Printf("[main][OSS]配置校验失败: %v", err)
 	}
 
@@ -61,8 +57,6 @@ func Run() {
 
 	// Start Telegram integration listener
 	botService.StartTelegramListener(db)
-
-	// Start the cron jobs
 	StartCronJobs(db)
 	log.Println("[main][App]Application started successfully. HTTP server and cron jobs are running.")
 

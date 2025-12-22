@@ -5,6 +5,7 @@ import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
 	coreService "blog_api/src/service"
+	"blog_api/src/service/oss"
 	"bytes"
 	"fmt"
 	"io"
@@ -13,7 +14,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -25,11 +25,15 @@ import (
 
 const defaultTelegramMediaSubPath = "telegram"
 
-type telegramMediaRef struct {
-	FileID    string
-	FileName  string
-	MimeType  string
-	MediaType string
+type telegramListener struct {
+	db              *gorm.DB
+	bot             *tgbotapi.BotAPI
+	channelID       int64
+	channelUsername string
+	filterUserIDs   map[int64]bool
+	ossService      oss.OSSService
+	mediaSubPath    string
+	pendingGroups   map[string]*telegramMediaGroup
 }
 
 type telegramMediaGroup struct {
@@ -37,37 +41,15 @@ type telegramMediaGroup struct {
 	LastSeen time.Time
 }
 
-type telegramListener struct {
-	db              *gorm.DB
-	bot             *tgbotapi.BotAPI
-	channelID       int64
-	channelUsername string
-	filterUserIDs   []int64
-	ossService      coreService.OSSService
-	useOSS          bool
-	mediaSubPath    string
-	pendingGroups   map[string]*telegramMediaGroup
-}
-
 // StartTelegramListener starts the Telegram listener in background.
 func StartTelegramListener(db *gorm.DB) {
 	cfg := config.GetConfig()
-	if !cfg.MomentsIntegrated.Enable || !cfg.MomentsIntegrated.Integrated.Telegram.Enable {
+	tgCfg := cfg.MomentsIntegrated.Integrated.Telegram
+	if !cfg.MomentsIntegrated.Enable || !tgCfg.Enable || tgCfg.BotToken == "" {
 		return
 	}
 
-	token := strings.TrimSpace(cfg.MomentsIntegrated.Integrated.Telegram.BotToken)
-	if token == "" {
-		log.Println("[telegram] bot token is empty, skipping integration")
-		return
-	}
-
-	mediaSubPath := strings.TrimSpace(cfg.MomentsIntegrated.Integrated.Telegram.MediaPath)
-	if mediaSubPath == "" {
-		mediaSubPath = defaultTelegramMediaSubPath
-	}
-
-	bot, err := tgbotapi.NewBotAPI(token)
+	bot, err := tgbotapi.NewBotAPI(tgCfg.BotToken)
 	if err != nil {
 		log.Printf("[telegram] init bot failed: %v", err)
 		return
@@ -76,38 +58,40 @@ func StartTelegramListener(db *gorm.DB) {
 	listener := &telegramListener{
 		db:            db,
 		bot:           bot,
-		filterUserIDs: cfg.MomentsIntegrated.Integrated.Telegram.FilterUserid,
-		mediaSubPath:  mediaSubPath,
+		filterUserIDs: make(map[int64]bool),
+		mediaSubPath:  tgCfg.MediaPath,
 		pendingGroups: make(map[string]*telegramMediaGroup),
 	}
 
-	channelID, channelUsername, err := parseTelegramChannel(cfg.MomentsIntegrated.Integrated.Telegram.ChannelID)
-	if err != nil {
+	if listener.mediaSubPath == "" {
+		listener.mediaSubPath = defaultTelegramMediaSubPath
+	}
+
+	for _, id := range tgCfg.FilterUserid {
+		listener.filterUserIDs[id] = true
+	}
+
+	if cid, username, err := parseTelegramChannel(tgCfg.ChannelID); err == nil {
+		listener.channelID = cid
+		listener.channelUsername = username
+	} else {
 		log.Printf("[telegram] invalid channel id: %v", err)
 		return
 	}
-	listener.channelID = channelID
-	listener.channelUsername = channelUsername
 
 	if cfg.OSS.Enable {
-		if err := coreService.ValidateOSSConfig(); err != nil {
-			log.Printf("[telegram] oss validation failed, falling back to local: %v", err)
+		if ossService, err := oss.NewOSSService(); err == nil {
+			listener.ossService = ossService
 		} else {
-			ossService, err := coreService.NewOSSService()
-			if err != nil {
-				log.Printf("[telegram] oss init failed, falling back to local: %v", err)
-			} else {
-				listener.ossService = ossService
-				listener.useOSS = true
-			}
+			log.Printf("[telegram] oss init failed: %v", err)
 		}
 	}
 
 	go listener.run()
 }
 
-func parseTelegramChannel(channelID string) (int64, string, error) {
-	raw := strings.TrimSpace(channelID)
+func parseTelegramChannel(raw string) (int64, string, error) {
+	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return 0, "", nil
 	}
@@ -115,18 +99,14 @@ func parseTelegramChannel(channelID string) (int64, string, error) {
 		return 0, strings.TrimPrefix(raw, "@"), nil
 	}
 	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, "", err
-	}
-	return id, "", nil
+	return id, "", err
 }
 
 func (l *telegramListener) run() {
 	log.Println("[telegram] listener started")
-	updateConfig := tgbotapi.NewUpdate(0)
-	updateConfig.Timeout = 30
-
-	updates := l.bot.GetUpdatesChan(updateConfig)
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 30
+	updates := l.bot.GetUpdatesChan(u)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -134,138 +114,126 @@ func (l *telegramListener) run() {
 		select {
 		case update, ok := <-updates:
 			if !ok {
-				log.Println("[telegram] updates channel closed")
 				return
 			}
-			msg := pickMessage(update)
-			if msg == nil {
-				continue
-			}
-			if !l.matchChannel(msg.Chat) || !l.matchUser(msg) {
-				continue
-			}
-			if msg.MediaGroupID != "" {
-				l.collectGroup(msg, time.Now())
-				continue
-			}
-			l.handleSingleMessage(msg)
+			l.handleUpdate(update)
 		case <-ticker.C:
-			l.flushGroups(2 * time.Second)
+			l.flushGroups()
 		}
 	}
 }
 
-func pickMessage(update tgbotapi.Update) *tgbotapi.Message {
-	if update.Message != nil {
-		return update.Message
+func (l *telegramListener) handleUpdate(update tgbotapi.Update) {
+	msg := update.Message
+	if msg == nil {
+		msg = update.ChannelPost
 	}
-	if update.ChannelPost != nil {
-		return update.ChannelPost
+	if msg == nil || !l.isValidMessage(msg) {
+		return
 	}
-	return nil
+
+	if msg.MediaGroupID != "" {
+		l.collectGroup(msg)
+	} else {
+		l.processMessage(msg)
+	}
 }
 
-func (l *telegramListener) collectGroup(msg *tgbotapi.Message, now time.Time) {
-	group := l.pendingGroups[msg.MediaGroupID]
-	if group == nil {
+func (l *telegramListener) isValidMessage(msg *tgbotapi.Message) bool {
+	// Check Channel
+	if l.channelID != 0 && msg.Chat.ID != l.channelID {
+		return false
+	}
+	if l.channelUsername != "" && !strings.EqualFold(msg.Chat.UserName, l.channelUsername) {
+		return false
+	}
+
+	// Check User/Sender
+	if msg.SenderChat != nil && msg.SenderChat.Type == "channel" {
+		return true
+	}
+	if len(l.filterUserIDs) == 0 {
+		return true
+	}
+
+	senderID := int64(0)
+	if msg.From != nil {
+		senderID = msg.From.ID
+	} else if msg.SenderChat != nil {
+		senderID = msg.SenderChat.ID
+	}
+
+	if !l.filterUserIDs[senderID] {
+		log.Printf("[telegram] filtered message from %d", senderID)
+		return false
+	}
+	return true
+}
+
+func (l *telegramListener) collectGroup(msg *tgbotapi.Message) {
+	group, exists := l.pendingGroups[msg.MediaGroupID]
+	if !exists {
 		group = &telegramMediaGroup{}
 		l.pendingGroups[msg.MediaGroupID] = group
 	}
 	group.Messages = append(group.Messages, msg)
-	group.LastSeen = now
+	group.LastSeen = time.Now()
 }
 
-func (l *telegramListener) flushGroups(idle time.Duration) {
-	if len(l.pendingGroups) == 0 {
-		return
-	}
+func (l *telegramListener) flushGroups() {
 	now := time.Now()
-	for key, group := range l.pendingGroups {
-		if now.Sub(group.LastSeen) < idle {
-			continue
+	for id, group := range l.pendingGroups {
+		if now.Sub(group.LastSeen) >= 2*time.Second {
+			l.processMediaGroup(group.Messages)
+			delete(l.pendingGroups, id)
 		}
-		l.handleMediaGroup(group.Messages)
-		delete(l.pendingGroups, key)
 	}
 }
 
-func (l *telegramListener) handleSingleMessage(msg *tgbotapi.Message) {
-	log.Printf("[telegram] received message chat=%d message=%d user=%s", msg.Chat.ID, msg.MessageID, describeSender(msg))
-	content := resolveMessageContent(msg)
-	media, err := l.buildMedia(msg)
-	if err != nil {
-		log.Printf("[telegram] media handling failed: %v", err)
+func (l *telegramListener) processMediaGroup(msgs []*tgbotapi.Message) {
+	if len(msgs) == 0 {
 		return
 	}
 
-	if content == "" && len(media) == 0 {
-		return
-	}
+	var content string
+	var media []model.MomentMedia
 
-	exists, err := repositories.MomentExistsByChannelMessage(l.db, msg.Chat.ID, int64(msg.MessageID))
-	if err != nil {
-		log.Printf("[telegram] check existing moment failed: %v", err)
-		return
-	}
-	if exists {
-		return
-	}
+	firstMsg := msgs[0]
+	minMsgID := int64(firstMsg.MessageID)
+	minDate := firstMsg.Date
+	chatID := firstMsg.Chat.ID
 
-	moment := model.Moment{
-		Content:   content,
-		Status:    "visible",
-		ChannelID: msg.Chat.ID,
-		MessageID: int64(msg.MessageID),
-		CreatedAt: int64(msg.Date),
-	}
-
-	if err := repositories.CreateMoment(l.db, &moment, media); err != nil {
-		log.Printf("[telegram] create moment failed: %v", err)
-	}
-}
-
-func (l *telegramListener) handleMediaGroup(messages []*tgbotapi.Message) {
-	if len(messages) == 0 {
-		return
-	}
-	content := ""
-	media := make([]model.MomentMedia, 0, len(messages))
-	minMessageID := int64(messages[0].MessageID)
-	minDate := messages[0].Date
-	chatID := messages[0].Chat.ID
-	log.Printf("[telegram] received media group chat=%d messages=%d", chatID, len(messages))
-
-	for _, msg := range messages {
-		if int64(msg.MessageID) < minMessageID {
-			minMessageID = int64(msg.MessageID)
+	for _, msg := range msgs {
+		if int64(msg.MessageID) < minMsgID {
+			minMsgID = int64(msg.MessageID)
 		}
 		if msg.Date < minDate {
 			minDate = msg.Date
 		}
-		if content == "" {
-			content = resolveMessageContent(msg)
+		if txt := resolveContent(msg); txt != "" && content == "" {
+			content = txt
 		}
-		if msg.Chat.ID != chatID {
-			continue
+		if m, err := l.downloadAndStore(msg); err == nil && len(m) > 0 {
+			media = append(media, m...)
 		}
-		msgMedia, err := l.buildMedia(msg)
-		if err != nil {
-			log.Printf("[telegram] media group item failed: %v", err)
-			return
-		}
-		media = append(media, msgMedia...)
 	}
 
+	l.saveMoment(chatID, minMsgID, int64(minDate), content, media)
+}
+
+func (l *telegramListener) processMessage(msg *tgbotapi.Message) {
+	media, _ := l.downloadAndStore(msg)
+	content := resolveContent(msg)
+	l.saveMoment(msg.Chat.ID, int64(msg.MessageID), int64(msg.Date), content, media)
+}
+
+func (l *telegramListener) saveMoment(chatID, msgID, date int64, content string, media []model.MomentMedia) {
 	if content == "" && len(media) == 0 {
 		return
 	}
 
-	exists, err := repositories.MomentExistsByChannelMessage(l.db, chatID, minMessageID)
-	if err != nil {
-		log.Printf("[telegram] check existing moment failed: %v", err)
-		return
-	}
-	if exists {
+	exists, err := repositories.MomentExistsByChannelMessage(l.db, chatID, msgID)
+	if err != nil || exists {
 		return
 	}
 
@@ -273,102 +241,75 @@ func (l *telegramListener) handleMediaGroup(messages []*tgbotapi.Message) {
 		Content:   content,
 		Status:    "visible",
 		ChannelID: chatID,
-		MessageID: minMessageID,
-		CreatedAt: int64(minDate),
+		MessageID: msgID,
+		CreatedAt: date,
 	}
 
 	if err := repositories.CreateMoment(l.db, &moment, media); err != nil {
 		log.Printf("[telegram] create moment failed: %v", err)
+	} else {
+		log.Printf("[telegram] saved moment chat=%d msg=%d media=%d", chatID, msgID, len(media))
 	}
 }
 
-func resolveMessageContent(msg *tgbotapi.Message) string {
-	content := strings.TrimSpace(msg.Text)
-	if content == "" {
-		content = strings.TrimSpace(msg.Caption)
+func resolveContent(msg *tgbotapi.Message) string {
+	if msg.Text != "" {
+		return msg.Text
 	}
-	return content
+	return msg.Caption
 }
 
-func (l *telegramListener) matchChannel(chat *tgbotapi.Chat) bool {
-	if l.channelID != 0 {
-		return chat.ID == l.channelID
-	}
-	if l.channelUsername != "" {
-		return strings.EqualFold(chat.UserName, l.channelUsername)
-	}
-	return true
-}
-
-func (l *telegramListener) matchUser(msg *tgbotapi.Message) bool {
-	// Channel posts should always be accepted.
-	if msg.SenderChat != nil && msg.SenderChat.Type == "channel" {
-		return true
-	}
-
-	if len(l.filterUserIDs) == 0 {
-		return true
-	}
-
-	if msg.From != nil {
-		for _, id := range l.filterUserIDs {
-			if id == msg.From.ID {
-				return true
-			}
-		}
-		log.Printf("[telegram] message filtered by user list chat=%d message=%d user=%d", msg.Chat.ID, msg.MessageID, msg.From.ID)
-		return false
-	}
-
-	if msg.SenderChat != nil {
-		for _, id := range l.filterUserIDs {
-			if id == msg.SenderChat.ID {
-				return true
-			}
-		}
-		log.Printf("[telegram] message filtered by sender chat list chat=%d message=%d sender=%d", msg.Chat.ID, msg.MessageID, msg.SenderChat.ID)
-	}
-
-	return false
-}
-
-func describeSender(msg *tgbotapi.Message) string {
-	if msg.From != nil {
-		return fmt.Sprintf("user:%d", msg.From.ID)
-	}
-	if msg.SenderChat != nil {
-		return fmt.Sprintf("chat:%d", msg.SenderChat.ID)
-	}
-	return "unknown"
-}
-
-func (l *telegramListener) buildMedia(msg *tgbotapi.Message) ([]model.MomentMedia, error) {
-	ref, ok := pickMediaRef(msg)
-	if !ok {
+func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.MomentMedia, error) {
+	fileID, fileName, mimeType, mediaType := pickMedia(msg)
+	if fileID == "" {
 		return nil, nil
 	}
 
-	fileName, data, mimeType, err := l.downloadFile(ref)
+	file, err := l.bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+	if err != nil {
+		return nil, err
+	}
+	if file.FilePath == "" {
+		return nil, fmt.Errorf("telegram file path is empty")
+	}
+
+	resp, err := http.Get(file.Link(l.bot.Token))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		return nil, fmt.Errorf("telegram download failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	mediaURL, err := l.storeMedia(fileName, mimeType, data)
+	if fileName == "" {
+		fileName = filepath.Base(file.FilePath)
+	}
+	fileName, mimeType, err = normalizeTelegramFile(fileName, mimeType, mediaType, resp, data)
 	if err != nil {
 		return nil, err
 	}
 
-	return []model.MomentMedia{
-		{
-			Name:      filepath.Base(fileName),
-			MediaURL:  mediaURL,
-			MediaType: ref.MediaType,
-			IsDeleted: 0,
-		},
-	}, nil
+	storedURL, err := l.storeFile(fileName, mimeType, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return []model.MomentMedia{{
+		Name:      fileName,
+		MediaURL:  storedURL,
+		MediaType: mediaType,
+	}}, nil
 }
 
-func pickMediaRef(msg *tgbotapi.Message) (telegramMediaRef, bool) {
+func pickMedia(msg *tgbotapi.Message) (id, name, mimeType, mType string) {
 	if len(msg.Photo) > 0 {
 		best := msg.Photo[0]
 		for _, p := range msg.Photo {
@@ -376,129 +317,86 @@ func pickMediaRef(msg *tgbotapi.Message) (telegramMediaRef, bool) {
 				best = p
 			}
 		}
-		return telegramMediaRef{
-			FileID:    best.FileID,
-			MimeType:  "image/jpeg",
-			MediaType: "image",
-		}, true
+		return best.FileID, "", "image/jpeg", "image"
 	}
-
 	if msg.Video != nil {
-		return telegramMediaRef{
-			FileID:    msg.Video.FileID,
-			FileName:  msg.Video.FileName,
-			MimeType:  msg.Video.MimeType,
-			MediaType: "video",
-		}, true
+		return msg.Video.FileID, msg.Video.FileName, msg.Video.MimeType, "video"
 	}
-
 	if msg.Animation != nil {
-		return telegramMediaRef{
-			FileID:    msg.Animation.FileID,
-			FileName:  msg.Animation.FileName,
-			MimeType:  msg.Animation.MimeType,
-			MediaType: "video",
-		}, true
+		return msg.Animation.FileID, msg.Animation.FileName, msg.Animation.MimeType, "video"
 	}
-
 	if msg.Document != nil {
-		mediaType := "image"
+		mType = "image"
 		if strings.HasPrefix(msg.Document.MimeType, "video/") {
-			mediaType = "video"
+			mType = "video"
 		}
-		return telegramMediaRef{
-			FileID:    msg.Document.FileID,
-			FileName:  msg.Document.FileName,
-			MimeType:  msg.Document.MimeType,
-			MediaType: mediaType,
-		}, true
+		return msg.Document.FileID, msg.Document.FileName, msg.Document.MimeType, mType
 	}
-
-	return telegramMediaRef{}, false
+	return "", "", "", ""
 }
 
-func (l *telegramListener) downloadFile(ref telegramMediaRef) (string, []byte, string, error) {
-	fileName := filepath.Base(ref.FileName)
-	mimeType := ref.MimeType
+func normalizeTelegramFile(fileName, mimeType, mediaType string, resp *http.Response, data []byte) (string, string, error) {
+	contentType := strings.TrimSpace(mimeType)
+	if contentType == "" && resp != nil {
+		contentType = strings.TrimSpace(resp.Header.Get("Content-Type"))
+	}
+	if idx := strings.Index(contentType, ";"); idx != -1 {
+		contentType = strings.TrimSpace(contentType[:idx])
+	}
+	detectedType := http.DetectContentType(data)
+	if contentType == "" || contentType == "application/octet-stream" {
+		contentType = detectedType
+	}
 
-	file, err := l.bot.GetFile(tgbotapi.FileConfig{FileID: ref.FileID})
-	if err != nil {
-		return "", nil, "", err
+	if mediaType == "image" && !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(detectedType, "image/") {
+		return "", "", fmt.Errorf("unexpected content type for image: %s", contentType)
 	}
 
 	if fileName == "" {
-		fileName = filepath.Base(file.FilePath)
-	}
-	if mimeType == "" {
-		mimeType = mime.TypeByExtension(filepath.Ext(fileName))
-	}
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
+		fileName = "telegram"
 	}
 	if filepath.Ext(fileName) == "" {
-		extensions, err := mime.ExtensionsByType(mimeType)
-		if err == nil && len(extensions) > 0 {
-			fileName = fileName + extensions[0]
+		exts, _ := mime.ExtensionsByType(contentType)
+		if len(exts) == 0 && strings.HasPrefix(detectedType, "image/") {
+			exts, _ = mime.ExtensionsByType(detectedType)
+		}
+		if len(exts) > 0 {
+			fileName += exts[0]
 		}
 	}
 
-	url := file.Link(l.bot.Token)
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", nil, "", err
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil, "", err
-	}
-	if len(data) == 0 {
-		return "", nil, "", fmt.Errorf("telegram file is empty")
-	}
-	return fileName, data, mimeType, nil
+	return fileName, contentType, nil
 }
 
-func (l *telegramListener) storeMedia(fileName, mimeType string, data []byte) (string, error) {
-	safeName := filepath.Base(fileName)
-	if safeName == "" {
-		return "", fmt.Errorf("empty file name")
+func (l *telegramListener) storeFile(name, mimeType string, data []byte) (string, error) {
+	datePath := time.Now().Format("060102")
+	finalSubPath := filepath.Join("tel", datePath)
+	if l.ossService != nil {
+		path := filepath.Join(finalSubPath, name)
+		return uploadToOSS(l.ossService, path, mimeType, data)
 	}
 
-	if l.useOSS && l.ossService != nil {
-		ossFileName := safeName
-		if l.mediaSubPath != "" {
-			ossFileName = path.Join(strings.TrimPrefix(l.mediaSubPath, "/"), safeName)
-		}
-		return uploadWithOSS(l.ossService, ossFileName, mimeType, data)
-	}
-
-	resourceService := coreService.NewResourceService(config.GetConfig())
-	_, urlPath, err := resourceService.SaveBytes(safeName, data, l.mediaSubPath, false)
-	if err != nil {
-		return "", err
-	}
-	return urlPath, nil
+	svc := coreService.NewResourceService(config.GetConfig())
+	_, url, err := svc.SaveBytes(name, data, finalSubPath, false)
+	return url, err
 }
 
-func uploadWithOSS(service coreService.OSSService, fileName, mimeType string, data []byte) (string, error) {
-	reader := bytes.NewReader(data)
-	file := &readSeekCloser{Reader: reader}
+func uploadToOSS(svc oss.OSSService, name, mimeType string, data []byte) (string, error) {
 	header := &multipart.FileHeader{
-		Filename: fileName,
+		Filename: name,
 		Header:   make(textproto.MIMEHeader),
 		Size:     int64(len(data)),
 	}
 	if mimeType != "" {
 		header.Header.Set("Content-Type", mimeType)
 	}
-	return service.UploadFile(file, header)
+	return svc.UploadFile(&memFile{Reader: bytes.NewReader(data)}, header)
 }
 
-type readSeekCloser struct {
+type memFile struct {
 	*bytes.Reader
 }
 
-func (r *readSeekCloser) Close() error {
-	return nil
-}
+func (m *memFile) Close() error                                  { return nil }
+func (m *memFile) ReadAt(p []byte, off int64) (n int, err error) { return m.Reader.ReadAt(p, off) }
+func (m *memFile) Seek(offset int64, whence int) (int64, error)  { return m.Reader.Seek(offset, whence) }
