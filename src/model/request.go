@@ -42,6 +42,16 @@ type ImageQueryOptions struct {
 	Name     string `form:"name"`
 }
 
+// UpdateImageReq defines the request body for updating an image.
+type UpdateImageReq struct {
+	Name      *string `json:"name"`
+	URL       *string `json:"url"`
+	LocalPath *string `json:"local_path"`
+	IsLocal   *int    `json:"is_local"`
+	IsOss     *int    `json:"is_oss"`
+	Status    *string `json:"status"`
+}
+
 // UpdateConfigReq 定义了更新配置的请求体
 type UpdateConfigReq struct {
 	Key   string      `json:"key" binding:"required"`

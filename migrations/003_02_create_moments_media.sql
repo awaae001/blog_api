@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS moments_media (
     )),
     is_deleted INTEGER NOT NULL DEFAULT 0,
 
-    FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE
+    FOREIGN KEY (moment_id) REFERENCES moments(id) 
 );
 
 -- 索引

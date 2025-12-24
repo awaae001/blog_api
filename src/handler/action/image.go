@@ -93,13 +93,43 @@ func (h *ImageHandler) UpdateImage(c *gin.Context) {
 		return
 	}
 
-	var image model.Image
-	if err := c.ShouldBindJSON(&image); err != nil {
+	var req model.UpdateImageReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "无效的请求体: "+err.Error()))
 		return
 	}
+	if req.Status != nil {
+		validStatuses := map[string]bool{
+			"normal":  true,
+			"pause":   true,
+			"broken":  true,
+			"pending": true,
+		}
+		if !validStatuses[*req.Status] {
+			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "无效的状态参数"))
+			return
+		}
+	}
 
-	image.ID = id
+	image := model.Image{ID: id}
+	if req.Name != nil {
+		image.Name = *req.Name
+	}
+	if req.URL != nil {
+		image.URL = *req.URL
+	}
+	if req.LocalPath != nil {
+		image.LocalPath = *req.LocalPath
+	}
+	if req.IsLocal != nil {
+		image.IsLocal = *req.IsLocal
+	}
+	if req.IsOss != nil {
+		image.IsOss = *req.IsOss
+	}
+	if req.Status != nil {
+		image.Status = *req.Status
+	}
 
 	if err := imageRepositories.UpdateImage(h.DB, &image); err != nil {
 		if err == gorm.ErrRecordNotFound {

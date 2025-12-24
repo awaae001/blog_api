@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS moments (
   guild_id INTEGER,
   channel_id INTEGER ,
   message_id INTEGER,
+  message_link TEXT,
   created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
   updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );

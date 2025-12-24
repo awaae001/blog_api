@@ -18,23 +18,25 @@ type CrawlJobResult struct {
 	Result model.CrawlResult
 }
 
+// RssParseJob 表示一个 RSS 解析任务
+type RssParseJob struct {
+	FriendRssID int
+	RssURL      string
+}
+
+// ImageCheckJob 表示一个图片检查任务
+type ImageCheckJob struct {
+	Image model.Image
+}
+
 // CrawlWebsitesConcurrently 并发爬取多个网站
 // 使用 worker pool 模式，并发数量由配置文件控制
 func CrawlWebsitesConcurrently(links []model.FriendWebsite) []CrawlJobResult {
-	concurrency := config.GetConfig().Crawler.Concurrency
-	if concurrency <= 0 {
-		concurrency = 5 // 默认并发数
-	}
-
-	// 如果链接数量少于并发数，则使用链接数量作为并发数
-	if len(links) < concurrency {
-		concurrency = len(links)
-	}
-
 	if len(links) == 0 {
 		return []CrawlJobResult{}
 	}
 
+	concurrency := effectiveConcurrency(len(links))
 	log.Printf("[ConcurrentCrawler] 开始并发爬取 %d 个网站，并发数: %d", len(links), concurrency)
 
 	// 创建任务通道和结果通道
@@ -85,28 +87,13 @@ func crawlWorker(id int, jobs <-chan CrawlJob, results chan<- CrawlJobResult, wg
 	}
 }
 
-// RssParseJob 表示一个 RSS 解析任务
-type RssParseJob struct {
-	FriendRssID int
-	RssURL      string
-}
-
 // ParseRssFeedsConcurrently 并发解析多个 RSS 订阅源
 func ParseRssFeedsConcurrently(feeds []model.FriendRss, parseFunc func(friendRssID int, rssURL string)) {
-	concurrency := config.GetConfig().Crawler.Concurrency
-	if concurrency <= 0 {
-		concurrency = 5 // 默认并发数
-	}
-
-	// 如果订阅源数量少于并发数，则使用订阅源数量作为并发数
-	if len(feeds) < concurrency {
-		concurrency = len(feeds)
-	}
-
 	if len(feeds) == 0 {
 		return
 	}
 
+	concurrency := effectiveConcurrency(len(feeds))
 	log.Printf("[ConcurrentCrawler] 开始并发解析 %d 个 RSS 订阅源，并发数: %d", len(feeds), concurrency)
 
 	// 创建任务通道
@@ -143,4 +130,50 @@ func rssParseWorker(id int, jobs <-chan RssParseJob, parseFunc func(friendRssID 
 		parseFunc(job.FriendRssID, job.RssURL)
 		log.Printf("[ConcurrentCrawler][Worker %d] 完成解析 RSS: %s", id, job.RssURL)
 	}
+}
+
+// CheckImagesConcurrently 并发检查图片
+func CheckImagesConcurrently(images []model.Image, checkFunc func(image model.Image)) {
+	if len(images) == 0 {
+		return
+	}
+
+	concurrency := effectiveConcurrency(len(images))
+	log.Printf("[ConcurrentCrawler] 开始并发检查 %d 张图片，并发数: %d", len(images), concurrency)
+
+	jobs := make(chan ImageCheckJob, len(images))
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go imageCheckWorker(i, jobs, checkFunc, &wg)
+	}
+
+	for _, img := range images {
+		jobs <- ImageCheckJob{Image: img}
+	}
+	close(jobs)
+
+	wg.Wait()
+	log.Printf("[ConcurrentCrawler] 完成并发检查 %d 张图片", len(images))
+}
+
+func imageCheckWorker(id int, jobs <-chan ImageCheckJob, checkFunc func(image model.Image), wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for job := range jobs {
+		log.Printf("[ConcurrentCrawler][Worker %d] 正在检查图片: %s", id, job.Image.URL)
+		checkFunc(job.Image)
+		log.Printf("[ConcurrentCrawler][Worker %d] 完成检查图片: %s", id, job.Image.URL)
+	}
+}
+
+func effectiveConcurrency(total int) int {
+	concurrency := config.GetConfig().Crawler.Concurrency
+	if concurrency <= 0 {
+		concurrency = 5 // 默认并发数
+	}
+	if total < concurrency {
+		return total
+	}
+	return concurrency
 }

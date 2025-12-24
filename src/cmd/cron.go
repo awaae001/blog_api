@@ -121,6 +121,13 @@ func RunRssParserJob(db *gorm.DB) {
 	log.Println("[Cron] RSS 解析任务完成")
 }
 
+// RunImageCheckJob 执行图片资源检查任务
+func RunImageCheckJob(db *gorm.DB) {
+	log.Println("[Cron] 正在运行图片资源检查任务...")
+	crawlerService.CheckImagesHealth(db)
+	log.Println("[Cron] 图片资源检查任务完成")
+}
+
 // StartCronJobs 初始化并启动 cron 任务
 func StartCronJobs(db *gorm.DB) {
 	c := cron.New()
@@ -138,6 +145,11 @@ func StartCronJobs(db *gorm.DB) {
 	// 安排 RSS 解析任务每 3 小时运行一次
 	c.AddFunc("0 */3 * * *", func() {
 		RunRssParserJob(db)
+	})
+
+	// 安排图片资源检查任务每 24 小时运行一次
+	c.AddFunc("30 0 * * *", func() {
+		RunImageCheckJob(db)
 	})
 
 	// 如果启用了状态日志，则安排任务

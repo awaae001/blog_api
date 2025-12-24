@@ -75,7 +75,6 @@ func QueryImages(db *gorm.DB, opts model.ImageQueryOptions) (model.QueryImageRes
 		query = query.Where("status = ?", opts.Status)
 	}
 
-	// Apply name filter for fuzzy search
 	if opts.Name != "" {
 		query = query.Where("name LIKE ?", "%"+opts.Name+"%")
 	}
@@ -107,14 +106,32 @@ func CreateImage(db *gorm.DB, image *model.Image) error {
 
 // UpdateImage updates an existing image record in the database.
 func UpdateImage(db *gorm.DB, image *model.Image) error {
-	result := db.Model(&model.Image{}).Where("id = ?", image.ID).Updates(map[string]interface{}{
-		"name":       image.Name,
-		"url":        image.URL,
-		"local_path": image.LocalPath,
-		"is_local":   image.IsLocal,
-		"is_oss":     image.IsOss,
-		"status":     image.Status,
-	})
+	updates := map[string]interface{}{}
+	if image.Name != "" {
+		updates["name"] = image.Name
+	}
+	if image.URL != "" {
+		updates["url"] = image.URL
+	}
+	if image.LocalPath != "" {
+		updates["local_path"] = image.LocalPath
+	}
+	if image.IsLocal != 0 {
+		updates["is_local"] = image.IsLocal
+	}
+	if image.IsOss != 0 {
+		updates["is_oss"] = image.IsOss
+	}
+	if image.Status != "" {
+		updates["status"] = image.Status
+	}
+
+	if len(updates) == 0 {
+		log.Printf("[db][image][WARN] 没有可更新的字段，ID: %d", image.ID)
+		return nil
+	}
+
+	result := db.Model(&model.Image{}).Where("id = ?", image.ID).Updates(updates)
 
 	if result.RowsAffected == 0 {
 		log.Printf("[db][image][WARN] 未找到要更新的图片，ID: %d", image.ID)
@@ -151,10 +168,20 @@ func GetImageByID(db *gorm.DB, id int) (*model.Image, error) {
 // GetRandomImage retrieves a random image from the database.
 func GetRandomImage(db *gorm.DB) (*model.Image, error) {
 	var image model.Image
-	err := db.Order("RANDOM()").First(&image).Error
+	err := db.Where("status = ?", "normal").Order("RANDOM()").First(&image).Error
 	if err != nil {
 		log.Printf("[db][image][ERR] 无法获取随机图片: %v", err)
 		return nil, err
 	}
 	return &image, nil
+}
+
+// ListImages retrieves all images from the database.
+func ListImages(db *gorm.DB) ([]model.Image, error) {
+	var images []model.Image
+	if err := db.Find(&images).Error; err != nil {
+		log.Printf("[db][image][ERR] 无法获取图片列表: %v", err)
+		return nil, err
+	}
+	return images, nil
 }
