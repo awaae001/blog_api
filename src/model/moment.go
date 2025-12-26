@@ -31,27 +31,3 @@ type MomentMedia struct {
 func (MomentMedia) TableName() string {
 	return "moments_media"
 }
-
-// MomentWithMedia represents a moment with its associated media files.
-type MomentWithMedia struct {
-	Moment
-	Media []MomentMedia `json:"media"`
-}
-
-// QueryMomentsResponse defines the response for querying moments.
-type QueryMomentsResponse struct {
-	Moments []MomentWithMedia `json:"moments"`
-	Total   int64             `json:"total"`
-}
-
-// MediaRequest represents the media data in the create moment request.
-type MediaRequest struct {
-	MediaURL  string `json:"media_url" binding:"required"`
-	MediaType string `json:"media_type" binding:"required"`
-}
-
-// CreateMomentRequest represents the request body for creating a new moment.
-type CreateMomentRequest struct {
-	Content string         `json:"content" binding:"required"`
-	Media   []MediaRequest `json:"media"`
-}

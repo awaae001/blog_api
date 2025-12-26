@@ -39,6 +39,24 @@ func NewSuccessResponse(data interface{}) ApiResponse {
 	}
 }
 
+// MomentWithMedia represents a moment with its associated media files.
+type MomentWithMedia struct {
+	Moment
+	Media []MomentMedia `json:"media"`
+}
+
+// QueryMomentsResponse defines the response for querying moments.
+type QueryMomentsResponse struct {
+	Moments []MomentWithMedia `json:"moments"`
+	Total   int64             `json:"total"`
+}
+
+// QueryMediaResponse defines the response for querying media.
+type QueryMediaResponse struct {
+	Media []MomentMedia `json:"media"`
+	Total int64         `json:"total"`
+}
+
 // NewErrorResponse 创建错误响应
 func NewErrorResponse(code int, message string) ApiResponse {
 	return ApiResponse{

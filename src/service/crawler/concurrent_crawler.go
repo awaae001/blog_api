@@ -93,11 +93,24 @@ func ParseRssFeedsConcurrently(feeds []model.FriendRss, parseFunc func(friendRss
 		return
 	}
 
-	concurrency := effectiveConcurrency(len(feeds))
-	log.Printf("[ConcurrentCrawler] 开始并发解析 %d 个 RSS 订阅源，并发数: %d", len(feeds), concurrency)
+	activeFeeds := make([]model.FriendRss, 0, len(feeds))
+	for _, feed := range feeds {
+		if feed.Status == "pause" {
+			log.Printf("[ConcurrentCrawler] 跳过已暂停的 RSS 订阅源: %s", feed.RssURL)
+			continue
+		}
+		activeFeeds = append(activeFeeds, feed)
+	}
+	if len(activeFeeds) == 0 {
+		log.Printf("[ConcurrentCrawler] 没有需要解析的 RSS 订阅源")
+		return
+	}
+
+	concurrency := effectiveConcurrency(len(activeFeeds))
+	log.Printf("[ConcurrentCrawler] 开始并发解析 %d 个 RSS 订阅源，并发数: %d", len(activeFeeds), concurrency)
 
 	// 创建任务通道
-	jobs := make(chan RssParseJob, len(feeds))
+	jobs := make(chan RssParseJob, len(activeFeeds))
 
 	// 启动 worker goroutines
 	var wg sync.WaitGroup
@@ -107,7 +120,7 @@ func ParseRssFeedsConcurrently(feeds []model.FriendRss, parseFunc func(friendRss
 	}
 
 	// 发送任务到任务通道
-	for _, feed := range feeds {
+	for _, feed := range activeFeeds {
 		jobs <- RssParseJob{
 			FriendRssID: feed.ID,
 			RssURL:      feed.RssURL,
@@ -118,7 +131,7 @@ func ParseRssFeedsConcurrently(feeds []model.FriendRss, parseFunc func(friendRss
 	// 等待所有 worker 完成
 	wg.Wait()
 
-	log.Printf("[ConcurrentCrawler] 完成并发解析 %d 个 RSS 订阅源", len(feeds))
+	log.Printf("[ConcurrentCrawler] 完成并发解析 %d 个 RSS 订阅源", len(activeFeeds))
 }
 
 // rssParseWorker 是 RSS 解析的 worker goroutine

@@ -31,6 +31,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	imagePublicHandler := handler.NewImagePublicHandler(db)
 	momentHandler := handler.NewMomentHandler(db)
 	momentActionHandler := handlerAction.NewMomentHandler(db)
+	mediaHandler := handlerAction.NewMediaHandler(db)
 	configHandler := handlerAction.NewConfigHandler()
 
 	// API routes
@@ -90,6 +91,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				momentsActionGroup.GET("", momentActionHandler.GetMoments)
 				momentsActionGroup.POST("", momentActionHandler.CreateMoment)
 				momentsActionGroup.DELETE("/:id", momentActionHandler.DeleteMoment)
+				momentsActionGroup.GET("/media", mediaHandler.GetMedia)
 			}
 		}
 	}

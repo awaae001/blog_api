@@ -57,3 +57,15 @@ type UpdateConfigReq struct {
 	Key   string      `json:"key" binding:"required"`
 	Value interface{} `json:"value"`
 }
+
+// MediaRequest represents the media data in the create moment request.
+type MediaRequest struct {
+	MediaURL  string `json:"media_url" binding:"required"`
+	MediaType string `json:"media_type" binding:"required"`
+}
+
+// CreateMomentRequest represents the request body for creating a new moment.
+type CreateMomentRequest struct {
+	Content string         `json:"content" binding:"required"`
+	Media   []MediaRequest `json:"media"`
+}
