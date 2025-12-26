@@ -39,8 +39,7 @@ type telegramMediaGroup struct {
 }
 
 // StartTelegramListener starts the Telegram listener in background.
-func StartTelegramListener(db *gorm.DB) {
-	cfg := config.GetConfig()
+func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 	tgCfg := cfg.MomentsIntegrated.Integrated.Telegram
 	if !cfg.MomentsIntegrated.Enable || !tgCfg.Enable || tgCfg.BotToken == "" {
 		return

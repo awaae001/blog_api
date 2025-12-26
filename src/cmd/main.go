@@ -55,8 +55,8 @@ func Run() {
 		}
 	}()
 
-	// Start Telegram integration listener
-	botService.StartTelegramListener(db)
+	// Start bot integration listeners
+	botService.StartListeners(db, cfg)
 	StartCronJobs(db)
 	log.Println("[main][App]Application started successfully. HTTP server and cron jobs are running.")
 

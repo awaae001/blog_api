@@ -56,7 +56,7 @@ func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name str
 	err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error
 	if err == nil {
 		log.Printf("RSS feed '%s' already exists for friend link ID %d, skipping.", rssURL, friendLinkID)
-		return nil, fmt.Errorf("RSS feed '%s' already exists", rssURL)
+		return nil, nil
 	}
 	if err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("failed to check for existing RSS feed: %w", err)
