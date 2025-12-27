@@ -443,24 +443,24 @@ const addAllowExtension = () => {
 
 const addTelegramFilterUserid = () => {
   if (newTelegramFilterUserid.value.trim()) {
-    const id = parseInt(newTelegramFilterUserid.value.trim(), 10)
-    if (!isNaN(id)) {
+    const id = newTelegramFilterUserid.value.trim()
+    if (/^\d+$/.test(id)) {
       config.value.system_conf.moments_integrated_conf.integrated.telegram.filter_userid.push(id)
       newTelegramFilterUserid.value = ''
     } else {
-      ElMessage.warning('请输入有效的用户 ID (数字)')
+      ElMessage.warning('请输入有效的用户 ID (仅数字)')
     }
   }
 }
 
 const addDiscordFilterUserid = () => {
   if (newDiscordFilterUserid.value.trim()) {
-    const id = parseInt(newDiscordFilterUserid.value.trim(), 10)
-    if (!isNaN(id)) {
+    const id = newDiscordFilterUserid.value.trim()
+    if (/^\d+$/.test(id)) {
       config.value.system_conf.moments_integrated_conf.integrated.discord.filter_userid.push(id)
       newDiscordFilterUserid.value = ''
     } else {
-      ElMessage.warning('请输入有效的用户 ID (数字)')
+      ElMessage.warning('请输入有效的用户 ID (仅数字)')
     }
   }
 }

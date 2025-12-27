@@ -69,3 +69,21 @@ type CreateMomentRequest struct {
 	Content string         `json:"content" binding:"required"`
 	Media   []MediaRequest `json:"media"`
 }
+
+// CreateMomentMediaReq defines the request body for creating moment media.
+type CreateMomentMediaReq struct {
+	MomentID  int    `json:"moment_id"`
+	Name      string `json:"name"`
+	MediaURL  string `json:"media_url"`
+	MediaType string `json:"media_type"`
+	IsLocal   int    `json:"is_local"`
+}
+
+// UpdateMomentMediaReq defines the request body for updating moment media.
+type UpdateMomentMediaReq struct {
+	MomentID  *int    `json:"moment_id"`
+	Name      *string `json:"name"`
+	MediaURL  *string `json:"media_url"`
+	MediaType *string `json:"media_type"`
+	IsLocal   *int    `json:"is_local"`
+}

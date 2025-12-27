@@ -50,7 +50,11 @@ func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 	}
 
 	for _, id := range dCfg.FilterUserid {
-		listener.filterUserIDs[strconv.FormatInt(id, 10)] = true
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			continue
+		}
+		listener.filterUserIDs[trimmed] = true
 	}
 	if len(listener.filterUserIDs) == 0 {
 		log.Printf("[discord] filter_userid is empty; all users will be accepted")
@@ -69,6 +73,10 @@ func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 		log.Printf("[discord] open session failed: %v", err)
 		return
 	}
+
+	_ = session.UpdateStatusComplex(discordgo.UpdateStatusData{
+		Status: string(discordgo.StatusOnline),
+	})
 
 	log.Println("[discord] listener started")
 }
@@ -112,7 +120,8 @@ func (l *discordListener) onMessageCreate(s *discordgo.Session, m *discordgo.Mes
 
 	content := m.Content
 	media := l.downloadAttachments(m.Attachments)
-	l.saveMoment(guildID, channelID, messageID, m.Timestamp.Unix(), content, media)
+	messageLink := buildDiscordMessageLink(m.GuildID, m.ChannelID, m.ID)
+	l.saveMoment(guildID, channelID, messageID, m.Timestamp.Unix(), messageLink, content, media)
 }
 
 func (l *discordListener) downloadAttachments(attachments []*discordgo.MessageAttachment) []model.MomentMedia {
@@ -189,7 +198,7 @@ func (l *discordListener) downloadAttachment(att *discordgo.MessageAttachment, m
 		return nil, err
 	}
 
-	storedURL, err := l.storeFile(fileName, contentType, data)
+	storedURL, isLocal, err := l.storeFile(fileName, contentType, data)
 	if err != nil {
 		return nil, err
 	}
@@ -198,6 +207,7 @@ func (l *discordListener) downloadAttachment(att *discordgo.MessageAttachment, m
 		Name:      fileName,
 		MediaURL:  storedURL,
 		MediaType: mediaType,
+		IsLocal:   isLocal,
 	}, nil
 }
 
@@ -241,20 +251,24 @@ func normalizeDiscordFile(fileName, mimeType, mediaType string, resp *http.Respo
 	return fileName, contentType, nil
 }
 
-func (l *discordListener) storeFile(name, mimeType string, data []byte) (string, error) {
+func (l *discordListener) storeFile(name, mimeType string, data []byte) (string, int, error) {
 	datePath := time.Now().Format("060102")
-	finalSubPath := filepath.Join("dis", datePath)
+	finalSubPath := filepath.Join("moments", datePath)
 	if l.ossService != nil {
 		path := filepath.Join(finalSubPath, name)
-		return uploadToOSS(l.ossService, path, mimeType, data)
+		url, err := uploadToOSS(l.ossService, path, mimeType, data)
+		if err == nil {
+			return url, 0, nil
+		}
+		log.Printf("[discord][WARN] oss upload failed, fallback to local: %v", err)
 	}
 
 	svc := coreService.NewResourceService(config.GetConfig())
 	_, url, err := svc.SaveBytes(name, data, finalSubPath, false)
-	return url, err
+	return url, 1, err
 }
 
-func (l *discordListener) saveMoment(guildID, channelID, msgID, date int64, content string, media []model.MomentMedia) {
+func (l *discordListener) saveMoment(guildID, channelID, msgID, date int64, messageLink, content string, media []model.MomentMedia) {
 	if content == "" && len(media) == 0 {
 		return
 	}
@@ -265,12 +279,13 @@ func (l *discordListener) saveMoment(guildID, channelID, msgID, date int64, cont
 	}
 
 	moment := model.Moment{
-		Content:   content,
-		Status:    "visible",
-		GuildID:   guildID,
-		ChannelID: channelID,
-		MessageID: msgID,
-		CreatedAt: date,
+		Content:     content,
+		Status:      "visible",
+		GuildID:     guildID,
+		ChannelID:   channelID,
+		MessageID:   msgID,
+		MessageLink: messageLink,
+		CreatedAt:   date,
 	}
 
 	if err := repositories.CreateMoment(l.db, &moment, media); err != nil {
@@ -286,4 +301,18 @@ func parseDiscordID(raw string) (int64, error) {
 		return 0, fmt.Errorf("empty id")
 	}
 	return strconv.ParseInt(raw, 10, 64)
+}
+
+func buildDiscordMessageLink(guildID, channelID, messageID string) string {
+	channelID = strings.TrimSpace(channelID)
+	messageID = strings.TrimSpace(messageID)
+	if channelID == "" || messageID == "" {
+		return ""
+	}
+
+	guildID = strings.TrimSpace(guildID)
+	if guildID == "" {
+		guildID = "@me"
+	}
+	return fmt.Sprintf("https://discord.com/channels/%s/%s/%s", guildID, channelID, messageID)
 }

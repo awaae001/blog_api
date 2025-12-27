@@ -69,7 +69,7 @@ export interface TelegramConfig {
   bot_token: string;
   channel_id: string;
   media_path: string;
-  filter_userid: number[];
+  filter_userid: string[];
 }
 
 export interface DiscordConfig {
@@ -78,5 +78,5 @@ export interface DiscordConfig {
   bot_token: string;
   guild_id: string;
   channel_id: string;
-  filter_userid: number[];
+  filter_userid: string[];
 }

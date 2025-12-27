@@ -99,7 +99,7 @@ type TelegramConfig struct {
 	SyncDelete   bool    `mapstructure:"sync_delete"`
 	BotToken     string  `mapstructure:"bot_token"`
 	ChannelID    string  `mapstructure:"channel_id"`
-	FilterUserid []int64 `mapstructure:"filter_userid"`
+	FilterUserid []string `mapstructure:"filter_userid"`
 }
 
 // DiscordConfig Discord 配置
@@ -109,5 +109,5 @@ type DiscordConfig struct {
 	BotToken     string  `mapstructure:"bot_token"`
 	GuildID      string  `mapstructure:"guild_id"`
 	ChannelID    string  `mapstructure:"channel_id"`
-	FilterUserid []int64 `mapstructure:"filter_userid"`
+	FilterUserid []string `mapstructure:"filter_userid"`
 }

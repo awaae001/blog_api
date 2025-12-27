@@ -6,6 +6,33 @@ import (
 	"gorm.io/gorm"
 )
 
+// CreateMomentMedia creates a new media record for a moment.
+func CreateMomentMedia(db *gorm.DB, media *model.MomentMedia) error {
+	return db.Create(media).Error
+}
+
+// DeleteMomentMedia marks a media record as deleted by its ID.
+func DeleteMomentMedia(db *gorm.DB, id int) error {
+	result := db.Model(&model.MomentMedia{}).Where("id = ?", id).Update("is_deleted", 1)
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return result.Error
+}
+
+// UpdateMomentMedia updates fields for a media record.
+func UpdateMomentMedia(db *gorm.DB, id int, updates map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	result := db.Model(&model.MomentMedia{}).Where("id = ?", id).Updates(updates)
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return result.Error
+}
+
 // QueryMedia retrieves media based on pagination and filters, returning the list and total count.
 func QueryMedia(db *gorm.DB, page, pageSize, momentID int, mediaType string) ([]model.MomentMedia, int64, error) {
 	var media []model.MomentMedia

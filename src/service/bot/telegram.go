@@ -59,7 +59,16 @@ func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 	}
 
 	for _, id := range tgCfg.FilterUserid {
-		listener.filterUserIDs[id] = true
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			continue
+		}
+		parsed, err := strconv.ParseInt(trimmed, 10, 64)
+		if err != nil {
+			log.Printf("[telegram] invalid filter_userid: %s", trimmed)
+			continue
+		}
+		listener.filterUserIDs[parsed] = true
 	}
 
 	if cid, username, err := parseTelegramChannel(tgCfg.ChannelID); err == nil {
@@ -209,16 +218,18 @@ func (l *telegramListener) processMediaGroup(msgs []*tgbotapi.Message) {
 		}
 	}
 
-	l.saveMoment(chatID, minMsgID, int64(minDate), content, media)
+	messageLink := l.buildMessageLink(firstMsg.Chat, int(minMsgID))
+	l.saveMoment(chatID, minMsgID, int64(minDate), messageLink, content, media)
 }
 
 func (l *telegramListener) processMessage(msg *tgbotapi.Message) {
 	media, _ := l.downloadAndStore(msg)
 	content := resolveContent(msg)
-	l.saveMoment(msg.Chat.ID, int64(msg.MessageID), int64(msg.Date), content, media)
+	messageLink := l.buildMessageLink(msg.Chat, msg.MessageID)
+	l.saveMoment(msg.Chat.ID, int64(msg.MessageID), int64(msg.Date), messageLink, content, media)
 }
 
-func (l *telegramListener) saveMoment(chatID, msgID, date int64, content string, media []model.MomentMedia) {
+func (l *telegramListener) saveMoment(chatID, msgID, date int64, messageLink, content string, media []model.MomentMedia) {
 	if content == "" && len(media) == 0 {
 		return
 	}
@@ -229,11 +240,12 @@ func (l *telegramListener) saveMoment(chatID, msgID, date int64, content string,
 	}
 
 	moment := model.Moment{
-		Content:   content,
-		Status:    "visible",
-		ChannelID: chatID,
-		MessageID: msgID,
-		CreatedAt: date,
+		Content:     content,
+		Status:      "visible",
+		ChannelID:   chatID,
+		MessageID:   msgID,
+		MessageLink: messageLink,
+		CreatedAt:   date,
 	}
 
 	if err := repositories.CreateMoment(l.db, &moment, media); err != nil {
@@ -248,6 +260,30 @@ func resolveContent(msg *tgbotapi.Message) string {
 		return msg.Text
 	}
 	return msg.Caption
+}
+
+func (l *telegramListener) buildMessageLink(chat *tgbotapi.Chat, messageID int) string {
+	if chat == nil || messageID == 0 {
+		return ""
+	}
+
+	username := strings.TrimSpace(chat.UserName)
+	if username == "" {
+		username = l.channelUsername
+	}
+	if username != "" {
+		return fmt.Sprintf("https://t.me/%s/%d", username, messageID)
+	}
+
+	chatID := strconv.FormatInt(chat.ID, 10)
+	if strings.HasPrefix(chatID, "-100") {
+		trimmed := strings.TrimPrefix(chatID, "-100")
+		if trimmed != "" {
+			return fmt.Sprintf("https://t.me/c/%s/%d", trimmed, messageID)
+		}
+	}
+
+	return ""
 }
 
 func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.MomentMedia, error) {
@@ -288,7 +324,7 @@ func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.Mome
 		return nil, err
 	}
 
-	storedURL, err := l.storeFile(fileName, mimeType, data)
+	storedURL, isLocal, err := l.storeFile(fileName, mimeType, data)
 	if err != nil {
 		return nil, err
 	}
@@ -297,6 +333,7 @@ func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.Mome
 		Name:      fileName,
 		MediaURL:  storedURL,
 		MediaType: mediaType,
+		IsLocal:   isLocal,
 	}}, nil
 }
 
@@ -359,17 +396,21 @@ func normalizeTelegramFile(fileName, mimeType, mediaType string, resp *http.Resp
 	return fileName, contentType, nil
 }
 
-func (l *telegramListener) storeFile(name, mimeType string, data []byte) (string, error) {
+func (l *telegramListener) storeFile(name, mimeType string, data []byte) (string, int, error) {
 	datePath := time.Now().Format("060102")
-	finalSubPath := filepath.Join("tel", datePath)
+	finalSubPath := filepath.Join("moments", datePath)
 	if l.ossService != nil {
 		path := filepath.Join(finalSubPath, name)
-		return uploadToOSS(l.ossService, path, mimeType, data)
+		url, err := uploadToOSS(l.ossService, path, mimeType, data)
+		if err == nil {
+			return url, 0, nil
+		}
+		log.Printf("[telegram][WARN] oss upload failed, fallback to local: %v", err)
 	}
 
 	svc := coreService.NewResourceService(config.GetConfig())
 	_, url, err := svc.SaveBytes(name, data, finalSubPath, false)
-	return url, err
+	return url, 1, err
 }
 
 func uploadToOSS(svc oss.OSSService, name, mimeType string, data []byte) (string, error) {

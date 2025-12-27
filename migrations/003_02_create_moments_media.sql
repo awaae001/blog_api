@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS moments_media (
         'video'
     )),
     is_deleted INTEGER NOT NULL DEFAULT 0,
+    is_local INTEGER NOT NULL DEFAULT 0,
 
     FOREIGN KEY (moment_id) REFERENCES moments(id) 
 );
