@@ -65,9 +65,22 @@ func CreateMoment(db *gorm.DB, moment *model.Moment, media []model.MomentMedia) 
 	})
 }
 
-// DeleteMoment updates the status of a moment to 'deleted'.
+// DeleteMoment deletes a moment.
 func DeleteMoment(db *gorm.DB, id int) error {
-	return db.Model(&model.Moment{}).Where("id = ?", id).Update("status", "deleted").Error
+	return db.Delete(&model.Moment{}, id).Error
+}
+
+// UpdateMoment updates fields for a moment.
+func UpdateMoment(db *gorm.DB, id int, updates map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	result := db.Model(&model.Moment{}).Where("id = ?", id).Updates(updates)
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return result.Error
 }
 
 // MomentExistsByChannelMessage checks if a moment already exists for a channel/message pair.

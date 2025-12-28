@@ -11,9 +11,15 @@ func CreateMomentMedia(db *gorm.DB, media *model.MomentMedia) error {
 	return db.Create(media).Error
 }
 
-// DeleteMomentMedia marks a media record as deleted by its ID.
-func DeleteMomentMedia(db *gorm.DB, id int) error {
-	result := db.Model(&model.MomentMedia{}).Where("id = ?", id).Update("is_deleted", 1)
+// DeleteMomentMedia deletes a media record by its ID.
+// When hard is false, it performs a soft delete by setting is_deleted = 1.
+func DeleteMomentMedia(db *gorm.DB, id int, hard bool) error {
+	var result *gorm.DB
+	if hard {
+		result = db.Where("id = ?", id).Delete(&model.MomentMedia{})
+	} else {
+		result = db.Model(&model.MomentMedia{}).Where("id = ?", id).Update("is_deleted", 1)
+	}
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}

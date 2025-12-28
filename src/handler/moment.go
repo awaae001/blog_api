@@ -46,8 +46,21 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 		return
 	}
 
+	publicMoments := make([]model.PublicMomentWithMedia, len(resp.Moments))
+	for i, moment := range resp.Moments {
+		publicMoments[i] = model.PublicMomentWithMedia{
+			ID:          moment.ID,
+			Content:     moment.Content,
+			Status:      moment.Status,
+			MessageLink: moment.MessageLink,
+			CreatedAt:   moment.CreatedAt,
+			UpdatedAt:   moment.UpdatedAt,
+			Media:       moment.Media,
+		}
+	}
+
 	paginatedData := model.PaginatedResponse{
-		Items:    resp.Moments,
+		Items:    publicMoments,
 		Total:    int(resp.Total),
 		Page:     page,
 		PageSize: pageSize,

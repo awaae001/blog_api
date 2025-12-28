@@ -66,8 +66,12 @@ type MediaRequest struct {
 
 // CreateMomentRequest represents the request body for creating a new moment.
 type CreateMomentRequest struct {
-	Content string         `json:"content" binding:"required"`
-	Media   []MediaRequest `json:"media"`
+	Content     string         `json:"content" binding:"required"`
+	Media       []MediaRequest `json:"media"`
+	GuildID     *int64         `json:"guild_id"`
+	ChannelID   *int64         `json:"channel_id"`
+	MessageID   *int64         `json:"message_id"`
+	MessageLink *string        `json:"message_link"`
 }
 
 // CreateMomentMediaReq defines the request body for creating moment media.
@@ -86,4 +90,14 @@ type UpdateMomentMediaReq struct {
 	MediaURL  *string `json:"media_url"`
 	MediaType *string `json:"media_type"`
 	IsLocal   *int    `json:"is_local"`
+}
+
+// UpdateMomentRequest defines the request body for updating a moment.
+type UpdateMomentRequest struct {
+	Content     *string `json:"content"`
+	Status      *string `json:"status"`
+	GuildID     *int64  `json:"guild_id"`
+	ChannelID   *int64  `json:"channel_id"`
+	MessageID   *int64  `json:"message_id"`
+	MessageLink *string `json:"message_link"`
 }

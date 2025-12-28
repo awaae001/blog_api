@@ -45,6 +45,17 @@ type MomentWithMedia struct {
 	Media []MomentMedia `json:"media"`
 }
 
+// PublicMomentWithMedia represents a moment for public APIs (excludes internal IDs).
+type PublicMomentWithMedia struct {
+	ID          int           `json:"id"`
+	Content     string        `json:"content"`
+	Status      string        `json:"status"`
+	MessageLink string        `json:"message_link,omitempty"`
+	CreatedAt   int64         `json:"created_at"`
+	UpdatedAt   int64         `json:"updated_at"`
+	Media       []MomentMedia `json:"media"`
+}
+
 // QueryMomentsResponse defines the response for querying moments.
 type QueryMomentsResponse struct {
 	Moments []MomentWithMedia `json:"moments"`

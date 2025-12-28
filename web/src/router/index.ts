@@ -26,6 +26,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/Dashboard.vue')
       },
       {
+        path: 'moments',
+        name: 'Moments',
+        component: () => import('@/views/Moments.vue')
+      },
+      {
         path: 'friend',
         name: 'Friend',
         component: FriendLink

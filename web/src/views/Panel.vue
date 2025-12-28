@@ -33,6 +33,10 @@
             <el-icon><HomeFilled /></el-icon>
             <span>仪表板</span>
           </el-menu-item>
+          <el-menu-item index="moments">
+            <el-icon><ChatLineRound /></el-icon>
+            <span>我的动态</span>
+          </el-menu-item>
           <el-menu-item index="friend">
             <el-icon><Link /></el-icon>
             <span>友链管理</span>
@@ -67,6 +71,7 @@ import {
   User,
   SwitchButton,
   HomeFilled,
+  ChatLineRound,
   Link,
   Document,
   Setting,

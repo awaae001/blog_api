@@ -15,6 +15,18 @@ func CreateMoment(db *gorm.DB, req model.CreateMomentRequest) error {
 		Status:    "visible",
 		CreatedAt: time.Now().Unix(),
 	}
+	if req.GuildID != nil {
+		moment.GuildID = *req.GuildID
+	}
+	if req.ChannelID != nil {
+		moment.ChannelID = *req.ChannelID
+	}
+	if req.MessageID != nil {
+		moment.MessageID = *req.MessageID
+	}
+	if req.MessageLink != nil {
+		moment.MessageLink = *req.MessageLink
+	}
 
 	var media []model.MomentMedia
 	for _, m := range req.Media {

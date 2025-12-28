@@ -37,14 +37,22 @@ func ScanAndSaveImages(db *gorm.DB) error {
 		}
 
 		// 处理单个图片文件
-		img, err := processSingleImage(path, imagePath, targetFormat)
+		processed, err := processSingleImage(path, imagePath, targetFormat)
 		if err != nil {
 			log.Printf("[service][image][DEBUG] Skipping file %s: %v", path, err)
 			return nil
 		}
 
-		if img != nil {
-			images = append(images, *img)
+		if processed != nil {
+			if processed.converted {
+				updated, err := updateImageAfterConvert(db, processed.originalURL, processed.originalPath, processed.image)
+				if err != nil {
+					log.Printf("[service][image][WARN] Failed to update image record after conversion: %v", err)
+				} else if updated {
+					return nil
+				}
+			}
+			images = append(images, *processed.image)
 		}
 		return nil
 	})
@@ -75,12 +83,26 @@ func ScanAndSaveImages(db *gorm.DB) error {
 	return nil
 }
 
+type processedImage struct {
+	image        *model.Image
+	originalPath string
+	originalURL  string
+	converted    bool
+}
+
 // processSingleImage 处理单个图片文件：检查格式、转换（如果需要）、构建模型对象
-func processSingleImage(filePath, rootPath, targetFormat string) (*model.Image, error) {
+func processSingleImage(filePath, rootPath, targetFormat string) (*processedImage, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	if !isSupportedImage(ext) {
 		return nil, fmt.Errorf("unsupported image format")
 	}
+
+	originalRelPath, err := filepath.Rel(rootPath, filePath)
+	if err != nil {
+		log.Printf("[service][image][WARN] Failed to get relative path for %s: %v", filePath, err)
+		return nil, err
+	}
+	originalURL := filepath.ToSlash(filepath.Join("/image", originalRelPath))
 
 	finalPath := filePath
 
@@ -107,6 +129,7 @@ func processSingleImage(filePath, rootPath, targetFormat string) (*model.Image, 
 		}
 		finalPath = newPath
 	}
+	converted := finalPath != filePath
 
 	// 构建相对路径和 URL
 	relPath, err := filepath.Rel(rootPath, finalPath)
@@ -116,12 +139,17 @@ func processSingleImage(filePath, rootPath, targetFormat string) (*model.Image, 
 	}
 	url := filepath.ToSlash(filepath.Join("/image", relPath))
 
-	return &model.Image{
-		Name:      filepath.Base(finalPath),
-		URL:       url,
-		LocalPath: finalPath,
-		IsLocal:   1,
-		Status:    "normal",
+	return &processedImage{
+		image: &model.Image{
+			Name:      filepath.Base(finalPath),
+			URL:       url,
+			LocalPath: finalPath,
+			IsLocal:   1,
+			Status:    "normal",
+		},
+		originalPath: filePath,
+		originalURL:  originalURL,
+		converted:    converted,
 	}, nil
 }
 
@@ -172,4 +200,28 @@ func convertImage(srcPath, destPath, targetFormat string) error {
 	default:
 		return fmt.Errorf("unsupported target format: %s", targetFormat)
 	}
+}
+
+func updateImageAfterConvert(db *gorm.DB, originalURL, originalPath string, img *model.Image) (bool, error) {
+	if img == nil || (originalURL == "" && originalPath == "") {
+		return false, nil
+	}
+	updates := map[string]interface{}{
+		"name":       img.Name,
+		"url":        img.URL,
+		"local_path": img.LocalPath,
+		"is_local":   img.IsLocal,
+		"is_oss":     img.IsOss,
+	}
+	result := db.Model(&model.Image{}).
+		Where("url = ? OR local_path = ?", originalURL, originalPath).
+		Updates(updates)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("[service][image] Updated image record after conversion: %s -> %s", originalURL, img.URL)
+		return true, nil
+	}
+	return false, nil
 }

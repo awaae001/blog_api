@@ -5,6 +5,8 @@ import (
 	"blog_api/src/service"
 	"blog_api/src/service/oss"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,6 +60,12 @@ func (h *ResourceHandler) UploadResourceOSS(c *gin.Context) {
 		return
 	}
 
+	var req model.UploadResourceReq
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的表单参数: "+err.Error()))
+		return
+	}
+
 	// 从表单中获取文件
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -65,6 +73,13 @@ func (h *ResourceHandler) UploadResourceOSS(c *gin.Context) {
 		return
 	}
 	defer file.Close()
+
+	baseName := path.Base(header.Filename)
+	if cleanPath := strings.Trim(req.Path, "/"); cleanPath != "" {
+		header.Filename = path.Join(cleanPath, baseName)
+	} else {
+		header.Filename = baseName
+	}
 
 	url, objectKey, err := h.ossService.UploadFile(file, header)
 	if err != nil {

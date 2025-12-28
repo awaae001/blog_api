@@ -5,6 +5,7 @@ import (
 	"blog_api/src/repositories"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ func NewMediaHandler(db *gorm.DB) *MediaHandler {
 	return &MediaHandler{DB: db}
 }
 
-// CreateMedia handles PUT /api/action/moments/media request
+// CreateMedia handles POST /api/action/moments/media request
 func (h *MediaHandler) CreateMedia(c *gin.Context) {
 	var req model.CreateMomentMediaReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,7 +80,10 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 		return
 	}
 
-	if err := repositories.DeleteMomentMedia(h.DB, id); err != nil {
+	hard := c.Query("hard")
+	isHard := hard == "1" || strings.EqualFold(hard, "true")
+
+	if err := repositories.DeleteMomentMedia(h.DB, id, isHard); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "media not found"))
 		} else {
@@ -91,7 +95,7 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
 }
 
-// UpdateMedia handles POST /api/action/moments/media/:id request
+// UpdateMedia handles PUT /api/action/moments/media/:id request
 func (h *MediaHandler) UpdateMedia(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
