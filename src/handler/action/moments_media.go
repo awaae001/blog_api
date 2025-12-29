@@ -2,7 +2,7 @@ package handlerAction
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	momentRepositories "blog_api/src/repositories/moment"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,7 +63,7 @@ func (h *MediaHandler) CreateMedia(c *gin.Context) {
 		IsDeleted: 0,
 	}
 
-	if err := repositories.CreateMomentMedia(h.DB, &media); err != nil {
+	if err := momentRepositories.CreateMomentMedia(h.DB, &media); err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create media"))
 		return
 	}
@@ -83,7 +83,7 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 	hard := c.Query("hard")
 	isHard := hard == "1" || strings.EqualFold(hard, "true")
 
-	if err := repositories.DeleteMomentMedia(h.DB, id, isHard); err != nil {
+	if err := momentRepositories.DeleteMomentMedia(h.DB, id, isHard); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "media not found"))
 		} else {
@@ -152,7 +152,7 @@ func (h *MediaHandler) UpdateMedia(c *gin.Context) {
 		media.IsLocal = *req.IsLocal
 	}
 
-	if err := repositories.UpdateMomentMedia(h.DB, id, updates); err != nil {
+	if err := momentRepositories.UpdateMomentMedia(h.DB, id, updates); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "media not found"))
 		} else {
@@ -185,7 +185,7 @@ func (h *MediaHandler) GetMedia(c *gin.Context) {
 		req.PageSize = 10
 	}
 
-	media, total, err := repositories.QueryMedia(h.DB, req.Page, req.PageSize, req.MomentID, req.MediaType)
+	media, total, err := momentRepositories.QueryMedia(h.DB, req.Page, req.PageSize, req.MomentID, req.MediaType)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to get media"))
 		return

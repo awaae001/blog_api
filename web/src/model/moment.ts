@@ -22,6 +22,8 @@ export interface MomentMedia {
 
 export interface MomentWithMedia extends Moment {
   media: MomentMedia[]
+  reactions?: Record<string, number>
+  selected_reaction?: string
 }
 
 export interface QueryMomentsResponse {

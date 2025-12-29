@@ -3,7 +3,7 @@ package bot
 import (
 	"blog_api/src/config"
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	momentRepositories "blog_api/src/repositories/moment"
 	coreService "blog_api/src/service"
 	"blog_api/src/service/oss"
 	"fmt"
@@ -273,7 +273,7 @@ func (l *discordListener) saveMoment(guildID, channelID, msgID, date int64, mess
 		return
 	}
 
-	exists, err := repositories.MomentExistsByChannelMessage(l.db, channelID, msgID)
+	exists, err := momentRepositories.MomentExistsByChannelMessage(l.db, channelID, msgID)
 	if err != nil || exists {
 		return
 	}
@@ -288,7 +288,7 @@ func (l *discordListener) saveMoment(guildID, channelID, msgID, date int64, mess
 		CreatedAt:   date,
 	}
 
-	if err := repositories.CreateMoment(l.db, &moment, media); err != nil {
+	if err := momentRepositories.CreateMoment(l.db, &moment, media); err != nil {
 		log.Printf("[discord] create moment failed: %v", err)
 	} else {
 		log.Printf("[discord] saved moment channel=%d msg=%d media=%d", channelID, msgID, len(media))

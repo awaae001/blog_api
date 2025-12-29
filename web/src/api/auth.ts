@@ -3,6 +3,7 @@ import request from '@/utils/request'
 export interface LoginRequest {
   username: string
   password: string
+  turnstile_token?: string
 }
 
 export interface LoginResponse {

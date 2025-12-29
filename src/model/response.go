@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // ApiResponse 统一API响应结构
 type ApiResponse struct {
 	Code    int         `json:"code"`    // HTTP状态码
@@ -42,18 +44,22 @@ func NewSuccessResponse(data interface{}) ApiResponse {
 // MomentWithMedia represents a moment with its associated media files.
 type MomentWithMedia struct {
 	Moment
-	Media []MomentMedia `json:"media"`
+	Media            []MomentMedia  `json:"media"`
+	Reactions        map[string]int `json:"reactions"`
+	SelectedReaction string         `json:"selected_reaction,omitempty"`
 }
 
 // PublicMomentWithMedia represents a moment for public APIs (excludes internal IDs).
 type PublicMomentWithMedia struct {
-	ID          int           `json:"id"`
-	Content     string        `json:"content"`
-	Status      string        `json:"status"`
-	MessageLink string        `json:"message_link,omitempty"`
-	CreatedAt   int64         `json:"created_at"`
-	UpdatedAt   int64         `json:"updated_at"`
-	Media       []MomentMedia `json:"media"`
+	ID               int            `json:"id"`
+	Content          string         `json:"content"`
+	Status           string         `json:"status"`
+	MessageLink      string         `json:"message_link,omitempty"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+	Media            []MomentMedia  `json:"media"`
+	Reactions        map[string]int `json:"reactions"`
+	SelectedReaction string         `json:"selected_reaction,omitempty"`
 }
 
 // QueryMomentsResponse defines the response for querying moments.
@@ -75,4 +81,13 @@ func NewErrorResponse(code int, message string) ApiResponse {
 		Message: message,
 		Data:    nil,
 	}
+}
+
+// FileInfo represents a file or directory in the resource list.
+type FileInfo struct {
+	Name    string    `json:"name"`
+	Path    string    `json:"path"`
+	IsDir   bool      `json:"is_dir"`
+	Size    int64     `json:"size"`
+	ModTime time.Time `json:"mod_time"`
 }

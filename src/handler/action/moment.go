@@ -2,7 +2,7 @@ package handlerAction
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	momentRepositories "blog_api/src/repositories/moment"
 	"blog_api/src/service"
 	"net/http"
 	"strconv"
@@ -69,7 +69,7 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 		req.PageSize = 10
 	}
 
-	resp, err := service.GetMomentsWithMedia(h.DB, req.Page, req.PageSize, req.Status)
+	resp, err := service.GetMomentsWithMedia(h.DB, req.Page, req.PageSize, req.Status, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to get moments"))
 		return
@@ -87,7 +87,7 @@ func (h *MomentHandler) DeleteMoment(c *gin.Context) {
 		return
 	}
 
-	if err := repositories.DeleteMoment(h.DB, id); err != nil {
+	if err := momentRepositories.DeleteMoment(h.DB, id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "moment not found"))
 		} else {
@@ -169,7 +169,7 @@ func (h *MomentHandler) UpdateMoment(c *gin.Context) {
 		return
 	}
 
-	if err := repositories.UpdateMoment(h.DB, id, updates); err != nil {
+	if err := momentRepositories.UpdateMoment(h.DB, id, updates); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "moment not found"))
 		} else {

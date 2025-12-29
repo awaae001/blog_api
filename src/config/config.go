@@ -154,6 +154,12 @@ func unmarshalConfig(cfg *model.Config) error {
 	if ossAccessKeySecret := v.GetString("OSS_ACCESS_KEY_SECRET"); ossAccessKeySecret != "" {
 		cfg.OSS.AccessKeySecret = ossAccessKeySecret
 	}
+	if turnstileSecret := v.GetString("TURNSTILE_SECRET"); turnstileSecret != "" {
+		cfg.Verify.Turnstile.Secret = turnstileSecret
+	}
+	if fingerprintSecret := v.GetString("FINGERPRINT_SECRET"); fingerprintSecret != "" {
+		cfg.Verify.Fingerprint.Secret = fingerprintSecret
+	}
 
 	// 手动解析友链配置
 	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")

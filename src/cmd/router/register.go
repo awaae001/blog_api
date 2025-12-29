@@ -25,14 +25,18 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	updataHandler := handlerAction.NewUpdataHandler(db)
 	RssHandler := handlerAction.NewRssHandler(db)
 	authHandler := handler.NewAuthHandler()
+	verifyHandler := handler.NewVerifyHandler()
 	statusHandler := handler.NewStatusHandler(db, startTime)
 	imageHandler := handlerAction.NewImageHandler(db)
 	resourceHandler := handlerAction.NewResourceHandler(cfg, ossService)
 	imagePublicHandler := handler.NewImagePublicHandler(db)
+	verifyPublicHandler := handler.NewVerifyPublicHandler()
 	momentHandler := handler.NewMomentHandler(db)
+	momentReactionHandler := handler.NewMomentReactionHandler(db)
 	momentActionHandler := handlerAction.NewMomentHandler(db)
 	mediaHandler := handlerAction.NewMediaHandler(db)
 	configHandler := handlerAction.NewConfigHandler()
+	fingerprintHandler := handler.NewFingerprintHandler(db)
 
 	// API routes
 	apiGroup := router.Group("/api")
@@ -41,8 +45,10 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		// Authentication routes
 		verifyGroup := apiGroup.Group("/verify")
 		{
-			verifyGroup.POST("/passwd", authHandler.Login)
+			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandler.Login)
 			verifyGroup.POST("/email", NotImplemented)
+			verifyGroup.POST("/turnstile", middleware.TurnstileVerify(), verifyHandler.IssueVerifyToken)
+			verifyGroup.POST("/fingerprint", middleware.AntiBotAuth(), fingerprintHandler.CreateFingerprint)
 		}
 		publicGroup := apiGroup.Group("/public")
 		{
@@ -50,6 +56,9 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			publicGroup.GET("/rss/", rssPostHandler.GetRssPosts)
 			publicGroup.GET("/image/*id", imagePublicHandler.GetImage)
 			publicGroup.GET("/moments/", momentHandler.GetMoments)
+			publicGroup.GET("/verify-conf", verifyPublicHandler.GetVerifyConfig)
+			publicGroup.POST("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.AddReaction)
+			publicGroup.DELETE("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.DeleteReaction)
 		}
 		apiGroup.GET("/status", middleware.JWTAuth(), statusHandler.GetSystemStatus)
 

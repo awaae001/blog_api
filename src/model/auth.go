@@ -19,3 +19,18 @@ type JWTClaims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
 }
+
+// Fingerprint represents a verified visitor identity.
+type Fingerprint struct {
+	ID               int    `json:"id" gorm:"column:id;primaryKey"`
+	Fingerprint      string `json:"fingerprint" gorm:"column:fingerprint"`
+	UserAgent        string `json:"user_agent,omitempty" gorm:"column:user_agent"`
+	IP               string `json:"ip,omitempty" gorm:"column:ip"`
+	PermissionsLevel string `json:"permissions_level" gorm:"column:permissions_level"`
+	CreatedAt        int64  `json:"created_at" gorm:"column:created_at"`
+}
+
+// TableName sets the table name for Fingerprint.
+func (Fingerprint) TableName() string {
+	return "fingerprints"
+}

@@ -65,6 +65,43 @@
                 style="width: 300px"
               />
             </el-form-item>
+
+            <el-divider content-position="left">验证配置</el-divider>
+            <el-form-item label="启用 Turnstile">
+              <el-switch v-model="config.system_conf.verify_conf.turnstile.enable" />
+            </el-form-item>
+            <template v-if="config.system_conf.verify_conf.turnstile.enable">
+              <el-form-item label="Turnstile Site Key">
+                <el-input
+                  v-model="config.system_conf.verify_conf.turnstile.site_key"
+                  placeholder="Turnstile Site Key"
+                />
+                <div class="form-item-help">用于前端渲染 Turnstile 组件。</div>
+              </el-form-item>
+              <el-form-item label="Turnstile Secret (敏感)">
+                <el-input
+                  v-model="config.system_conf.verify_conf.turnstile.secret"
+                  placeholder="Turnstile Secret"
+                  show-password
+                />
+                <div class="env-override-notice">
+                  此配置可被环境变量 <code>TURNSTILE_SECRET</code> 覆盖。
+                </div>
+                <div class="form-item-help">
+                  仅限受信任前端环境配置；密钥会存储在配置文件中。
+                </div>
+              </el-form-item>
+            </template>
+            <el-form-item label="Fingerprint Secret">
+              <el-input
+                v-model="config.system_conf.verify_conf.fingerprint.secret"
+                placeholder="用于指纹签名的服务端密钥"
+                show-password
+              />
+              <div class="env-override-notice">
+                此配置用于指纹签名，不是 Turnstile 的密钥。可被环境变量 <code>FINGERPRINT_SECRET</code> 覆盖。
+              </div>
+            </el-form-item>
           </el-form>
         </el-tab-pane>
 
@@ -326,6 +363,7 @@
             </template>
           </el-form>
         </el-tab-pane>
+
       </el-tabs>
     </el-card>
   </div>
@@ -404,6 +442,16 @@ const config = ref<SystemConfig>({
       timeout: 30,
       prefix: '',
       customDomain: ''
+    },
+    verify_conf: {
+      turnstile: {
+        enable: false,
+        secret: '',
+        site_key: ''
+      },
+      fingerprint: {
+        secret: ''
+      }
     }
   }
 })
@@ -411,6 +459,26 @@ const config = ref<SystemConfig>({
 onMounted(async () => {
   try {
     const res = await getSystemConfig()
+    if (!res.system_conf.verify_conf) {
+      res.system_conf.verify_conf = {
+        turnstile: {
+          enable: false,
+          secret: '',
+          site_key: ''
+        },
+        fingerprint: {
+          secret: ''
+        }
+      }
+    } else if (!res.system_conf.verify_conf.turnstile) {
+      res.system_conf.verify_conf.turnstile = {
+        enable: false,
+        secret: '',
+        site_key: ''
+      }
+    } else if (!('site_key' in res.system_conf.verify_conf.turnstile)) {
+      res.system_conf.verify_conf.turnstile.site_key = ''
+    }
     config.value = res
     // 深度克隆初始配置，用于后续比较
     originalConfig.value = JSON.parse(JSON.stringify(res))
@@ -542,6 +610,11 @@ const saveConfig = async () => {
         key: 'system_conf.oss_conf',
         currentValue: config.value.system_conf.oss_conf,
         originalValue: originalConfig.value.system_conf.oss_conf
+      },
+      {
+        key: 'system_conf.verify_conf',
+        currentValue: config.value.system_conf.verify_conf,
+        originalValue: originalConfig.value.system_conf.verify_conf
       }
     ]
 

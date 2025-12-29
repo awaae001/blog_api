@@ -101,3 +101,8 @@ type UpdateMomentRequest struct {
 	MessageID   *int64  `json:"message_id"`
 	MessageLink *string `json:"message_link"`
 }
+
+// MomentReactionRequest defines the request body for reacting to a moment.
+type MomentReactionRequest struct {
+	Reaction string `json:"reaction" binding:"required"`
+}

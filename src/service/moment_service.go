@@ -2,7 +2,7 @@ package service
 
 import (
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	momentRepositories "blog_api/src/repositories/moment"
 	"time"
 
 	"gorm.io/gorm"
@@ -37,13 +37,13 @@ func CreateMoment(db *gorm.DB, req model.CreateMomentRequest) error {
 		})
 	}
 
-	return repositories.CreateMoment(db, &moment, media)
+	return momentRepositories.CreateMoment(db, &moment, media)
 }
 
 // GetMomentsWithMedia 获取包含媒体文件的动态列表
-func GetMomentsWithMedia(db *gorm.DB, page, pageSize int, status string) (*model.QueryMomentsResponse, error) {
+func GetMomentsWithMedia(db *gorm.DB, page, pageSize int, status string, fingerprintID *int) (*model.QueryMomentsResponse, error) {
 	// 查询动态列表和总数
-	moments, total, err := repositories.QueryMoments(db, page, pageSize, status)
+	moments, total, err := momentRepositories.QueryMoments(db, page, pageSize, status)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +63,22 @@ func GetMomentsWithMedia(db *gorm.DB, page, pageSize int, status string) (*model
 	}
 
 	// 获取关联的媒体文件
-	mediaList, err := repositories.GetMediaForMoments(db, momentIDs)
+	mediaList, err := momentRepositories.GetMediaForMoments(db, momentIDs)
 	if err != nil {
 		return nil, err
+	}
+
+	reactionCounts, err := momentRepositories.GetReactionCountsForMoments(db, momentIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	var selectedReactions map[int]string
+	if fingerprintID != nil && *fingerprintID > 0 {
+		selectedReactions, err = momentRepositories.GetUserReactionsForMoments(db, momentIDs, *fingerprintID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// 将媒体文件按 moment_id 分组
@@ -78,12 +91,19 @@ func GetMomentsWithMedia(db *gorm.DB, page, pageSize int, status string) (*model
 	result := make([]model.MomentWithMedia, len(moments))
 	for i, m := range moments {
 		result[i] = model.MomentWithMedia{
-			Moment: m,
-			Media:  mediaMap[m.ID],
+			Moment:    m,
+			Media:     mediaMap[m.ID],
+			Reactions: reactionCounts[m.ID],
 		}
 		// 确保 Media 字段不为 nil，方便 JSON 序列化
 		if result[i].Media == nil {
 			result[i].Media = []model.MomentMedia{}
+		}
+		if result[i].Reactions == nil {
+			result[i].Reactions = map[string]int{}
+		}
+		if selectedReactions != nil {
+			result[i].SelectedReaction = selectedReactions[m.ID]
 		}
 	}
 

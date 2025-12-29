@@ -3,7 +3,7 @@ package bot
 import (
 	"blog_api/src/config"
 	"blog_api/src/model"
-	"blog_api/src/repositories"
+	momentRepositories "blog_api/src/repositories/moment"
 	coreService "blog_api/src/service"
 	"blog_api/src/service/oss"
 	"bytes"
@@ -234,7 +234,7 @@ func (l *telegramListener) saveMoment(chatID, msgID, date int64, messageLink, co
 		return
 	}
 
-	exists, err := repositories.MomentExistsByChannelMessage(l.db, chatID, msgID)
+	exists, err := momentRepositories.MomentExistsByChannelMessage(l.db, chatID, msgID)
 	if err != nil || exists {
 		return
 	}
@@ -248,7 +248,7 @@ func (l *telegramListener) saveMoment(chatID, msgID, date int64, messageLink, co
 		CreatedAt:   date,
 	}
 
-	if err := repositories.CreateMoment(l.db, &moment, media); err != nil {
+	if err := momentRepositories.CreateMoment(l.db, &moment, media); err != nil {
 		log.Printf("[telegram] create moment failed: %v", err)
 	} else {
 		log.Printf("[telegram] saved moment chat=%d msg=%d media=%d", chatID, msgID, len(media))

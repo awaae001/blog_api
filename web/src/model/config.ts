@@ -5,6 +5,7 @@ export interface SystemConfig {
     crawler_conf: CrawlerConfig;
     moments_integrated_conf: MomentsIntegratedConfig;
     oss_conf: OSSConfig;
+    verify_conf: VerifyConfig;
   };
 }
 
@@ -57,6 +58,21 @@ export interface OSSConfig {
   prefix: string;
   customDomain: string;
  }
+
+export interface VerifyConfig {
+  turnstile: TurnstileConfig;
+  fingerprint: FingerprintConfig;
+}
+
+export interface TurnstileConfig {
+  enable: boolean;
+  secret: string;
+  site_key: string;
+}
+
+export interface FingerprintConfig {
+  secret: string;
+}
 
 export interface IntegratedTargets {
   telegram: TelegramConfig;

@@ -17,6 +17,7 @@ type Config struct {
 	Crawler           CrawlerConfig           `mapstructure:"crawler_conf"`
 	MomentsIntegrated MomentsIntegratedConfig `mapstructure:"moments_integrated_conf"`
 	OSS               OSSConfig               `mapstructure:"oss_conf"`
+	Verify            VerifyConfig            `mapstructure:"verify_conf"`
 
 	// 友链配置
 	FriendLinks []FriendWebsite
@@ -85,6 +86,24 @@ type OSSConfig struct {
 	Secure          bool   `mapstructure:"secure"`
 	Timeout         int    `mapstructure:"timeout"`
 	Prefix          string `mapstructure:"prefix"`
+}
+
+// VerifyConfig 验证配置
+type VerifyConfig struct {
+	Turnstile   TurnstileConfig   `mapstructure:"turnstile"`
+	Fingerprint FingerprintConfig `mapstructure:"fingerprint"`
+}
+
+// TurnstileConfig Turnstile 配置
+type TurnstileConfig struct {
+	Enable bool   `mapstructure:"enable"`
+	Secret string `mapstructure:"secret"`
+	SiteKey string `mapstructure:"site_key"`
+}
+
+// FingerprintConfig 指纹配置
+type FingerprintConfig struct {
+	Secret string `mapstructure:"secret"`
 }
 
 // IntegratedTargets 集成目标

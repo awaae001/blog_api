@@ -1,4 +1,4 @@
-package repositories
+package momentRepositories
 
 import (
 	"blog_api/src/model"
