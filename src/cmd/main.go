@@ -13,17 +13,17 @@ import (
 	"time"
 )
 
-// Run starts the application
+// Run 启动应用程序
 func Run() {
 	startTime := time.Now()
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[main]Failed to load configuration: %v", err)
+		log.Fatalf("[main]加载配置失败: %v", err)
 	}
 	db, err := repositories.InitDB(cfg)
 	if err != nil {
-		log.Fatalf("[main]Failed to initialize database: %v", err)
+		log.Fatalf("[main]初始化数据库失败: %v", err)
 	}
 	if err := friendsRepositories.InsertFriendLinks(db, cfg.FriendLinks); err != nil {
 		log.Printf("[main]无法插入友链: %v", err)
@@ -40,13 +40,13 @@ func Run() {
 		addr := fmt.Sprintf("%s:%s", cfg.ListenAddress, cfg.Port)
 		log.Printf("[main][Http]HTTP 服务器启动于 %s", addr)
 		if err := router.Run(addr); err != nil {
-			log.Fatalf("[main][Http]Failed to start HTTP server: %v", err)
+			log.Fatalf("[main][Http]启动 HTTP 服务器失败: %v", err)
 		}
 	}()
 
 	botService.StartListeners(db, cfg)
 	StartCronJobs(db)
-	log.Println("[main][App]Application started successfully. HTTP server and cron jobs are running.")
+	log.Println("[main][App]应用程序启动成功。HTTP 服务器和 cron 任务正在运行。")
 
 	select {}
 }

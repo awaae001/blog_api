@@ -101,6 +101,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				momentsActionGroup.POST("", momentActionHandler.CreateMoment)
 				momentsActionGroup.PUT("/:id", momentActionHandler.UpdateMoment)
 				momentsActionGroup.DELETE("/:id", momentActionHandler.DeleteMoment)
+				momentsActionGroup.DELETE("/:id/reactions", momentActionHandler.DeleteMomentReaction)
 			}
 			mediaActionGroup := actionGroup.Group("/moments/media")
 			{

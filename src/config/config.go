@@ -160,6 +160,9 @@ func unmarshalConfig(cfg *model.Config) error {
 	if fingerprintSecret := v.GetString("FINGERPRINT_SECRET"); fingerprintSecret != "" {
 		cfg.Verify.Fingerprint.Secret = fingerprintSecret
 	}
+	if emailPassword := v.GetString("EMAIL_PASSWORD"); emailPassword != "" {
+		cfg.Email.Password = emailPassword
+	}
 
 	// 手动解析友链配置
 	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")

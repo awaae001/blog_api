@@ -18,6 +18,7 @@ type Config struct {
 	MomentsIntegrated MomentsIntegratedConfig `mapstructure:"moments_integrated_conf"`
 	OSS               OSSConfig               `mapstructure:"oss_conf"`
 	Verify            VerifyConfig            `mapstructure:"verify_conf"`
+	Email             EmailConf               `mapstructure:"email_conf"`
 
 	// 友链配置
 	FriendLinks []FriendWebsite
@@ -96,8 +97,8 @@ type VerifyConfig struct {
 
 // TurnstileConfig Turnstile 配置
 type TurnstileConfig struct {
-	Enable bool   `mapstructure:"enable"`
-	Secret string `mapstructure:"secret"`
+	Enable  bool   `mapstructure:"enable"`
+	Secret  string `mapstructure:"secret"`
 	SiteKey string `mapstructure:"site_key"`
 }
 
@@ -114,19 +115,29 @@ type IntegratedTargets struct {
 
 // TelegramConfig Telegram 配置
 type TelegramConfig struct {
-	Enable       bool    `mapstructure:"enable"`
-	SyncDelete   bool    `mapstructure:"sync_delete"`
-	BotToken     string  `mapstructure:"bot_token"`
-	ChannelID    string  `mapstructure:"channel_id"`
+	Enable       bool     `mapstructure:"enable"`
+	SyncDelete   bool     `mapstructure:"sync_delete"`
+	BotToken     string   `mapstructure:"bot_token"`
+	ChannelID    string   `mapstructure:"channel_id"`
 	FilterUserid []string `mapstructure:"filter_userid"`
+}
+
+// EmailConf 邮箱配置
+type EmailConf struct {
+	Enable   bool   `mapstructure:"enable"`
+	Host     string `mapstructure:"host"`
+	UserName string `mapstructure:"user_name"`
+	Password string `mapstructure:"password"`
+	Port     int    `mapstructure:"port"`
+	Sender   string `mapstructure:"sender"`
 }
 
 // DiscordConfig Discord 配置
 type DiscordConfig struct {
-	Enable       bool    `mapstructure:"enable"`
-	SyncDelete   bool    `mapstructure:"sync_delete"`
-	BotToken     string  `mapstructure:"bot_token"`
-	GuildID      string  `mapstructure:"guild_id"`
-	ChannelID    string  `mapstructure:"channel_id"`
+	Enable       bool     `mapstructure:"enable"`
+	SyncDelete   bool     `mapstructure:"sync_delete"`
+	BotToken     string   `mapstructure:"bot_token"`
+	GuildID      string   `mapstructure:"guild_id"`
+	ChannelID    string   `mapstructure:"channel_id"`
 	FilterUserid []string `mapstructure:"filter_userid"`
 }

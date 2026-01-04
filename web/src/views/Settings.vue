@@ -477,7 +477,7 @@ onMounted(async () => {
         site_key: ''
       }
     } else if (!('site_key' in res.system_conf.verify_conf.turnstile)) {
-      res.system_conf.verify_conf.turnstile.site_key = ''
+      ;(res.system_conf.verify_conf.turnstile as any).site_key = ''
     }
     config.value = res
     // 深度克隆初始配置，用于后续比较

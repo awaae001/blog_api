@@ -74,8 +74,8 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool) {
 	}
 
 	// Limit maximum page size
-	if pageSize > 100 {
-		pageSize = 100
+	if pageSize > 1000 {
+		pageSize = 1000
 	}
 
 	// Validate status parameter if provided

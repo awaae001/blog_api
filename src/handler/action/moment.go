@@ -180,3 +180,26 @@ func (h *MomentHandler) UpdateMoment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(moment))
 }
+
+// DeleteMomentReaction handles DELETE /api/action/moments/:id/reactions request
+func (h *MomentHandler) DeleteMomentReaction(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid moment id"))
+		return
+	}
+
+	reaction := c.Query("reaction")
+	if reaction == "" {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "reaction query parameter is required"))
+		return
+	}
+
+	if err := momentRepositories.ClearReactionsByType(h.DB, id, reaction); err != nil {
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete reactions"))
+		return
+	}
+
+	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
+}

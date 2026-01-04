@@ -11,14 +11,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// NotImplemented is a handler for features that are not yet implemented.
+// NotImplemented 是一个处理尚未实现的功能的处理程序。
 func NotImplemented(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{
 		"message": "Not Implemented",
 	})
 }
 
-// SetupRouter initializes and configures the Gin router
+// SetupRouter 初始化并配置 Gin 路由器
 func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()

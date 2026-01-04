@@ -135,7 +135,6 @@ func (h *ResourceHandler) DeleteResourceOSS(c *gin.Context) {
 
 // GetResource 处理获取文件或目录列表的请求。
 func (h *ResourceHandler) GetResource(c *gin.Context) {
-	// 从 URL 通配符参数中获取文件路径
 	filePath := c.Param("file_path")
 	if filePath == "" {
 		filePath = "/"
@@ -150,10 +149,8 @@ func (h *ResourceHandler) GetResource(c *gin.Context) {
 	}
 
 	if fileInfos != nil {
-		// 如果是目录，返回文件列表
 		c.JSON(http.StatusOK, model.NewSuccessResponse(fileInfos))
 	} else {
-		// 如果是文件，直接提供文件下载
 		c.File(fullPath)
 	}
 }

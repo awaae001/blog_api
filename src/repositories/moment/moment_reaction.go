@@ -85,3 +85,16 @@ func GetUserReactionsForMoments(db *gorm.DB, momentIDs []int, fingerprintID int)
 
 	return result, nil
 }
+
+// ClearReactionsByType removes all reactions of a specific type from a moment.
+func ClearReactionsByType(db *gorm.DB, momentID int, reaction string) error {
+	result := db.Where(
+		"moment_id = ? AND reaction = ?",
+		momentID,
+		reaction,
+	).Delete(&model.MomentReaction{})
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
