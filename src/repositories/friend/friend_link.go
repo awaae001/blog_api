@@ -2,6 +2,7 @@ package friendsRepositories
 
 import (
 	"blog_api/src/model"
+	"errors"
 	"fmt"
 	"log"
 
@@ -117,6 +118,20 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 	}
 
 	return resp, nil
+}
+
+// GetFriendLinkByID fetches a single friend link by ID.
+func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
+	var link model.FriendWebsite
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, is_died, enable_rss, updated_at"
+	err := db.Model(&model.FriendWebsite{}).Select(selectFields).Where("id = ?", id).First(&link).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.FriendWebsite{}, err
+		}
+		return model.FriendWebsite{}, fmt.Errorf("could not query friend link by id %d: %w", id, err)
+	}
+	return link, nil
 }
 
 // UpdateFriendLink updates the details of a friend link after crawling.

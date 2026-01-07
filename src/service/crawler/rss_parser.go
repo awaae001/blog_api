@@ -32,6 +32,14 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 		return
 	}
 
+	friendRssName := ""
+	var friendRss model.FriendRss
+	if err := db.Select("name").Where("id = ?", friendRssID).First(&friendRss).Error; err == nil {
+		friendRssName = friendRss.Name
+	} else {
+		log.Printf("获取 RSS 源名称失败 (id=%d): %v", friendRssID, err)
+	}
+
 	p := bluemonday.StripTagsPolicy()
 	for _, item := range feed.Items {
 		publishedTime := item.PublishedParsed
@@ -49,11 +57,39 @@ func ParseRssFeed(db *gorm.DB, friendRssID int, rssURL string) {
 			time = 0
 		}
 
+		author := ""
+		if item.Author != nil {
+			if item.Author.Name != "" {
+				author = item.Author.Name
+			} else if item.Author.Email != "" {
+				author = item.Author.Email
+			}
+		}
+		if author == "" && len(item.Authors) > 0 {
+			for _, candidate := range item.Authors {
+				if candidate == nil {
+					continue
+				}
+				if candidate.Name != "" {
+					author = candidate.Name
+					break
+				}
+				if candidate.Email != "" {
+					author = candidate.Email
+					break
+				}
+			}
+		}
+		if author == "" {
+			author = friendRssName
+		}
+
 		post := &model.RssPost{
 			RssID:       friendRssID,
 			Title:       item.Title,
 			Link:        item.Link,
 			Description: p.Sanitize(item.Description),
+			Author:      author,
 			Time:        time,
 		}
 

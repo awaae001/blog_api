@@ -33,7 +33,7 @@ func GetPosts(db *gorm.DB, query *model.PostQuery) ([]model.RssPost, int, error)
 	var posts []model.RssPost
 	var total int64
 
-	tx := db.Table("friend_rss_post AS p").Select("p.id, p.rss_id, p.title, p.link, p.description, p.time")
+	tx := db.Table("friend_rss_post AS p").Select("p.id, p.rss_id, p.title, p.link, p.description, p.author, p.time")
 	if query.FriendLinkID != nil {
 		tx = tx.Joins("JOIN friend_rss r ON p.rss_id = r.id").Where("r.friend_link_id = ?", *query.FriendLinkID)
 	}

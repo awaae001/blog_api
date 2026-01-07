@@ -19,6 +19,7 @@ export interface RssPost {
   title: string
   link: string
   description: string
+  author: string
   time: number
 }
 

@@ -55,6 +55,7 @@ type RssPost struct {
 	Title       string `json:"title" gorm:"column:title"`
 	Link        string `json:"link" gorm:"column:link"`
 	Description string `json:"description" gorm:"column:description"`
+	Author      string `json:"author" gorm:"column:author"`
 	Time        int64  `json:"time" gorm:"column:time"`
 }
 
