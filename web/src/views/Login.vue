@@ -92,7 +92,7 @@ const rules: FormRules = {
 
 const loadTurnstileConfig = async () => {
   try {
-    const res = await fetch('/api/public/verify-conf', { cache: 'no-store' })
+    const res = await fetch('/api/public/verify_conf', { cache: 'no-store' })
     if (!res.ok) return
     const data = await res.json()
     const turnstile = (data?.data?.turnstile || {}) as TurnstileConfig

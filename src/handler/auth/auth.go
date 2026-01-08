@@ -1,4 +1,4 @@
-package handler
+package authHandler
 
 import (
 	"net/http"
@@ -24,7 +24,6 @@ func NewAuthHandler() *AuthHandler {
 // Login 处理登录请求
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req model.LoginRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ApiResponse{
 			Code:    http.StatusBadRequest,

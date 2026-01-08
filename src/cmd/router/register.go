@@ -3,6 +3,7 @@ package cmd
 import (
 	"blog_api/src/handler"
 	handlerAction "blog_api/src/handler/action"
+	authHandler "blog_api/src/handler/auth"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"blog_api/src/service/oss"
@@ -24,19 +25,19 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	rssPostHandler := handler.NewRssPostHandler(db)
 	updataHandler := handlerAction.NewUpdataHandler(db)
 	RssHandler := handlerAction.NewRssHandler(db)
-	authHandler := handler.NewAuthHandler()
-	verifyHandler := handler.NewVerifyHandler()
+	authHandlerInstance := authHandler.NewAuthHandler()
+	verifyHandler := authHandler.NewVerifyHandler()
 	statusHandler := handler.NewStatusHandler(db, startTime)
 	imageHandler := handlerAction.NewImageHandler(db)
 	resourceHandler := handlerAction.NewResourceHandler(cfg, ossService)
 	imagePublicHandler := handler.NewImagePublicHandler(db)
-	verifyPublicHandler := handler.NewVerifyPublicHandler()
+	verifyPublicHandler := authHandler.NewVerifyPublicHandler()
 	momentHandler := handler.NewMomentHandler(db)
 	momentReactionHandler := handler.NewMomentReactionHandler(db)
 	momentActionHandler := handlerAction.NewMomentHandler(db)
 	mediaHandler := handlerAction.NewMediaHandler(db)
 	configHandler := handlerAction.NewConfigHandler()
-	fingerprintHandler := handler.NewFingerprintHandler(db)
+	fingerprintHandler := authHandler.NewFingerprintHandler(db)
 
 	// API routes
 	apiGroup := router.Group("/api")
@@ -45,7 +46,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		// Authentication routes
 		verifyGroup := apiGroup.Group("/verify")
 		{
-			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandler.Login)
+			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandlerInstance.Login)
 			verifyGroup.POST("/email", NotImplemented)
 			verifyGroup.POST("/turnstile", middleware.TurnstileVerify(), verifyHandler.IssueVerifyToken)
 			verifyGroup.POST("/fingerprint", middleware.AntiBotAuth(), fingerprintHandler.CreateFingerprint)
@@ -57,7 +58,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			publicGroup.GET("/rss/", rssPostHandler.GetRssPosts)
 			publicGroup.GET("/image/*id", imagePublicHandler.GetImage)
 			publicGroup.GET("/moments/", momentHandler.GetMoments)
-			publicGroup.GET("/verify-conf", verifyPublicHandler.GetVerifyConfig)
+			publicGroup.GET("/verify_conf", verifyPublicHandler.GetVerifyConfig)
 			publicGroup.POST("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.AddReaction)
 			publicGroup.DELETE("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.DeleteReaction)
 		}

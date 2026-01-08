@@ -1,4 +1,4 @@
-package handler
+package authHandler
 
 import (
 	"blog_api/src/config"
