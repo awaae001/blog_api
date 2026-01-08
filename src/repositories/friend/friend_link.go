@@ -163,7 +163,7 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 
 	// 仅当现有 icon 为空时才覆盖，避免已有 icon 被新结果替换
 	if link.Avatar == "" && result.IconURL != "" {
-		updates["website_icon_url"] = result.IconURL
+		updates["website_icon_url"] = resolveAvatarURL(result.IconURL, link.Link)
 	}
 
 	if err := db.Model(&model.FriendWebsite{}).Where("id = ?", link.ID).Updates(updates).Error; err != nil {

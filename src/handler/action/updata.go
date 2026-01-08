@@ -33,11 +33,6 @@ func (h *UpdataHandler) CreateFriendLink(c *gin.Context) {
 
 	log.Printf("[handler][updata] Received friend link data: %+v", req)
 
-	// Set default avatar if not provided
-	if req.Avatar == "" {
-		req.Avatar = "/Rss.webp"
-	}
-
 	// Insert into database
 	id, err := friendsRepositories.CreateFriendLink(h.DB, req)
 	if err != nil {
