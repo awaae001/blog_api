@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultEmailCodeTTLSeconds  = 600
-	defaultEmailTokenTTLSeconds = 600
+	defaultEmailTokenTTLSeconds = 86400
 )
 
 type emailCodeEntry struct {
@@ -118,6 +118,22 @@ func ConsumeEmailToken(token string) (string, bool) {
 		return "", false
 	}
 	delete(emailVerifyStore.tokens, token)
+	return entry.email, true
+}
+
+// ValidateEmailToken validates a token without consuming it.
+func ValidateEmailToken(token string) (string, bool) {
+	now := time.Now().Unix()
+	emailVerifyStore.mu.Lock()
+	defer emailVerifyStore.mu.Unlock()
+
+	entry, ok := emailVerifyStore.tokens[token]
+	if !ok || entry.expiresAt <= now {
+		if ok {
+			delete(emailVerifyStore.tokens, token)
+		}
+		return "", false
+	}
 	return entry.email, true
 }
 

@@ -142,6 +142,48 @@
           </el-form>
         </el-tab-pane>
 
+        <!-- 邮件配置 -->
+        <el-tab-pane label="邮件配置" name="email">
+          <el-form :model="config" label-width="150px">
+            <el-form-item label="启用邮件">
+              <el-switch v-model="config.system_conf.email_conf.enable" />
+            </el-form-item>
+            <template v-if="config.system_conf.email_conf.enable">
+              <el-form-item label="SMTP Host">
+                <el-input
+                  v-model="config.system_conf.email_conf.host"
+                  placeholder="smtp.example.com"
+                />
+              </el-form-item>
+              <el-form-item label="SMTP 端口">
+                <el-input-number v-model="config.system_conf.email_conf.port" :min="1" :max="65535" />
+              </el-form-item>
+              <el-form-item label="SMTP 用户名">
+                <el-input
+                  v-model="config.system_conf.email_conf.user_name"
+                  placeholder="user@example.com"
+                />
+              </el-form-item>
+              <el-form-item label="SMTP 密码 (敏感)">
+                <el-input
+                  v-model="config.system_conf.email_conf.password"
+                  placeholder="SMTP Password"
+                  show-password
+                />
+                <div class="env-override-notice">
+                  此配置可被环境变量 <code>EMAIL_PASSWORD</code> 覆盖。
+                </div>
+              </el-form-item>
+              <el-form-item label="发件人">
+                <el-input
+                  v-model="config.system_conf.email_conf.sender"
+                  placeholder="Blog <no-reply@example.com>"
+                />
+              </el-form-item>
+            </template>
+          </el-form>
+        </el-tab-pane>
+
         <!-- 爬虫配置 -->
         <el-tab-pane label="爬虫配置" name="crawler">
           <el-form :model="config" label-width="150px">
@@ -452,6 +494,14 @@ const config = ref<SystemConfig>({
       fingerprint: {
         secret: ''
       }
+    },
+    email_conf: {
+      enable: false,
+      host: '',
+      user_name: '',
+      password: '',
+      port: 465,
+      sender: ''
     }
   }
 })
@@ -478,6 +528,16 @@ onMounted(async () => {
       }
     } else if (!('site_key' in res.system_conf.verify_conf.turnstile)) {
       ;(res.system_conf.verify_conf.turnstile as any).site_key = ''
+    }
+    if (!res.system_conf.email_conf) {
+      res.system_conf.email_conf = {
+        enable: false,
+        host: '',
+        user_name: '',
+        password: '',
+        port: 465,
+        sender: ''
+      }
     }
     config.value = res
     // 深度克隆初始配置，用于后续比较
@@ -615,6 +675,11 @@ const saveConfig = async () => {
         key: 'system_conf.verify_conf',
         currentValue: config.value.system_conf.verify_conf,
         originalValue: originalConfig.value.system_conf.verify_conf
+      },
+      {
+        key: 'system_conf.email_conf',
+        currentValue: config.value.system_conf.email_conf,
+        originalValue: originalConfig.value.system_conf.email_conf
       }
     ]
 

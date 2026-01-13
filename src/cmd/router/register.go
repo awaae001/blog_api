@@ -26,7 +26,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	updataHandler := handlerAction.NewUpdataHandler(db)
 	RssHandler := handlerAction.NewRssHandler(db)
 	authHandlerInstance := authHandler.NewAuthHandler()
-	verifyHandler := authHandler.NewVerifyHandler()
+	verifyHandler := authHandler.NewVerifyHandler(db)
 	statusHandler := handler.NewStatusHandler(db, startTime)
 	imageHandler := handlerAction.NewImageHandler(db)
 	resourceHandler := handlerAction.NewResourceHandler(cfg, ossService)
@@ -42,25 +42,24 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	// API routes
 	apiGroup := router.Group("/api")
 	{
-
-		// Authentication routes
 		verifyGroup := apiGroup.Group("/verify")
 		{
-			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandlerInstance.Login)
-			verifyGroup.POST("/email", verifyHandler.SendEmailCode)
+			verifyGroup.POST("/passwd", authHandlerInstance.Login)
+			verifyGroup.POST("/email", middleware.AntiBotAuth(), verifyHandler.SendEmailCode)
 			verifyGroup.POST("/turnstile", middleware.TurnstileVerify(), verifyHandler.IssueVerifyToken)
 			verifyGroup.POST("/fingerprint", middleware.AntiBotAuth(), fingerprintHandler.CreateFingerprint)
 		}
 		publicGroup := apiGroup.Group("/public")
 		{
+			publicGroup.GET("/verify_conf", verifyPublicHandler.GetVerifyConfig)
 			publicGroup.GET("/friend/", friendLinkHandler.GetAllFriendLinks)
+			publicGroup.GET("/friend/self", middleware.FriendLinkAuth(), friendLinkHandler.GetFriendLinkByEmailToken)
 			publicGroup.GET("/friend/:id", friendLinkHandler.GetFriendLinkByID)
 			publicGroup.POST("/friend", middleware.FriendLinkAuth(), updataHandler.CreateFriendLink)
 			publicGroup.PUT("/friend/:id", middleware.FriendLinkAuth(), updataHandler.EditFriendLink)
 			publicGroup.GET("/rss/", rssPostHandler.GetRssPosts)
 			publicGroup.GET("/image/*id", imagePublicHandler.GetImage)
 			publicGroup.GET("/moments/", momentHandler.GetMoments)
-			publicGroup.GET("/verify_conf", verifyPublicHandler.GetVerifyConfig)
 			publicGroup.POST("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.AddReaction)
 			publicGroup.DELETE("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.DeleteReaction)
 		}

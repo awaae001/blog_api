@@ -6,6 +6,7 @@ export interface SystemConfig {
     moments_integrated_conf: MomentsIntegratedConfig;
     oss_conf: OSSConfig;
     verify_conf: VerifyConfig;
+    email_conf: EmailConfig;
   };
 }
 
@@ -72,6 +73,15 @@ export interface TurnstileConfig {
 
 export interface FingerprintConfig {
   secret: string;
+}
+
+export interface EmailConfig {
+  enable: boolean;
+  host: string;
+  user_name: string;
+  password: string;
+  port: number;
+  sender: string;
 }
 
 export interface IntegratedTargets {

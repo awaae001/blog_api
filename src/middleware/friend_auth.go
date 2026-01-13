@@ -37,7 +37,7 @@ func FriendLinkAuth() gin.HandlerFunc {
 			return
 		}
 
-		if email, ok := service.ConsumeEmailToken(token); ok {
+		if email, ok := service.ValidateEmailToken(token); ok {
 			c.Set("auth_email", email)
 			c.Set("auth_type", "email")
 			c.Next()

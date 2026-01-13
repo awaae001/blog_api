@@ -111,6 +111,7 @@ func unmarshalConfig(cfg *model.Config) error {
 	cfg.ConfigPath = v.GetString("CONFIG_PATH")
 	cfg.CronScanOnStartup = v.GetBool("CRON_SCAN_ON_STARTUP")
 	cfg.EnableStatusLog = v.GetBool("ENABLE_STATUS_LOG")
+	cfg.IsDev = parseEnvBool(v.GetString("IS_DEV"))
 
 	// 设置默认值
 	if cfg.Port == "" {
@@ -178,6 +179,15 @@ func unmarshalConfig(cfg *model.Config) error {
 	}
 
 	return nil
+}
+
+func parseEnvBool(val string) bool {
+	switch strings.ToLower(strings.TrimSpace(val)) {
+	case "1", "true", "yes", "y", "on", "ture":
+		return true
+	default:
+		return false
+	}
 }
 
 // Reload 重新加载配置 (用于热更新)

@@ -7,14 +7,17 @@ import (
 	"blog_api/src/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // VerifyHandler handles verification related requests.
-type VerifyHandler struct{}
+type VerifyHandler struct {
+	DB *gorm.DB
+}
 
 // NewVerifyHandler creates a new VerifyHandler.
-func NewVerifyHandler() *VerifyHandler {
-	return &VerifyHandler{}
+func NewVerifyHandler(db *gorm.DB) *VerifyHandler {
+	return &VerifyHandler{DB: db}
 }
 
 // IssueVerifyToken handles POST /api/verify/turnstile request.

@@ -174,6 +174,35 @@ func (h *FriendLinkHandler) GetFriendLinkByID(c *gin.Context) {
 	h.getFriendLinkByID(c, false)
 }
 
+// GetFriendLinkByEmailToken handles GET /api/public/friend/self request (email token).
+func (h *FriendLinkHandler) GetFriendLinkByEmailToken(c *gin.Context) {
+	authType, ok := c.Get("auth_type")
+	if !ok || authType != "email" {
+		c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email token is required"))
+		return
+	}
+
+	authEmail, _ := c.Get("auth_email")
+	email, _ := authEmail.(string)
+	if email == "" {
+		c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email token is invalid"))
+		return
+	}
+
+	link, err := friendsRepositories.GetFriendLinkByEmail(h.DB, email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "friend link not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
+		return
+	}
+
+	dto := toFriendLinkDTO(link, false)
+	c.JSON(http.StatusOK, model.NewSuccessResponse(dto))
+}
+
 // GetFullFriendLinks handles GET /api/action/friend/ request (authenticated)
 // It returns the full friend link data, including sensitive fields.
 func (h *FriendLinkHandler) GetFullFriendLinks(c *gin.Context) {

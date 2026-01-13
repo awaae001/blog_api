@@ -1,20 +1,27 @@
 package authHandler
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"blog_api/src/config"
 	"blog_api/src/model"
+	friendsRepositories "blog_api/src/repositories/friend"
 	"blog_api/src/service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // SendEmailCode handles POST /api/verify/email request.
 // If code is provided, it confirms the code and returns a token; otherwise it sends a code.
 func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
-	var req model.EmailVerifyConfirmRequest
+	var req struct {
+		Email string `json:"email" binding:"required"`
+		Code  string `json:"code"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
 		return
@@ -32,20 +39,28 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 			return
 		}
 
+		var friendLink *model.FriendLinkDTO
+		if h.DB != nil {
+			link, err := friendsRepositories.GetFriendLinkByEmail(h.DB, req.Email)
+			if err == nil {
+				dto := toPublicFriendLinkDTO(link)
+				friendLink = &dto
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
+				return
+			}
+		}
+
 		c.JSON(http.StatusOK, model.NewSuccessResponse(map[string]interface{}{
-			"token":      token,
-			"expires_at": expiresAt,
-			"expires_in": service.EmailTokenTTLSeconds(),
+			"token":       token,
+			"expires_at":  expiresAt,
+			"expires_in":  service.EmailTokenTTLSeconds(),
+			"friend_link": friendLink,
 		}))
 		return
 	}
 
 	cfg := config.GetConfig()
-	if !cfg.Email.Enable {
-		c.JSON(http.StatusServiceUnavailable, model.NewErrorResponse(503, "email service is disabled"))
-		return
-	}
-
 	code, expiresAt, err := service.IssueEmailVerifyCode(req.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to issue email code"))
@@ -53,9 +68,21 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 	}
 
 	content := service.EmailContent{
-		Subject: "Friend link verification code",
-		Body:    fmt.Sprintf("Your verification code is %s. It expires in %d minutes.", code, service.EmailCodeTTLSeconds()/60),
+		Subject: "blog api 登录验证",
+		Body:    fmt.Sprintf("你的验证码是： %s 。 它将在 %d 后过期。", code, service.EmailCodeTTLSeconds()/60),
 		IsHTML:  false,
+	}
+	if !cfg.Email.Enable {
+		log.Printf("[email][disabled] To=%s Subject=%s Body=%s", req.Email, content.Subject, content.Body)
+		if cfg.IsDev {
+			c.JSON(http.StatusOK, model.NewSuccessResponse(map[string]interface{}{
+				"expires_at": expiresAt,
+				"expires_in": service.EmailCodeTTLSeconds(),
+			}))
+		} else {
+			c.JSON(http.StatusServiceUnavailable, model.NewErrorResponse(503, "email service is disabled"))
+		}
+		return
 	}
 	if err := service.SendEmail(cfg.Email, []string{req.Email}, content); err != nil {
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to send verification email"))
@@ -66,4 +93,17 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 		"expires_at": expiresAt,
 		"expires_in": service.EmailCodeTTLSeconds(),
 	}))
+}
+
+func toPublicFriendLinkDTO(link model.FriendWebsite) model.FriendLinkDTO {
+	return model.FriendLinkDTO{
+		ID:          link.ID,
+		Name:        link.Name,
+		Link:        link.Link,
+		Avatar:      link.Avatar,
+		Description: link.Info,
+		Status:      link.Status,
+		EnableRss:   link.EnableRss,
+		UpdatedAt:   link.UpdatedAt,
+	}
 }
