@@ -47,7 +47,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		verifyGroup := apiGroup.Group("/verify")
 		{
 			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandlerInstance.Login)
-			verifyGroup.POST("/email", NotImplemented)
+			verifyGroup.POST("/email", verifyHandler.SendEmailCode)
 			verifyGroup.POST("/turnstile", middleware.TurnstileVerify(), verifyHandler.IssueVerifyToken)
 			verifyGroup.POST("/fingerprint", middleware.AntiBotAuth(), fingerprintHandler.CreateFingerprint)
 		}
@@ -55,6 +55,8 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		{
 			publicGroup.GET("/friend/", friendLinkHandler.GetAllFriendLinks)
 			publicGroup.GET("/friend/:id", friendLinkHandler.GetFriendLinkByID)
+			publicGroup.POST("/friend", middleware.FriendLinkAuth(), updataHandler.CreateFriendLink)
+			publicGroup.PUT("/friend/:id", middleware.FriendLinkAuth(), updataHandler.EditFriendLink)
 			publicGroup.GET("/rss/", rssPostHandler.GetRssPosts)
 			publicGroup.GET("/image/*id", imagePublicHandler.GetImage)
 			publicGroup.GET("/moments/", momentHandler.GetMoments)

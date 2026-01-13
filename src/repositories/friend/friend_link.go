@@ -134,6 +134,20 @@ func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
 	return link, nil
 }
 
+// GetFriendLinkByEmail fetches a single friend link by email.
+func GetFriendLinkByEmail(db *gorm.DB, email string) (model.FriendWebsite, error) {
+	var link model.FriendWebsite
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, is_died, enable_rss, updated_at"
+	err := db.Model(&model.FriendWebsite{}).Select(selectFields).Where("email = ?", email).First(&link).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.FriendWebsite{}, err
+		}
+		return model.FriendWebsite{}, fmt.Errorf("could not query friend link by email %s: %w", email, err)
+	}
+	return link, nil
+}
+
 // UpdateFriendLink updates the details of a friend link after crawling.
 func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlResult) error {
 	if result.Status == "survival" {
