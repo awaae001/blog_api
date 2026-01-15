@@ -35,10 +35,23 @@ export const createFriendLink = (data: CreateFriendLinkPayload): Promise<ApiResp
  * 更新友链
  */
 export const updateFriendLink = (id: number, payload: UpdateFriendLinkPayload): Promise<ApiResponse> => {
+  const fieldMap: Record<string, string> = {
+    name: 'website_name',
+    link: 'website_url',
+    avatar: 'website_icon_url'
+  }
+  const mappedData: Record<string, unknown> = {}
+  Object.entries(payload.data).forEach(([key, value]) => {
+    const targetKey = fieldMap[key] ?? key
+    mappedData[targetKey] = value
+  })
   return request({
     url: `/action/friend/${id}`,
     method: 'put',
-    data: payload
+    data: {
+      ...payload,
+      data: mappedData
+    }
   })
 }
 

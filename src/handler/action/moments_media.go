@@ -5,7 +5,6 @@ import (
 	momentRepositories "blog_api/src/repositories/moment"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -80,10 +79,7 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 		return
 	}
 
-	hard := c.Query("hard")
-	isHard := hard == "1" || strings.EqualFold(hard, "true")
-
-	if err := momentRepositories.DeleteMomentMedia(h.DB, id, isHard); err != nil {
+	if err := momentRepositories.DeleteMomentMedia(h.DB, id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "media not found"))
 		} else {

@@ -26,9 +26,9 @@ type discordListener struct {
 	channelID     string
 	filterUserIDs map[string]bool
 	ossService    oss.OSSService
+	syncDelete    bool
 }
 
-// StartDiscordListener starts the Discord listener in background.
 func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 	dCfg := cfg.MomentsIntegrated.Integrated.Discord
 	if !cfg.MomentsIntegrated.Enable || !dCfg.Enable || dCfg.BotToken == "" {
@@ -47,17 +47,13 @@ func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 		session:       session,
 		channelID:     strings.TrimSpace(dCfg.ChannelID),
 		filterUserIDs: make(map[string]bool),
+		syncDelete:    dCfg.SyncDelete,
 	}
 
 	for _, id := range dCfg.FilterUserid {
-		trimmed := strings.TrimSpace(id)
-		if trimmed == "" {
-			continue
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			listener.filterUserIDs[trimmed] = true
 		}
-		listener.filterUserIDs[trimmed] = true
-	}
-	if len(listener.filterUserIDs) == 0 {
-		log.Printf("[discord] filter_userid is empty; all users will be accepted")
 	}
 
 	if cfg.OSS.Enable {
@@ -69,10 +65,13 @@ func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 	}
 
 	session.AddHandler(listener.onMessageCreate)
+	session.AddHandler(listener.onMessageDelete)
+	session.AddHandler(listener.onMessageDeleteBulk)
 	if err := session.Open(); err != nil {
 		log.Printf("[discord] open session failed: %v", err)
 		return
 	}
+	SetDiscordSession(session)
 
 	_ = session.UpdateStatusComplex(discordgo.UpdateStatusData{
 		Status: string(discordgo.StatusOnline),
@@ -85,32 +84,18 @@ func (l *discordListener) onMessageCreate(s *discordgo.Session, m *discordgo.Mes
 	if m == nil || m.Message == nil || m.Author == nil {
 		return
 	}
-
 	if s.State != nil && s.State.User != nil && m.Author.ID == s.State.User.ID {
 		return
 	}
-
 	if l.channelID != "" && m.ChannelID != l.channelID {
 		return
 	}
-
 	if len(l.filterUserIDs) > 0 && !l.filterUserIDs[m.Author.ID] {
-		log.Printf("[discord] filtered message from %s", m.Author.ID)
 		return
 	}
 
-	channelID, err := parseDiscordID(m.ChannelID)
-	if err != nil {
-		log.Printf("[discord] invalid channel id: %v", err)
-		return
-	}
-
-	messageID, err := parseDiscordID(m.ID)
-	if err != nil {
-		log.Printf("[discord] invalid message id: %v", err)
-		return
-	}
-
+	channelID, _ := parseDiscordID(m.ChannelID)
+	messageID, _ := parseDiscordID(m.ID)
 	var guildID int64
 	if m.GuildID != "" {
 		if parsed, err := parseDiscordID(m.GuildID); err == nil {
@@ -118,10 +103,48 @@ func (l *discordListener) onMessageCreate(s *discordgo.Session, m *discordgo.Mes
 		}
 	}
 
-	content := m.Content
 	media := l.downloadAttachments(m.Attachments)
 	messageLink := buildDiscordMessageLink(m.GuildID, m.ChannelID, m.ID)
-	l.saveMoment(guildID, channelID, messageID, m.Timestamp.Unix(), messageLink, content, media)
+	l.saveMoment(guildID, channelID, messageID, m.Timestamp.Unix(), messageLink, m.Content, media)
+}
+
+func (l *discordListener) onMessageDelete(s *discordgo.Session, e *discordgo.MessageDelete) {
+	if !l.syncDelete || e == nil {
+		return
+	}
+	if l.channelID != "" && e.ChannelID != l.channelID {
+		return
+	}
+
+	channelID, err := parseDiscordID(e.ChannelID)
+	if err != nil {
+		return
+	}
+	messageID, err := parseDiscordID(e.ID)
+	if err != nil {
+		return
+	}
+
+	_ = momentRepositories.DeleteMomentByChannelMessage(l.db, channelID, messageID)
+}
+
+func (l *discordListener) onMessageDeleteBulk(s *discordgo.Session, e *discordgo.MessageDeleteBulk) {
+	if !l.syncDelete || e == nil {
+		return
+	}
+	if l.channelID != "" && e.ChannelID != l.channelID {
+		return
+	}
+
+	channelID, err := parseDiscordID(e.ChannelID)
+	if err != nil {
+		return
+	}
+	for _, id := range e.Messages {
+		if messageID, err := parseDiscordID(id); err == nil {
+			_ = momentRepositories.DeleteMomentByChannelMessage(l.db, channelID, messageID)
+		}
+	}
 }
 
 func (l *discordListener) downloadAttachments(attachments []*discordgo.MessageAttachment) []model.MomentMedia {
@@ -136,16 +159,10 @@ func (l *discordListener) downloadAttachments(attachments []*discordgo.MessageAt
 			continue
 		}
 
-		item, err := l.downloadAttachment(att, mediaType)
-		if err != nil {
-			log.Printf("[discord] download attachment failed: %v", err)
-			continue
-		}
-		if item != nil {
+		if item, err := l.downloadAttachment(att, mediaType); err == nil && item != nil {
 			media = append(media, *item)
 		}
 	}
-
 	return media
 }
 
@@ -161,8 +178,7 @@ func detectDiscordMediaType(att *discordgo.MessageAttachment) string {
 		return "video"
 	}
 
-	ext := strings.ToLower(filepath.Ext(att.Filename))
-	switch ext {
+	switch strings.ToLower(filepath.Ext(att.Filename)) {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp":
 		return "image"
 	case ".mp4", ".webm":
@@ -184,8 +200,7 @@ func (l *discordListener) downloadAttachment(att *discordgo.MessageAttachment, m
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-		return nil, fmt.Errorf("discord download failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("status: %s", resp.Status)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -193,7 +208,7 @@ func (l *discordListener) downloadAttachment(att *discordgo.MessageAttachment, m
 		return nil, err
 	}
 
-	fileName, contentType, err := normalizeDiscordFile(att.Filename, att.ContentType, mediaType, resp, data)
+	fileName, contentType, err := normalizeDiscordFile(att.Filename, att.ContentType, mediaType, data)
 	if err != nil {
 		return nil, err
 	}
@@ -211,11 +226,8 @@ func (l *discordListener) downloadAttachment(att *discordgo.MessageAttachment, m
 	}, nil
 }
 
-func normalizeDiscordFile(fileName, mimeType, mediaType string, resp *http.Response, data []byte) (string, string, error) {
+func normalizeDiscordFile(fileName, mimeType, mediaType string, data []byte) (string, string, error) {
 	contentType := strings.TrimSpace(mimeType)
-	if contentType == "" && resp != nil {
-		contentType = strings.TrimSpace(resp.Header.Get("Content-Type"))
-	}
 	if idx := strings.Index(contentType, ";"); idx != -1 {
 		contentType = strings.TrimSpace(contentType[:idx])
 	}
@@ -224,15 +236,11 @@ func normalizeDiscordFile(fileName, mimeType, mediaType string, resp *http.Respo
 		contentType = detectedType
 	}
 
-	switch mediaType {
-	case "image":
-		if !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(detectedType, "image/") {
-			return "", "", fmt.Errorf("unexpected content type for image: %s", contentType)
-		}
-	case "video":
-		if !strings.HasPrefix(contentType, "video/") && !strings.HasPrefix(detectedType, "video/") {
-			return "", "", fmt.Errorf("unexpected content type for video: %s", contentType)
-		}
+	if mediaType == "image" && !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(detectedType, "image/") {
+		return "", "", fmt.Errorf("unexpected content type for image: %s", contentType)
+	}
+	if mediaType == "video" && !strings.HasPrefix(contentType, "video/") && !strings.HasPrefix(detectedType, "video/") {
+		return "", "", fmt.Errorf("unexpected content type for video: %s", contentType)
 	}
 
 	if fileName == "" {
@@ -256,11 +264,9 @@ func (l *discordListener) storeFile(name, mimeType string, data []byte) (string,
 	finalSubPath := filepath.Join("moments", datePath)
 	if l.ossService != nil {
 		path := filepath.Join(finalSubPath, name)
-		url, err := uploadToOSS(l.ossService, path, mimeType, data)
-		if err == nil {
+		if url, err := UploadToOSS(l.ossService, path, mimeType, data); err == nil {
 			return url, 0, nil
 		}
-		log.Printf("[discord][WARN] oss upload failed, fallback to local: %v", err)
 	}
 
 	svc := coreService.NewResourceService(config.GetConfig())
@@ -296,8 +302,7 @@ func (l *discordListener) saveMoment(guildID, channelID, msgID, date int64, mess
 }
 
 func parseDiscordID(raw string) (int64, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
+	if raw = strings.TrimSpace(raw); raw == "" {
 		return 0, fmt.Errorf("empty id")
 	}
 	return strconv.ParseInt(raw, 10, 64)
@@ -309,9 +314,7 @@ func buildDiscordMessageLink(guildID, channelID, messageID string) string {
 	if channelID == "" || messageID == "" {
 		return ""
 	}
-
-	guildID = strings.TrimSpace(guildID)
-	if guildID == "" {
+	if guildID = strings.TrimSpace(guildID); guildID == "" {
 		guildID = "@me"
 	}
 	return fmt.Sprintf("https://discord.com/channels/%s/%s/%s", guildID, channelID, messageID)

@@ -4,6 +4,7 @@ import (
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
 	"blog_api/src/service"
+	botService "blog_api/src/service/bot"
 	"net/http"
 	"strconv"
 
@@ -87,7 +88,7 @@ func (h *MomentHandler) DeleteMoment(c *gin.Context) {
 		return
 	}
 
-	if err := momentRepositories.DeleteMoment(h.DB, id); err != nil {
+	if err := botService.DeleteMomentWithSync(h.DB, id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "moment not found"))
 		} else {

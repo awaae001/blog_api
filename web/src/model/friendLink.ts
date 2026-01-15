@@ -51,8 +51,14 @@ export interface CreateFriendLinkPayload {
 /**
  * 更新友链的请求体
  */
+export type UpdateFriendLinkData = Partial<Omit<FriendLink, 'id' | 'updated_at'>> & {
+  website_name?: string
+  website_url?: string
+  website_icon_url?: string
+}
+
 export interface UpdateFriendLinkPayload {
-  data: Partial<Omit<FriendLink, 'id' | 'updated_at'>>
+  data: UpdateFriendLinkData
   opt?: {
     overwrite_if_blank?: boolean
   }

@@ -6,14 +6,11 @@ import (
 	momentRepositories "blog_api/src/repositories/moment"
 	coreService "blog_api/src/service"
 	"blog_api/src/service/oss"
-	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"mime"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -38,7 +35,6 @@ type telegramMediaGroup struct {
 	LastSeen time.Time
 }
 
-// StartTelegramListener starts the Telegram listener in background.
 func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 	tgCfg := cfg.MomentsIntegrated.Integrated.Telegram
 	if !cfg.MomentsIntegrated.Enable || !tgCfg.Enable || tgCfg.BotToken == "" {
@@ -50,6 +46,7 @@ func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 		log.Printf("[telegram] init bot failed: %v", err)
 		return
 	}
+	SetTelegramBot(bot)
 
 	listener := &telegramListener{
 		db:            db,
@@ -59,16 +56,11 @@ func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 	}
 
 	for _, id := range tgCfg.FilterUserid {
-		trimmed := strings.TrimSpace(id)
-		if trimmed == "" {
-			continue
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			if parsed, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+				listener.filterUserIDs[parsed] = true
+			}
 		}
-		parsed, err := strconv.ParseInt(trimmed, 10, 64)
-		if err != nil {
-			log.Printf("[telegram] invalid filter_userid: %s", trimmed)
-			continue
-		}
-		listener.filterUserIDs[parsed] = true
 	}
 
 	if cid, username, err := parseTelegramChannel(tgCfg.ChannelID); err == nil {
@@ -140,7 +132,6 @@ func (l *telegramListener) handleUpdate(update tgbotapi.Update) {
 }
 
 func (l *telegramListener) isValidMessage(msg *tgbotapi.Message) bool {
-	// Check Channel
 	if l.channelID != 0 && msg.Chat.ID != l.channelID {
 		return false
 	}
@@ -148,7 +139,6 @@ func (l *telegramListener) isValidMessage(msg *tgbotapi.Message) bool {
 		return false
 	}
 
-	// Check User/Sender
 	if msg.SenderChat != nil && msg.SenderChat.Type == "channel" {
 		return true
 	}
@@ -163,11 +153,7 @@ func (l *telegramListener) isValidMessage(msg *tgbotapi.Message) bool {
 		senderID = msg.SenderChat.ID
 	}
 
-	if !l.filterUserIDs[senderID] {
-		log.Printf("[telegram] filtered message from %d", senderID)
-		return false
-	}
-	return true
+	return l.filterUserIDs[senderID]
 }
 
 func (l *telegramListener) collectGroup(msg *tgbotapi.Message) {
@@ -307,8 +293,7 @@ func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.Mome
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-		return nil, fmt.Errorf("telegram download failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("status: %s", resp.Status)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -319,7 +304,7 @@ func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.Mome
 	if fileName == "" {
 		fileName = filepath.Base(file.FilePath)
 	}
-	fileName, mimeType, err = normalizeTelegramFile(fileName, mimeType, mediaType, resp, data)
+	fileName, mimeType, err = normalizeTelegramFile(fileName, mimeType, mediaType, data)
 	if err != nil {
 		return nil, err
 	}
@@ -363,11 +348,8 @@ func pickMedia(msg *tgbotapi.Message) (id, name, mimeType, mType string) {
 	return "", "", "", ""
 }
 
-func normalizeTelegramFile(fileName, mimeType, mediaType string, resp *http.Response, data []byte) (string, string, error) {
+func normalizeTelegramFile(fileName, mimeType, mediaType string, data []byte) (string, string, error) {
 	contentType := strings.TrimSpace(mimeType)
-	if contentType == "" && resp != nil {
-		contentType = strings.TrimSpace(resp.Header.Get("Content-Type"))
-	}
 	if idx := strings.Index(contentType, ";"); idx != -1 {
 		contentType = strings.TrimSpace(contentType[:idx])
 	}
@@ -401,35 +383,12 @@ func (l *telegramListener) storeFile(name, mimeType string, data []byte) (string
 	finalSubPath := filepath.Join("moments", datePath)
 	if l.ossService != nil {
 		path := filepath.Join(finalSubPath, name)
-		url, err := uploadToOSS(l.ossService, path, mimeType, data)
-		if err == nil {
+		if url, err := UploadToOSS(l.ossService, path, mimeType, data); err == nil {
 			return url, 0, nil
 		}
-		log.Printf("[telegram][WARN] oss upload failed, fallback to local: %v", err)
 	}
 
 	svc := coreService.NewResourceService(config.GetConfig())
 	_, url, err := svc.SaveBytes(name, data, finalSubPath, false)
 	return url, 1, err
 }
-
-func uploadToOSS(svc oss.OSSService, name, mimeType string, data []byte) (string, error) {
-	header := &multipart.FileHeader{
-		Filename: name,
-		Header:   make(textproto.MIMEHeader),
-		Size:     int64(len(data)),
-	}
-	if mimeType != "" {
-		header.Header.Set("Content-Type", mimeType)
-	}
-	url, _, err := svc.UploadFile(&memFile{Reader: bytes.NewReader(data)}, header)
-	return url, err
-}
-
-type memFile struct {
-	*bytes.Reader
-}
-
-func (m *memFile) Close() error                                  { return nil }
-func (m *memFile) ReadAt(p []byte, off int64) (n int, err error) { return m.Reader.ReadAt(p, off) }
-func (m *memFile) Seek(offset int64, whence int) (int64, error)  { return m.Reader.Seek(offset, whence) }
