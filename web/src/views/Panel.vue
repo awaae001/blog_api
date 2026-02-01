@@ -49,6 +49,10 @@
             <el-icon><Picture /></el-icon>
             <span>图片管理</span>
           </el-menu-item>
+          <el-menu-item index="resource">
+            <el-icon><FolderOpened /></el-icon>
+            <span>本地资源</span>
+          </el-menu-item>
           <el-menu-item index="settings">
             <el-icon><Setting /></el-icon>
             <span>系统设置</span>
@@ -75,7 +79,8 @@ import {
   Link,
   Document,
   Setting,
-  Picture
+  Picture,
+  FolderOpened
 } from '@element-plus/icons-vue'
 
 const router = useRouter()

@@ -46,6 +46,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/Image.vue')
       },
       {
+        path: 'resource',
+        name: 'Resource',
+        component: () => import('@/views/Resource.vue')
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/Settings.vue')
