@@ -4,6 +4,7 @@ import (
 	"blog_api/src/model"
 	"blog_api/src/service"
 	"blog_api/src/service/oss"
+	"errors"
 	"net/http"
 	"path"
 	"strings"
@@ -105,7 +106,16 @@ func (h *ResourceHandler) DeleteResourceLocal(c *gin.Context) {
 	// Gin 的通配符参数会包含一个前导斜杠，需要去掉
 	filePath = filePath[1:]
 	if err := h.resourceService.DeleteFile(filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, err.Error()))
+		switch {
+		case errors.Is(err, service.ErrInvalidResourcePath):
+			c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, err.Error()))
+		case errors.Is(err, service.ErrProtectedResource):
+			c.JSON(http.StatusForbidden, model.NewErrorResponse(http.StatusForbidden, err.Error()))
+		case errors.Is(err, service.ErrResourceNotFound):
+			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, err.Error()))
+		default:
+			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, err.Error()))
+		}
 		return
 	}
 	c.JSON(http.StatusOK, model.NewSuccessResponse("文件删除成功"))

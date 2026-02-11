@@ -2,6 +2,7 @@ package service
 
 import (
 	"blog_api/src/model"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -14,6 +15,12 @@ import (
 type ResourceService struct {
 	config *model.Config
 }
+
+var (
+	ErrInvalidResourcePath = errors.New("invalid resource path")
+	ErrProtectedResource   = errors.New("protected resource")
+	ErrResourceNotFound    = errors.New("resource not found")
+)
 
 // NewResourceService 创建一个新的 ResourceService 实例。
 func NewResourceService(cfg *model.Config) *ResourceService {
@@ -138,27 +145,67 @@ func (s *ResourceService) findUniqueFilename(dir, filename string) string {
 // DeleteFile 删除指定路径的文件。
 // 在删除前会进行严格的安全检查，以防止删除受保护的文件。
 func (s *ResourceService) DeleteFile(filePath string) error {
-	// 1. 清理路径，防止路径遍历
-	cleanPath, err := filepath.Abs(filepath.Clean(filePath))
+	// 1. 解析资源根目录（通常是 data），删除目标必须位于该目录内
+	basePath := s.config.Data.Resource.Path
+	if basePath == "" {
+		basePath = "data/"
+	}
+	absBasePath, err := filepath.Abs(filepath.Clean(basePath))
 	if err != nil {
-		return fmt.Errorf("获取绝对路径失败: %w", err)
+		return fmt.Errorf("获取资源根目录失败: %w", err)
+	}
+
+	relativePath := filepath.Clean(filePath)
+	if relativePath == "." || relativePath == string(filepath.Separator) {
+		return fmt.Errorf("%w: %s", ErrInvalidResourcePath, filePath)
+	}
+	// 将绝对输入路径按相对路径处理，避免绕过 basePath 校验
+	relativePath = strings.TrimLeft(relativePath, `/\`)
+
+	cleanPath, err := filepath.Abs(filepath.Join(absBasePath, relativePath))
+	if err != nil {
+		return fmt.Errorf("获取目标绝对路径失败: %w", err)
+	}
+	baseWithSep := absBasePath + string(filepath.Separator)
+	if cleanPath != absBasePath && !strings.HasPrefix(cleanPath, baseWithSep) {
+		return fmt.Errorf("%w: %s", ErrInvalidResourcePath, filePath)
 	}
 
 	// 2. 检查路径是否在受保护的目录内
 	for _, protectedPath := range s.config.Safe.ExcludePaths {
-		absProtectedPath, err := filepath.Abs(protectedPath)
-		if err != nil {
-			// 在配置加载时就应保证路径有效，但这里还是做个检查
-			return fmt.Errorf("获取受保护路径的绝对路径失败: '%s'", protectedPath)
+		isProtected := false
+		candidates := []string{}
+
+		absProtectedPath, err := filepath.Abs(filepath.Clean(protectedPath))
+		if err == nil {
+			candidates = append(candidates, absProtectedPath)
 		}
-		if strings.HasPrefix(cleanPath, absProtectedPath) {
-			return fmt.Errorf("禁止删除受保护的路径下的文件: '%s'", filePath)
+
+		// 兼容以资源根为基准的写法（如 "/config"）
+		relativeProtectedPath := strings.TrimLeft(filepath.Clean(protectedPath), `/\`)
+		if relativeProtectedPath != "" && relativeProtectedPath != "." {
+			absProtectedFromBase, err := filepath.Abs(filepath.Join(absBasePath, relativeProtectedPath))
+			if err == nil {
+				candidates = append(candidates, absProtectedFromBase)
+			}
+		}
+
+		for _, candidate := range candidates {
+			candidateWithSep := candidate + string(filepath.Separator)
+			if cleanPath == candidate || strings.HasPrefix(cleanPath, candidateWithSep) {
+				isProtected = true
+				break
+			}
+		}
+
+		if isProtected {
+			return fmt.Errorf("%w: '%s'", ErrProtectedResource, filePath)
 		}
 	}
 
 	// 3. 检查文件是否存在
 	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
-		return fmt.Errorf("文件不存在: '%s'", filePath)
+		return fmt.Errorf("%w: '%s'", ErrResourceNotFound, filePath)
 	}
 
 	// 4. 执行删除
