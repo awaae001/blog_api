@@ -36,12 +36,12 @@ func syncDeleteMoment(cfg *model.Config, moment *model.Moment) error {
 
 	var errs []string
 	if shouldDeleteDiscord(cfg, moment) {
-		if err := deleteDiscordMessage(cfg, moment); err != nil {
+		if err := deleteDiscordMessage(moment); err != nil {
 			errs = append(errs, fmt.Sprintf("discord: %v", err))
 		}
 	}
 	if shouldDeleteTelegram(cfg, moment) {
-		if err := deleteTelegramMessage(cfg, moment); err != nil {
+		if err := deleteTelegramMessage(moment); err != nil {
 			errs = append(errs, fmt.Sprintf("telegram: %v", err))
 		}
 	}
@@ -94,7 +94,7 @@ func shouldDeleteTelegram(cfg *model.Config, moment *model.Moment) bool {
 	return moment.GuildID == 0 && link == ""
 }
 
-func deleteDiscordMessage(cfg *model.Config, moment *model.Moment) error {
+func deleteDiscordMessage(moment *model.Moment) error {
 	channelID := strconv.FormatInt(moment.ChannelID, 10)
 	messageID := strconv.FormatInt(moment.MessageID, 10)
 	session := GetDiscordSession()
@@ -104,7 +104,7 @@ func deleteDiscordMessage(cfg *model.Config, moment *model.Moment) error {
 	return session.ChannelMessageDelete(channelID, messageID)
 }
 
-func deleteTelegramMessage(cfg *model.Config, moment *model.Moment) error {
+func deleteTelegramMessage(moment *model.Moment) error {
 	tgBot := GetTelegramBot()
 	if tgBot == nil {
 		return fmt.Errorf("telegram bot not initialized")

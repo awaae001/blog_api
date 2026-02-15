@@ -15,9 +15,6 @@ func BatchInsertImages(db *gorm.DB, images []model.Image) error {
 		log.Println("[db][image] No images to insert.")
 		return nil
 	}
-
-	// 使用 OnConflict 子句，当 url 冲突时，不执行任何操作
-	// 这可以防止重复插入相同的图片
 	result := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "url"}},
 		DoNothing: true,
