@@ -4,15 +4,21 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"os"
+	"sync"
 	"time"
 
+	"blog_api/src/config"
 	"blog_api/src/model"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 var jwtSecret []byte
+var startupCredentialOnce sync.Once
+var startupUsername string
+var startupPassword string
 
 // InitJWTSecret 初始化 JWT 密钥
 func InitJWTSecret() {
@@ -39,17 +45,45 @@ func NewAuthService() *AuthService {
 
 // ValidateCredentials 验证用户名和密码
 func (s *AuthService) ValidateCredentials(username, password string) bool {
-	expectedUsername := os.Getenv("WEB_PANEL_USER")
-	expectedPassword := os.Getenv("WEB_PANEL_PWD")
+	var expectedUsername, expectedPassword string
+
+	if cfg, err := config.Load(); err == nil && cfg != nil {
+		expectedUsername = cfg.WebPanelUser
+		expectedPassword = cfg.WebPanelPwd
+	}
+
+	// 兼容配置尚未初始化的场景
+	if expectedUsername == "" {
+		expectedUsername = os.Getenv("WEB_PANEL_USER")
+	}
+	if expectedPassword == "" {
+		expectedPassword = os.Getenv("WEB_PANEL_PWD")
+	}
+
+	if expectedPassword == "" {
+		startupCredentialOnce.Do(func() {
+			startupUsername = "admin_" + randomHex(3)
+			startupPassword = randomHex(12)
+			log.Printf("[auth] 未检测到 WEB_PANEL_PWD，已为本次启动生成临时后台账号: username=%s password=%s", startupUsername, startupPassword)
+		})
+		expectedUsername = startupUsername
+		expectedPassword = startupPassword
+	}
 
 	if expectedUsername == "" {
 		expectedUsername = "admin"
 	}
-	if expectedPassword == "" {
-		expectedPassword = "password"
-	}
 
 	return username == expectedUsername && password == expectedPassword
+}
+
+func randomHex(byteLen int) string {
+	b := make([]byte, byteLen)
+	if _, err := rand.Read(b); err != nil {
+		// 极端情况下兜底，避免生成失败导致无法登录
+		return hex.EncodeToString([]byte(time.Now().Format("20060102150405.000000000")))
+	}
+	return hex.EncodeToString(b)
 }
 
 // GenerateJWT 生成 JWT token
