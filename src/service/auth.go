@@ -17,6 +17,7 @@ import (
 
 var jwtSecret []byte
 var startupCredentialOnce sync.Once
+var configuredCredentialHintOnce sync.Once
 var startupUsername string
 var startupPassword string
 
@@ -73,6 +74,11 @@ func (s *AuthService) ValidateCredentials(username, password string) bool {
 	if expectedUsername == "" {
 		expectedUsername = "admin"
 	}
+	if expectedPassword != "" {
+		configuredCredentialHintOnce.Do(func() {
+			log.Printf("[auth] 已读取到后台凭证（仅显示前3位）: username=%s*** password=%s***", prefix3(expectedUsername), prefix3(expectedPassword))
+		})
+	}
 
 	return username == expectedUsername && password == expectedPassword
 }
@@ -84,6 +90,14 @@ func randomHex(byteLen int) string {
 		return hex.EncodeToString([]byte(time.Now().Format("20060102150405.000000000")))
 	}
 	return hex.EncodeToString(b)
+}
+
+func prefix3(s string) string {
+	runes := []rune(s)
+	if len(runes) <= 3 {
+		return s
+	}
+	return string(runes[:3])
 }
 
 // GenerateJWT 生成 JWT token
