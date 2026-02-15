@@ -16,10 +16,9 @@ import (
 )
 
 var jwtSecret []byte
-var startupCredentialOnce sync.Once
-var configuredCredentialHintOnce sync.Once
-var startupUsername string
-var startupPassword string
+var credentialResolveOnce sync.Once
+var expectedUsername string
+var expectedPassword string
 
 // InitJWTSecret 初始化 JWT 密钥
 func InitJWTSecret() {
@@ -41,46 +40,44 @@ func NewAuthService() *AuthService {
 	if len(jwtSecret) == 0 {
 		InitJWTSecret()
 	}
+	resolveExpectedCredentials()
 	return &AuthService{}
 }
 
 // ValidateCredentials 验证用户名和密码
 func (s *AuthService) ValidateCredentials(username, password string) bool {
-	var expectedUsername, expectedPassword string
-
-	if cfg, err := config.Load(); err == nil && cfg != nil {
-		expectedUsername = cfg.WebPanelUser
-		expectedPassword = cfg.WebPanelPwd
-	}
-
-	// 兼容配置尚未初始化的场景
-	if expectedUsername == "" {
-		expectedUsername = os.Getenv("WEB_PANEL_USER")
-	}
-	if expectedPassword == "" {
-		expectedPassword = os.Getenv("WEB_PANEL_PWD")
-	}
-
-	if expectedPassword == "" {
-		startupCredentialOnce.Do(func() {
-			startupUsername = "admin_" + randomHex(3)
-			startupPassword = randomHex(12)
-			log.Printf("[auth] 未检测到 WEB_PANEL_PWD，已为本次启动生成临时后台账号: username=%s password=%s", startupUsername, startupPassword)
-		})
-		expectedUsername = startupUsername
-		expectedPassword = startupPassword
-	}
-
-	if expectedUsername == "" {
-		expectedUsername = "admin"
-	}
-	if expectedPassword != "" {
-		configuredCredentialHintOnce.Do(func() {
-			log.Printf("[auth] 已读取到后台凭证（仅显示前3位）: username=%s*** password=%s***", prefix3(expectedUsername), prefix3(expectedPassword))
-		})
-	}
+	resolveExpectedCredentials()
 
 	return username == expectedUsername && password == expectedPassword
+}
+
+func resolveExpectedCredentials() {
+	credentialResolveOnce.Do(func() {
+		if cfg, err := config.Load(); err == nil && cfg != nil {
+			expectedUsername = cfg.WebPanelUser
+			expectedPassword = cfg.WebPanelPwd
+		}
+
+		// 兼容配置尚未初始化的场景
+		if expectedUsername == "" {
+			expectedUsername = os.Getenv("WEB_PANEL_USER")
+		}
+		if expectedPassword == "" {
+			expectedPassword = os.Getenv("WEB_PANEL_PWD")
+		}
+
+		if expectedPassword == "" {
+			expectedUsername = "admin_" + randomHex(3)
+			expectedPassword = randomHex(12)
+			log.Printf("[auth] 未检测到 WEB_PANEL_PWD，已为本次启动生成临时后台账号: username=%s password=%s", expectedUsername, expectedPassword)
+			return
+		}
+
+		if expectedUsername == "" {
+			expectedUsername = "admin"
+		}
+		log.Printf("[auth] 已读取到后台凭证（仅显示前3位）: username=%s*** password=%s***", prefix3(expectedUsername), prefix3(expectedPassword))
+	})
 }
 
 func randomHex(byteLen int) string {
