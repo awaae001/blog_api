@@ -96,6 +96,15 @@
               下载
             </el-button>
             <el-button
+              v-if="isEditableFile(row)"
+              type="primary"
+              link
+              :icon="Edit"
+              @click="handleEdit(row)"
+            >
+              编辑
+            </el-button>
+            <el-button
               type="danger"
               link
               :icon="Delete"
@@ -135,11 +144,35 @@
         </el-button>
       </template>
     </el-dialog>
+
+        <el-dialog
+      v-model="editorDialogVisible"
+      :title="editorTitle"
+      width="80%"
+      top="5vh"
+      :before-close="handleEditorBeforeClose"
+      @closed="resetEditor"
+    >
+      <div v-loading="editorLoading">
+        <div ref="editorContainerRef" class="code-editor" />
+      </div>
+      <template #footer>
+        <el-button @click="editorDialogVisible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="editorSaving"
+          :disabled="editorLoading || !editingEntry || !hasEditorChanges"
+          @click="handleSaveEdit"
+        >
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   UploadFilled,
@@ -149,12 +182,14 @@ import {
   FolderOpened,
   Document,
   Delete,
-  Download
+  Download,
+  Edit
 } from '@element-plus/icons-vue'
 import type { UploadFile } from 'element-plus'
-import { listResources, uploadFile, deleteFile } from '@/api/resource'
+import { listResources, uploadFile, deleteFile, getResourceFileBlob } from '@/api/resource'
 import type { ResourceEntry } from '@/model/resource'
 import { formatDate } from '@/utils/date'
+import { EditorView, basicSetup } from 'codemirror'
 
 const entries = ref<ResourceEntry[]>([])
 const loading = ref(false)
@@ -164,6 +199,19 @@ const uploadFiles = ref<UploadFile[]>([])
 const uploadPath = ref('')
 const overwrite = ref(false)
 const uploading = ref(false)
+const editorDialogVisible = ref(false)
+const editorLoading = ref(false)
+const editorSaving = ref(false)
+const editorContent = ref('')
+const originalEditorContent = ref('')
+const editingEntry = ref<ResourceEntry | null>(null)
+const editorContainerRef = ref<HTMLElement | null>(null)
+let editorView: EditorView | null = null
+
+const editableExtensions = new Set([
+  'txt', 'md', 'json', 'js', 'ts', 'css', 'html',
+  'xml', 'yaml', 'yml', 'toml', 'ini', 'env', 'log', 'sql', 'sh', 'go', 'vue'
+])
 
 const normalizePath = (path: string) => path.replace(/^\/+/, '').replace(/\\/g, '/')
 const encodePath = (path: string) =>
@@ -185,6 +233,12 @@ const sortedEntries = computed(() => {
     if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1
     return a.name.localeCompare(b.name)
   })
+})
+
+const hasEditorChanges = computed(() => editorContent.value !== originalEditorContent.value)
+
+const editorTitle = computed(() => {
+  return editingEntry.value ? `编辑文件: ${editingEntry.value.path}` : '编辑文件'
 })
 
 const fetchResources = async (path = currentPath.value) => {
@@ -232,6 +286,107 @@ const handleBreadcrumbClick = (path: string) => {
 const handleDownload = (entry: ResourceEntry) => {
   const url = `/api/action/resource/${encodePath(entry.path)}`
   window.open(url, '_blank')
+}
+
+const isEditableFile = (entry: ResourceEntry) => {
+  if (entry.is_dir) return false
+  const ext = entry.name.includes('.') ? entry.name.split('.').pop()?.toLowerCase() : ''
+  return Boolean(ext && editableExtensions.has(ext))
+}
+
+const handleEdit = async (entry: ResourceEntry) => {
+  editorLoading.value = true
+  try {
+    const blob = await getResourceFileBlob(normalizePath(entry.path))
+    editingEntry.value = entry
+    editorContent.value = await blob.text()
+    originalEditorContent.value = editorContent.value
+    editorDialogVisible.value = true
+    await nextTick()
+    mountEditor(editorContent.value)
+  } catch (error) {
+    ElMessage.error('读取文件失败')
+  } finally {
+    editorLoading.value = false
+  }
+}
+
+const mountEditor = (content: string) => {
+  if (!editorContainerRef.value) return
+  if (editorView) {
+    editorView.destroy()
+    editorView = null
+  }
+  editorView = new EditorView({
+    doc: content,
+    extensions: [
+      basicSetup,
+      EditorView.lineWrapping,
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          editorContent.value = update.state.doc.toString()
+        }
+      })
+    ],
+    parent: editorContainerRef.value
+  })
+  editorContent.value = content
+}
+
+const resetEditor = () => {
+  if (editorView) {
+    editorView.destroy()
+    editorView = null
+  }
+  editorContent.value = ''
+  originalEditorContent.value = ''
+  editingEntry.value = null
+  editorLoading.value = false
+  editorSaving.value = false
+}
+
+const handleEditorBeforeClose = (done: () => void) => {
+  if (!hasEditorChanges.value) {
+    done()
+    return
+  }
+  ElMessageBox.confirm('文件内容尚未保存，确认关闭吗？', '提示', {
+    type: 'warning'
+  }).then(() => done())
+}
+
+const handleSaveEdit = async () => {
+  if (!editingEntry.value) return
+  if (editorView) {
+    editorContent.value = editorView.state.doc.toString()
+  }
+  const normalized = normalizePath(editingEntry.value.path)
+  const filename = normalized.split('/').pop()
+  if (!filename) {
+    ElMessage.error('无效文件名')
+    return
+  }
+  const pathSegments = normalized.split('/')
+  pathSegments.pop()
+  const targetPath = pathSegments.join('/')
+
+  editorSaving.value = true
+  try {
+    const blob = new Blob([editorContent.value], { type: 'text/plain;charset=utf-8' })
+    const file = new File([blob], filename, { type: 'text/plain;charset=utf-8' })
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('path', targetPath)
+    formData.append('overwrite', 'true')
+    await uploadFile(formData, 'local')
+    originalEditorContent.value = editorContent.value
+    ElMessage.success('保存成功')
+    fetchResources(currentPath.value)
+  } catch (error) {
+    ElMessage.error('保存失败')
+  } finally {
+    editorSaving.value = false
+  }
 }
 
 const openUploadDialog = () => {
@@ -300,6 +455,13 @@ const formatSize = (size: number) => {
 onMounted(() => {
   fetchResources()
 })
+
+onBeforeUnmount(() => {
+  if (editorView) {
+    editorView.destroy()
+    editorView = null
+  }
+})
 </script>
 
 <style scoped>
@@ -337,5 +499,19 @@ onMounted(() => {
 .upload-icon {
   font-size: 28px;
   color: #8c939d;
+}
+.code-editor {
+  min-height: 520px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.code-editor :deep(.cm-editor) {
+  height: 520px;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.code-editor :deep(.cm-scroller) {
+  overflow: auto;
 }
 </style>

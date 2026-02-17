@@ -49,3 +49,16 @@ export const listResources = (path = ''): Promise<ApiResponse<ResourceEntry[]>> 
     method: 'get'
   })
 }
+
+/**
+ * 获取资源文件内容（原始 Blob）
+ */
+export const getResourceFileBlob = (path: string): Promise<Blob> => {
+  const normalizedPath = path.replace(/^\/+/, '')
+  const encodedPath = encodePath(normalizedPath)
+  return request({
+    url: `/action/resource/${encodedPath}`,
+    method: 'get',
+    responseType: 'blob'
+  })
+}
