@@ -5,6 +5,7 @@ import (
 	momentRepositories "blog_api/src/repositories/moment"
 	"blog_api/src/service"
 	botService "blog_api/src/service/bot"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -43,6 +44,7 @@ func (h *MomentHandler) CreateMoment(c *gin.Context) {
 	}
 
 	if err := service.CreateMoment(h.DB, req); err != nil {
+		log.Printf("[moments] create moment failed: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create moment"))
 		return
 	}

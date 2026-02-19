@@ -18,7 +18,11 @@ CREATE TABLE IF NOT EXISTS moments (
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_moments_status ON moments (status);
 CREATE INDEX IF NOT EXISTS idx_moments_content ON moments (content);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_moments_chat_message ON moments(channel_id, message_id);
+-- 仅对来自频道/群消息（两者都 > 0）的记录做唯一约束。
+DROP INDEX IF EXISTS idx_moments_chat_message;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_moments_chat_message
+ON moments(channel_id, message_id)
+WHERE channel_id > 0 AND message_id > 0;
 
 -- 添加触发器，自动更新 updated_at 字段
 CREATE TRIGGER IF NOT EXISTS trg_moments_updated_at
