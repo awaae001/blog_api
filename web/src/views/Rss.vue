@@ -108,6 +108,7 @@
               <a :href="row.link" target="_blank" class="post-link">{{ row.title }}</a>
             </template>
           </el-table-column>
+          <el-table-column v-if="isAllPostsView" prop="author" label="作者" width="160" />
           <el-table-column prop="time" label="发布时间" width="180">
             <template #default="{ row }">
               {{ formatDate(row.time) }}
