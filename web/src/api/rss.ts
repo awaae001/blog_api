@@ -84,6 +84,17 @@ export const deleteRssFeed = (ids: number[]): Promise<ApiResponse> => {
 }
 
 /**
+ * Deletes one persisted RSS article.
+ * Corresponds to DELETE /api/action/rss/posts/:id
+ */
+export const deleteRssPost = (id: number): Promise<ApiResponse<{ rows_affected: number }>> => {
+  return request({
+    url: `/action/rss/posts/${id}`,
+    method: 'delete'
+  })
+}
+
+/**
  * Updates an existing RSS feed.
  * Corresponds to PUT /api/action/rss
  * @param id - The ID of the RSS feed to update.

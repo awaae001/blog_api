@@ -114,6 +114,13 @@
               {{ formatDate(row.time) }}
             </template>
           </el-table-column>
+          <el-table-column label="操作" width="80">
+            <template #default="{ row }">
+              <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
         <el-pagination
           background
@@ -220,6 +227,7 @@ import {
   getAllPosts,
   updateRssFeed,
   deleteRssFeed,
+  deleteRssPost,
   createRssFeed,
   fetchRssFeed
 } from '@/api/rss'
@@ -475,6 +483,30 @@ const handleDelete = (feed: RssFeed) => {
       } else {
         ElMessage.error(res.message || '删除失败')
       }
+    } catch (error) {
+      // The request interceptor handles error messages
+    }
+  })
+}
+
+const handleDeletePost = (post: RssPost) => {
+  ElMessageBox.confirm(`确定要删除文章“${post.title}”吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      const res = await deleteRssPost(post.id)
+      if (res.code !== 200) {
+        ElMessage.error(res.message || '删除文章失败')
+        return
+      }
+
+      ElMessage.success('文章已删除')
+      if (posts.value.length === 1 && currentPostPage.value > 1) {
+        currentPostPage.value--
+      }
+      await fetchCurrentViewPosts()
     } catch (error) {
       // The request interceptor handles error messages
     }

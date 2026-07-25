@@ -168,12 +168,10 @@ func RunRssParserJob(db *gorm.DB) {
 		return
 	}
 
-	// 使用并发解析
-	crawlerService.ParseRssFeedsConcurrently(rssFeeds, func(friendRssID int, rssURL string) {
-		if _, err := crawlerService.ParseRssFeed(context.Background(), db, friendRssID, rssURL); err != nil {
-			log.Printf("[Cron] RSS 解析失败 (id=%d): %v", friendRssID, err)
-		}
-	})
+	result := crawlerService.ParseRssFeedsConcurrently(context.Background(), db, rssFeeds)
+	if result.DatabaseFailures > 0 {
+		log.Printf("[Cron] RSS 解析任务有 %d 个数据库写入失败", result.DatabaseFailures)
+	}
 	log.Println("[Cron] RSS 解析任务完成")
 }
 

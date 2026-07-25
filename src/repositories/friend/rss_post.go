@@ -27,6 +27,16 @@ func InsertRssPost(db *gorm.DB, post *model.RssPost) (bool, error) {
 	return true, nil
 }
 
+// DeleteRssPostByID deletes one RSS article by its primary key.
+// It returns zero when the article does not exist.
+func DeleteRssPostByID(db *gorm.DB, id int) (int64, error) {
+	result := db.Delete(&model.RssPost{}, id)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return result.RowsAffected, nil
+}
+
 // GetPosts retrieves posts based on the provided query parameters.
 func GetPosts(db *gorm.DB, query *model.PostQuery) ([]model.RssPost, int, error) {
 	var posts []model.RssPost

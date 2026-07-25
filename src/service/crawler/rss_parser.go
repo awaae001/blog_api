@@ -58,68 +58,96 @@ func parseFeedURL(ctx context.Context, rawURL string) (*gofeed.Feed, error) {
 // A successful call always restores the feed to a healthy state. Remote failures
 // wrap ErrRssSource; database failures do not.
 func ParseRssFeed(ctx context.Context, db *gorm.DB, friendRssID int, rssURL string) (model.RssFetchResult, error) {
-	var result model.RssFetchResult
-	feed, err := parseFeedURL(ctx, rssURL)
+	var friendRss model.FriendRss
+	if err := db.Select("id, name, rss_url").Where("id = ?", friendRssID).First(&friendRss).Error; err != nil {
+		return model.RssFetchResult{}, fmt.Errorf("load RSS feed: %w", err)
+	}
+	friendRss.RssURL = rssURL
+
+	fetched, err := fetchRssFeed(ctx, friendRss)
 	if err != nil {
 		log.Printf("解析 RSS feed %s 时出错: %v", rssURL, err)
 		if ctx.Err() != nil {
-			return result, ctx.Err()
+			return model.RssFetchResult{}, ctx.Err()
 		}
 		if stateErr := updateRssParseState(db, friendRssID, false); stateErr != nil {
-			return result, fmt.Errorf("record RSS fetch failure: %w", stateErr)
+			return model.RssFetchResult{}, fmt.Errorf("record RSS fetch failure: %w", stateErr)
 		}
-		return result, fmt.Errorf("%w: %v", ErrRssSource, err)
+		return model.RssFetchResult{}, fmt.Errorf("%w: %v", ErrRssSource, err)
 	}
-	result.CheckedItems = len(feed.Items)
-	err = db.Transaction(func(tx *gorm.DB) error {
-		friendRssName := ""
-		var friendRss model.FriendRss
-		if err := tx.Select("name").Where("id = ?", friendRssID).First(&friendRss).Error; err != nil {
-			return fmt.Errorf("load RSS feed name: %w", err)
-		}
-		friendRssName = friendRss.Name
 
-		p := bluemonday.StripTagsPolicy()
-		for _, item := range feed.Items {
-			publishedTime := item.PublishedParsed
+	result, err := persistFetchedRssFeed(db, fetched)
+	if err != nil {
+		return model.RssFetchResult{}, err
+	}
+
+	log.Printf("RSS %s 共检查 %d 篇文章，新增 %d 篇", rssURL, result.CheckedItems, result.InsertedItems)
+	return result, nil
+}
+
+type fetchedRssFeed struct {
+	feed         model.FriendRss
+	posts        []model.RssPost
+	checkedItems int
+}
+
+func fetchRssFeed(ctx context.Context, friendRss model.FriendRss) (fetchedRssFeed, error) {
+	feed, err := parseFeedURL(ctx, friendRss.RssURL)
+	if err != nil {
+		return fetchedRssFeed{}, err
+	}
+
+	policy := bluemonday.StripTagsPolicy()
+	posts := make([]model.RssPost, 0, len(feed.Items))
+	for _, item := range feed.Items {
+		publishedTime := item.PublishedParsed
+		if publishedTime == nil {
+			publishedTime = item.UpdatedParsed
 			if publishedTime == nil {
-				publishedTime = item.UpdatedParsed
-				if publishedTime == nil {
-					continue
-				}
+				continue
 			}
+		}
 
-			publishedUnix := publishedTime.Unix()
-			if publishedUnix < 0 {
-				publishedUnix = 0
-			}
+		publishedUnix := publishedTime.Unix()
+		if publishedUnix < 0 {
+			publishedUnix = 0
+		}
 
-			author := rssItemAuthor(item, friendRssName)
-			post := &model.RssPost{
-				RssID:       friendRssID,
-				Title:       item.Title,
-				Link:        item.Link,
-				Description: p.Sanitize(item.Description),
-				Author:      author,
-				Time:        publishedUnix,
-			}
+		posts = append(posts, model.RssPost{
+			RssID:       friendRss.ID,
+			Title:       item.Title,
+			Link:        item.Link,
+			Description: policy.Sanitize(item.Description),
+			Author:      rssItemAuthor(item, friendRss.Name),
+			Time:        publishedUnix,
+		})
+	}
 
-			inserted, err := friendsRepositories.InsertRssPost(tx, post)
+	return fetchedRssFeed{
+		feed:         friendRss,
+		posts:        posts,
+		checkedItems: len(feed.Items),
+	}, nil
+}
+
+func persistFetchedRssFeed(db *gorm.DB, fetched fetchedRssFeed) (model.RssFetchResult, error) {
+	result := model.RssFetchResult{CheckedItems: fetched.checkedItems}
+	err := db.Transaction(func(tx *gorm.DB) error {
+		for i := range fetched.posts {
+			inserted, err := friendsRepositories.InsertRssPost(tx, &fetched.posts[i])
 			if err != nil {
-				return fmt.Errorf("insert RSS article %q: %w", item.Title, err)
+				return fmt.Errorf("insert RSS article %q: %w", fetched.posts[i].Title, err)
 			}
 			if inserted {
 				result.InsertedItems++
 			}
 		}
 
-		return updateRssParseState(tx, friendRssID, true)
+		return updateRssParseState(tx, fetched.feed.ID, true)
 	})
 	if err != nil {
 		return model.RssFetchResult{}, err
 	}
-
-	log.Printf("RSS %s 共检查 %d 篇文章，新增 %d 篇", rssURL, result.CheckedItems, result.InsertedItems)
 	return result, nil
 }
 
