@@ -9,21 +9,22 @@ import (
 )
 
 // InsertRssPost inserts a post unless another post already owns the same link.
-func InsertRssPost(db *gorm.DB, post *model.RssPost) error {
+// It reports whether this call inserted a new row.
+func InsertRssPost(db *gorm.DB, post *model.RssPost) (bool, error) {
 	result := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "link"}},
 		DoNothing: true,
 	}).Create(post)
 	if result.Error != nil {
-		return result.Error
+		return false, result.Error
 	}
 
 	if result.RowsAffected == 0 {
-		return nil
+		return false, nil
 	}
 
 	log.Printf("已插入新文章: %s", post.Title)
-	return nil
+	return true, nil
 }
 
 // GetPosts retrieves posts based on the provided query parameters.

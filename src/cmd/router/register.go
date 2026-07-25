@@ -94,6 +94,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				rssActionGroup.POST("", RssHandler.CreateRss)
 				rssActionGroup.PUT("/:id", RssHandler.EditRss)
 				rssActionGroup.DELETE("/:id", RssHandler.DeleteFriendRss)
+				rssActionGroup.POST("/:id/fetch", RssHandler.FetchRss)
 			}
 			imageActionGroup := actionGroup.Group("/image")
 			{

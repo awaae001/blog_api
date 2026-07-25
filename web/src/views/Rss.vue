@@ -39,6 +39,11 @@
             </template>
           </el-table-column>
           <el-table-column prop="times" label="失败次数" width="90" />
+          <el-table-column label="归属友链" width="120">
+            <template #default="{ row }">
+              {{ friendLinkName(row.friend_link_id) }}
+            </template>
+          </el-table-column>
           <el-table-column label="失效" width="80">
             <template #default="{ row }">
               <el-tag :type="row.is_died ? 'danger' : 'success'" size="small">
@@ -46,8 +51,18 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="160">
+          <el-table-column label="操作" width="240">
             <template #default="{ row }">
+              <el-button
+                type="success"
+                link
+                :icon="Refresh"
+                :loading="fetchingId === row.id"
+                :disabled="fetchingId !== null && fetchingId !== row.id"
+                @click.stop="handleImmediateFetch(row)"
+              >
+                立刻获取
+              </el-button>
               <el-button type="primary" link :icon="Edit" @click.stop="handleEdit(row)">
                 编辑
               </el-button>
@@ -122,6 +137,23 @@
         <el-form-item label="URL" prop="rss_url">
           <el-input v-model="editForm.rss_url" />
         </el-form-item>
+        <el-form-item label="归属友链" prop="friend_link_id">
+          <el-select
+            v-model="editForm.friend_link_id"
+            filterable
+            :loading="friendLinksLoading"
+            placeholder="请选择归属友链"
+            style="width: 100%"
+          >
+            <el-option label="无归属" :value="-1" />
+            <el-option
+              v-for="friendLink in friendLinks"
+              :key="friendLink.id"
+              :label="friendLink.name"
+              :value="friendLink.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="editForm.status" placeholder="请选择状态">
             <el-option label="正常" value="survival"></el-option>
@@ -149,6 +181,23 @@
         <el-form-item label="URL" prop="rss_url">
           <el-input v-model="createForm.rss_url" />
         </el-form-item>
+        <el-form-item label="归属友链" prop="friend_link_id">
+          <el-select
+            v-model="createForm.friend_link_id"
+            filterable
+            :loading="friendLinksLoading"
+            placeholder="请选择归属友链"
+            style="width: 100%"
+          >
+            <el-option label="无归属" :value="-1" />
+            <el-option
+              v-for="friendLink in friendLinks"
+              :key="friendLink.id"
+              :label="friendLink.name"
+              :value="friendLink.id"
+            />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
@@ -163,24 +212,30 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Link } from '@element-plus/icons-vue'
+import { Edit, Delete, Link, Refresh } from '@element-plus/icons-vue'
 import {
   getRssFeeds,
   getPostsByFeed,
   getAllPosts,
   updateRssFeed,
   deleteRssFeed,
-  createRssFeed
+  createRssFeed,
+  fetchRssFeed
 } from '@/api/rss'
+import { getFriendLinks } from '@/api/friendLink'
 import type { RssFeed, RssPost } from '@/model/rss'
+import type { FriendLink } from '@/model/friendLink'
 
 const feeds = ref<RssFeed[]>([])
 const posts = ref<RssPost[]>([])
+const friendLinks = ref<FriendLink[]>([])
 const selectedFeed = ref<RssFeed | null>(null)
 const isAllPostsView = ref(false)
 
 const feedsLoading = ref(false)
 const postsLoading = ref(false)
+const friendLinksLoading = ref(false)
+const fetchingId = ref<number | null>(null)
 
 const viewTitle = computed(() => {
   if (isAllPostsView.value) {
@@ -195,22 +250,33 @@ const editForm = reactive({
   name: '',
   rss_url: '',
   status: 'survival',
-  is_died: false
+  is_died: false,
+  friend_link_id: -1
 })
 
 const createDialogVisible = ref(false)
 const createForm = reactive({
   name: '',
-  rss_url: ''
+  rss_url: '',
+  friend_link_id: -1
 })
 
 const handleCreate = () => {
+  Object.assign(createForm, {
+    name: '',
+    rss_url: '',
+    friend_link_id: -1
+  })
   createDialogVisible.value = true
 }
 
 const handleCreateSave = async () => {
   try {
-    const res = await createRssFeed(createForm.name, createForm.rss_url)
+    const res = await createRssFeed({
+      name: createForm.name,
+      rss_url: createForm.rss_url,
+      friend_link_id: createForm.friend_link_id
+    })
     if (res.code === 201) {
       ElMessage.success('创建成功')
       createDialogVisible.value = false
@@ -230,6 +296,10 @@ const fetchFeeds = async () => {
     if (res.code === 200) {
       feeds.value = res.data.items
       totalFeeds.value = res.data.total
+      if (selectedFeed.value) {
+        selectedFeed.value =
+          feeds.value.find((feed) => feed.id === selectedFeed.value?.id) ?? selectedFeed.value
+      }
     } else {
       ElMessage.error(res.message || '获取订阅源失败')
     }
@@ -237,6 +307,22 @@ const fetchFeeds = async () => {
     // The request interceptor handles error messages
   } finally {
     feedsLoading.value = false
+  }
+}
+
+const fetchFriendLinkOptions = async () => {
+  friendLinksLoading.value = true
+  try {
+    const res = await getFriendLinks({ page: 1, page_size: 1000 })
+    if (res.code === 200) {
+      friendLinks.value = res.data.items
+    } else {
+      ElMessage.error(res.message || '获取友链选项失败')
+    }
+  } catch (error) {
+    // The request interceptor handles error messages
+  } finally {
+    friendLinksLoading.value = false
   }
 }
 
@@ -277,10 +363,9 @@ const fetchAllPosts = async () => {
 
 const fetchCurrentViewPosts = () => {
   if (isAllPostsView.value) {
-    fetchAllPosts()
-  } else {
-    fetchPosts()
+    return fetchAllPosts()
   }
+  return fetchPosts()
 }
 
 // Feeds pagination
@@ -323,6 +408,7 @@ const handleEdit = (feed: RssFeed) => {
   editForm.rss_url = feed.rss_url
   editForm.status = feed.status
   editForm.is_died = feed.is_died
+  editForm.friend_link_id = feed.friend_link_id
   editDialogVisible.value = true
 }
 
@@ -332,7 +418,8 @@ const handleSave = async () => {
       name: editForm.name,
       rss_url: editForm.rss_url,
       status: editForm.status,
-      is_died: editForm.is_died
+      is_died: editForm.is_died,
+      friend_link_id: editForm.friend_link_id
     })
     if (res.code === 200) {
       ElMessage.success('更新成功')
@@ -343,6 +430,28 @@ const handleSave = async () => {
     }
   } catch (error) {
     // The request interceptor handles error messages
+  }
+}
+
+const handleImmediateFetch = async (feed: RssFeed) => {
+  if (fetchingId.value !== null) return
+
+  fetchingId.value = feed.id
+  try {
+    const res = await fetchRssFeed(feed.id)
+    if (res.code === 200) {
+      ElMessage.success(`获取完成：检查 ${res.data.checked_items} 篇，新增 ${res.data.inserted_items} 篇`)
+      await fetchFeeds()
+      if (isAllPostsView.value || selectedFeed.value?.id === feed.id) {
+        await fetchCurrentViewPosts()
+      }
+    } else {
+      ElMessage.error(res.message || '获取 RSS 失败')
+    }
+  } catch (error) {
+    // The request interceptor handles error messages
+  } finally {
+    fetchingId.value = null
   }
 }
 
@@ -386,8 +495,14 @@ const statusTagType = (status: string) => {
   }
 }
 
+const friendLinkName = (friendLinkId: number) => {
+  if (friendLinkId < 1) return '无归属'
+  return friendLinks.value.find((friendLink) => friendLink.id === friendLinkId)?.name ?? `#${friendLinkId}`
+}
+
 onMounted(() => {
   fetchFeeds()
+  fetchFriendLinkOptions()
 })
 </script>
 
