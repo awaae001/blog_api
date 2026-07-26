@@ -1,18 +1,22 @@
 package cmd
 
 import (
+	"blog_api/src/config"
 	"blog_api/src/model"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 const maxRequestBodyBytes = int64(65 << 20)
+
+var corsMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+var corsHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Antibot-Token", "CF-Turnstile-Token", "X-Turnstile-Token", "X-fingerprint-token"}
 
 // SetupRouter 初始化并配置 Gin 路由器
 func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
@@ -25,19 +29,56 @@ func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engin
 		}
 		c.Next()
 	})
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     cfg.Safe.CorsAllowHostlist,
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Antibot-Token", "CF-Turnstile-Token", "X-Turnstile-Token", "X-fingerprint-token"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
+	router.Use(dynamicCORSMiddleware())
 
 	registerRoutes(router, db, cfg, startTime)
 	if os.Getenv("PPROF_ENABLED") == "true" {
 		pprof.Register(router)
 	}
-	router.NoRoute(staticFileHandler(cfg))
+	router.NoRoute(staticFileHandler())
 	return router
+}
+
+func dynamicCORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin == "" {
+			c.Next()
+			return
+		}
+
+		if allowedOrigin, ok := allowedCORSOrigin(origin, config.GetConfig().Safe.CorsAllowHostlist); ok {
+			header := c.Writer.Header()
+			header.Set("Access-Control-Allow-Origin", allowedOrigin)
+			header.Set("Access-Control-Allow-Credentials", "true")
+			header.Set("Access-Control-Allow-Methods", strings.Join(corsMethods, ", "))
+			header.Set("Access-Control-Allow-Headers", strings.Join(corsHeaders, ", "))
+			header.Set("Access-Control-Expose-Headers", "Content-Length")
+			header.Set("Access-Control-Max-Age", "43200")
+			header.Add("Vary", "Origin")
+		} else if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func allowedCORSOrigin(origin string, allowlist []string) (string, bool) {
+	for _, allowed := range allowlist {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "*" {
+			return origin, true
+		}
+		if allowed == origin {
+			return origin, true
+		}
+	}
+	return "", false
 }

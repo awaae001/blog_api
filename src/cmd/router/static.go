@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"blog_api/src/config"
 	"blog_api/src/model"
 	"net/http"
 	"os"
@@ -11,11 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func staticFileHandler(cfg *model.Config) gin.HandlerFunc {
-	baseDir := resolveStaticBaseDir(cfg)
-	absBaseDir, _ := filepath.Abs(baseDir)
-
+func staticFileHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		currentCfg := config.GetConfig()
+		baseDir := resolveStaticBaseDir(currentCfg)
+		absBaseDir, _ := filepath.Abs(baseDir)
+
 		reqPath, ok := normalizeRequestPath(c.Request.URL.Path)
 		if !ok {
 			c.String(http.StatusBadRequest, "Bad Request")
@@ -27,7 +29,7 @@ func staticFileHandler(cfg *model.Config) gin.HandlerFunc {
 			return
 		}
 
-		for _, excludedPath := range cfg.Safe.ExcludePaths {
+		for _, excludedPath := range currentCfg.Safe.ExcludePaths {
 			normalizedExclude, valid := normalizeRequestPath(excludedPath)
 			if !valid || normalizedExclude == "/" {
 				continue
@@ -39,8 +41,8 @@ func staticFileHandler(cfg *model.Config) gin.HandlerFunc {
 			}
 		}
 
-		if cfg.Data.Database.Path != "" {
-			dbFileName := filepath.Base(cfg.Data.Database.Path)
+		if currentCfg.Data.Database.Path != "" {
+			dbFileName := filepath.Base(currentCfg.Data.Database.Path)
 			if reqPath == "/"+dbFileName || reqPath == "/"+dbFileName+"/" {
 				c.String(http.StatusForbidden, "Forbidden")
 				return
