@@ -2,11 +2,11 @@ package friendsRepositories
 
 import (
 	"blog_api/src/model"
-	"errors"
 	"fmt"
 	"log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // QueryFriendRss provides a unified interface for querying friend RSS feeds.
@@ -71,16 +71,6 @@ func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name str
 		return nil, fmt.Errorf("rssURL cannot be empty")
 	}
 
-	var existing model.FriendRss
-	err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error
-	if err == nil {
-		log.Printf("RSS feed '%s' already exists for friend link ID %d, returning existing record.", rssURL, friendLinkID)
-		return &existing, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-
 	newRSS := model.FriendRss{
 		FriendLinkID: friendLinkID,
 		RssURL:       rssURL,
@@ -89,8 +79,23 @@ func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name str
 		Status:       "survival",
 		IsDied:       false,
 	}
-	if err := db.Create(&newRSS).Error; err != nil {
-		return nil, err
+
+	result := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "friend_link_id"}, {Name: "rss_url"}},
+		DoNothing: true,
+	}).Create(&newRSS)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		// 已存在，回查并返回已有记录
+		var existing model.FriendRss
+		if err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error; err != nil {
+			return nil, err
+		}
+		log.Printf("RSS feed '%s' already exists for friend link ID %d, returning existing record.", rssURL, friendLinkID)
+		return &existing, nil
 	}
 
 	log.Printf("Successfully inserted RSS feed '%s' for friend link ID %d.", rssURL, friendLinkID)

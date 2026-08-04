@@ -7,6 +7,7 @@ import (
 	crawlerService "blog_api/src/service/crawler"
 	"context"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -36,8 +37,22 @@ func scheduleFromNextMidnight(jobName string, interval time.Duration, job func()
 	}()
 }
 
+// 任务互斥锁：防止启动扫描与定时任务、以及任务超时重入导致的并发执行
+var (
+	friendLinkCrawlerMu sync.Mutex
+	diedFriendLinkMu    sync.Mutex
+	diedRssCheckMu      sync.Mutex
+	rssParserMu         sync.Mutex
+)
+
 // RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源（并发模式）
 func RunFriendLinkCrawlerJob(db *gorm.DB) {
+	if !friendLinkCrawlerMu.TryLock() {
+		log.Println("[Cron] 友链爬取任务上一轮仍在执行，本次跳过")
+		return
+	}
+	defer friendLinkCrawlerMu.Unlock()
+
 	log.Println("[Cron] 正在运行友链爬取任务（并发模式）...")
 	isDied := false
 	skipHealthCheck := false
@@ -89,6 +104,12 @@ func RunFriendLinkCrawlerJob(db *gorm.DB) {
 
 // RunDiedFriendLinkCheckJob 执行失效友链的检查（并发模式）
 func RunDiedFriendLinkCheckJob(db *gorm.DB) {
+	if !diedFriendLinkMu.TryLock() {
+		log.Println("[Cron] 失效友链检查任务上一轮仍在执行，本次跳过")
+		return
+	}
+	defer diedFriendLinkMu.Unlock()
+
 	log.Println("[Cron] 正在运行失效友链检查任务（并发模式）...")
 	isDied := true
 	skipHealthCheck := false
@@ -125,6 +146,12 @@ func RunDiedFriendLinkCheckJob(db *gorm.DB) {
 
 // RunDiedRssCheckJob 执行失效 RSS 的探活检查（低频）
 func RunDiedRssCheckJob(db *gorm.DB) {
+	if !diedRssCheckMu.TryLock() {
+		log.Println("[Cron] 失效 RSS 探活任务上一轮仍在执行，本次跳过")
+		return
+	}
+	defer diedRssCheckMu.Unlock()
+
 	log.Println("[Cron] 正在运行失效 RSS 探活任务...")
 	isDied := true
 	opts := model.FriendRssQueryOptions{
@@ -154,6 +181,12 @@ func RunDiedRssCheckJob(db *gorm.DB) {
 
 // RunRssParserJob 获取所有 RSS 订阅源并解析它们（并发模式）
 func RunRssParserJob(db *gorm.DB) {
+	if !rssParserMu.TryLock() {
+		log.Println("[Cron] RSS 解析任务上一轮仍在执行，本次跳过")
+		return
+	}
+	defer rssParserMu.Unlock()
+
 	log.Println("[Cron] 正在运行 RSS 解析任务（并发模式）...")
 	opts := model.FriendRssQueryOptions{Status: "valid"}
 	resp, err := friendsRepositories.QueryFriendRss(db, opts)
