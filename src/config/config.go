@@ -372,7 +372,7 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 
 func restartRequiredKeys(updates []model.UpdateConfigReq) []string {
 	restartPrefixes := []string{
-		"system_conf.data_conf.database.path",
+		"system_conf.data_conf.database",
 		"system_conf.data_conf.image.path",
 		"system_conf.data_conf.image.conv_to",
 		"system_conf.moments_integrated_conf",

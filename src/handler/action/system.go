@@ -25,7 +25,7 @@ func (h *SystemHandler) Restart(c *gin.Context) {
 
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		log.Panicf("[restart]收到人为重启请求")
+		log.Printf("[restart] 收到人为重启请求，进程即将退出（exit code 0），等待外部 supervisor 拉起")
 		os.Exit(0)
 	}()
 }

@@ -55,6 +55,9 @@ type DataConfig struct {
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
 	Path string `mapstructure:"path"`
+	// MigrationsPath SQL 迁移文件目录，默认 "migrations"（相对 CWD）。
+	// 显式配置为绝对路径可避免二进制在不同目录启动时找错迁移文件。
+	MigrationsPath string `mapstructure:"migrations_path"`
 }
 
 // ImageConfig 图片配置

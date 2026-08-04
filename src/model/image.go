@@ -15,6 +15,25 @@ func (Image) TableName() string {
 	return "images"
 }
 
+// PublicImageMetadata 是可匿名公开访问的图片元数据，刻意不包含
+// LocalPath 等服务器内部信息。
+type PublicImageMetadata struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+	Status string `json:"status"`
+}
+
+// ToPublicMetadata 转换为公开接口可安全返回的元数据。
+func (i *Image) ToPublicMetadata() PublicImageMetadata {
+	return PublicImageMetadata{
+		ID:     i.ID,
+		Name:   i.Name,
+		URL:    i.URL,
+		Status: i.Status,
+	}
+}
+
 type QueryImageResponse struct {
 	Images []Image
 	Total  int64

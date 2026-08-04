@@ -60,7 +60,8 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 
 	queryType := c.DefaultQuery("type", "image")
 	if queryType == "metadata" {
-		c.JSON(http.StatusOK, image)
+		// 只暴露公开字段，避免泄露 local_path 等服务器内部信息
+		c.JSON(http.StatusOK, image.ToPublicMetadata())
 	} else {
 		c.Redirect(http.StatusFound, image.URL)
 	}

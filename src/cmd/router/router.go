@@ -50,7 +50,10 @@ func dynamicCORSMiddleware() gin.HandlerFunc {
 		if allowedOrigin, ok := allowedCORSOrigin(origin, config.GetConfig().Safe.CorsAllowHostlist); ok {
 			header := c.Writer.Header()
 			header.Set("Access-Control-Allow-Origin", allowedOrigin)
-			header.Set("Access-Control-Allow-Credentials", "true")
+			// 通配符 "*" 语义下禁止携带凭证；只有精确匹配的 Origin 才允许
+			if allowedOrigin != "*" {
+				header.Set("Access-Control-Allow-Credentials", "true")
+			}
 			header.Set("Access-Control-Allow-Methods", strings.Join(corsMethods, ", "))
 			header.Set("Access-Control-Allow-Headers", strings.Join(corsHeaders, ", "))
 			header.Set("Access-Control-Expose-Headers", "Content-Length")
@@ -74,7 +77,8 @@ func allowedCORSOrigin(origin string, allowlist []string) (string, bool) {
 	for _, allowed := range allowlist {
 		allowed = strings.TrimSpace(allowed)
 		if allowed == "*" {
-			return origin, true
+			// 返回字面 "*"，由调用方决定是否允许凭证
+			return "*", true
 		}
 		if allowed == origin {
 			return origin, true
