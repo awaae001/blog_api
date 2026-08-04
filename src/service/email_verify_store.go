@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -14,11 +15,21 @@ const (
 	defaultEmailTokenTTLSeconds = 86400
 	maxEmailCodes               = 10000
 	maxEmailTokens              = 10000
+	// maxEmailCodeAttempts bounds brute-force tries against one code before it is invalidated.
+	maxEmailCodeAttempts = 5
+	// minEmailCodeResendIntervalSeconds throttles code re-issue per email so an
+	// attacker cannot trade re-sends for fresh brute-force budgets.
+	minEmailCodeResendIntervalSeconds = 60
 )
+
+// ErrEmailCodeResendTooSoon is returned when a new code is requested before the resend cooldown elapsed.
+var ErrEmailCodeResendTooSoon = errors.New("email verification code requested too frequently")
 
 type emailCodeEntry struct {
 	code      string
 	expiresAt int64
+	issuedAt  int64
+	attempts  int
 }
 
 type emailTokenEntry struct {
@@ -56,15 +67,21 @@ func IssueEmailVerifyCode(email string) (string, int64, error) {
 	}
 	expiresAt := time.Now().Add(defaultEmailCodeTTLSeconds * time.Second).Unix()
 
+	now := time.Now().Unix()
 	emailVerifyStore.mu.Lock()
 	defer emailVerifyStore.mu.Unlock()
-	emailVerifyStore.cleanupLocked(time.Now().Unix())
-	if _, exists := emailVerifyStore.codes[email]; !exists && len(emailVerifyStore.codes) >= maxEmailCodes {
+	emailVerifyStore.cleanupLocked(now)
+	if existing, exists := emailVerifyStore.codes[email]; exists {
+		if now-existing.issuedAt < minEmailCodeResendIntervalSeconds {
+			return "", 0, ErrEmailCodeResendTooSoon
+		}
+	} else if len(emailVerifyStore.codes) >= maxEmailCodes {
 		return "", 0, fmt.Errorf("email verification code capacity reached")
 	}
 	emailVerifyStore.codes[email] = emailCodeEntry{
 		code:      code,
 		expiresAt: expiresAt,
+		issuedAt:  now,
 	}
 
 	return code, expiresAt, nil
@@ -84,6 +101,13 @@ func ValidateEmailVerifyCode(email, code string) bool {
 		return false
 	}
 	if entry.code != code {
+		entry.attempts++
+		if entry.attempts >= maxEmailCodeAttempts {
+			// Invalidate the code after too many wrong guesses; the owner must request a new one.
+			delete(emailVerifyStore.codes, email)
+			return false
+		}
+		emailVerifyStore.codes[email] = entry
 		return false
 	}
 	delete(emailVerifyStore.codes, email)

@@ -15,7 +15,8 @@ import (
 const maxHTMLResponseBytes = int64(4 << 20)
 
 var crawlerHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
+	Timeout:   10 * time.Second,
+	Transport: newSafeHTTPTransport(),
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	},
@@ -24,6 +25,10 @@ var crawlerHTTPClient = &http.Client{
 // CrawlWebsite inspects one website and returns its health and discovered metadata.
 // Transport and parsing failures are represented by the result status.
 func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
+	if _, err := ValidatePublicHTTPURL(rawURL); err != nil {
+		log.Printf("[crawler]拒绝爬取非法目标 %s: %v", rawURL, err)
+		return model.CrawlResult{Status: "error"}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		log.Printf("[crawler]创建获取 %s 的请求时出错: %v", rawURL, err)

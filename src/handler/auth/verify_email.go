@@ -1,6 +1,7 @@
 package authHandler
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -63,6 +64,10 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 	cfg := config.GetConfig()
 	code, expiresAt, err := service.IssueEmailVerifyCode(req.Email)
 	if err != nil {
+		if errors.Is(err, service.ErrEmailCodeResendTooSoon) {
+			c.JSON(http.StatusTooManyRequests, model.NewErrorResponse(429, "verification code requested too frequently"))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to issue email code"))
 		return
 	}

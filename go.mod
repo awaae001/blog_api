@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.22.35
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.0
 	github.com/bwmarrin/discordgo v0.29.0
+	github.com/chai2010/webp v1.4.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-contrib/pprof v1.5.4
 	github.com/gin-gonic/gin v1.12.0
@@ -20,6 +21,7 @@ require (
 	github.com/mmcdole/gofeed v1.4.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.21.0
+	golang.org/x/image v0.44.0
 	golang.org/x/net v0.57.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
@@ -81,7 +83,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.29.0 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/image v0.44.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

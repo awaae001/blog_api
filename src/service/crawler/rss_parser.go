@@ -21,12 +21,23 @@ const (
 	maxRSSResponseBytes = int64(8 << 20)
 )
 
-var rssHTTPClient = &http.Client{}
+var rssHTTPClient = &http.Client{
+	Transport: newSafeHTTPTransport(),
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("too many redirects")
+		}
+		return nil
+	},
+}
 
 // ErrRssSource identifies failures caused by fetching or parsing a remote feed.
 var ErrRssSource = errors.New("RSS source failure")
 
 func parseFeedURL(ctx context.Context, rawURL string) (*gofeed.Feed, error) {
+	if _, err := ValidatePublicHTTPURL(rawURL); err != nil {
+		return nil, err
+	}
 	timeoutSeconds := config.GetConfig().Crawler.RssTimeoutSeconds
 	if timeoutSeconds <= 0 {
 		timeoutSeconds = 15

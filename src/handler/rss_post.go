@@ -60,6 +60,9 @@ func (h *RssPostHandler) GetRssPosts(c *gin.Context) {
 	if query.PageSize <= 0 {
 		query.PageSize = 10
 	}
+	if query.PageSize > 100 {
+		query.PageSize = 100
+	}
 
 	posts, total, err := friendsRepositories.GetPosts(h.DB, &query)
 	if err != nil {

@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chai2010/webp"
 	"github.com/disintegration/imaging"
+	_ "golang.org/x/image/webp" // register webp decoder for image.Decode
 	"gorm.io/gorm"
 )
 
@@ -111,7 +113,17 @@ func processSingleImage(filePath, rootPath, targetFormat string) (*processedImag
 	if targetFormat != "" && ext != "."+targetFormat {
 		newPath := strings.TrimSuffix(filePath, ext) + "." + targetFormat
 
-		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+		needsConvert := true
+		if info, statErr := os.Stat(newPath); statErr == nil {
+			if info.Size() > 0 {
+				needsConvert = false
+			} else {
+				// 0 字节残壳：上次转换失败留下的空文件，删掉并重新转换
+				log.Printf("[service][image][WARN] Removing empty leftover from failed conversion: %s", newPath)
+				os.Remove(newPath)
+			}
+		}
+		if needsConvert {
 			if err := convertImage(filePath, newPath, targetFormat); err != nil {
 				log.Printf("[service][image][WARN] Failed to convert %s: %v", filePath, err)
 				return nil, err
@@ -160,7 +172,9 @@ func isSupportedImage(ext string) bool {
 	}
 }
 
-// convertImage 将源图片转换为目标格式并保存
+// convertImage 将源图片转换为目标格式并保存。
+// 先完整解码源图，再编码到同目录临时文件，最后原子 rename 到目标路径：
+// 任何一步失败都不会在 destPath 留下空壳/半成品文件。
 func convertImage(srcPath, destPath, targetFormat string) error {
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
@@ -168,29 +182,45 @@ func convertImage(srcPath, destPath, targetFormat string) error {
 	}
 	defer srcFile.Close()
 
-	destFile, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("could not create destination file: %w", err)
-	}
-	defer destFile.Close()
-
-	if targetFormat == "webp" {
-		_, err := io.Copy(destFile, srcFile)
-		return err
-	}
-
 	img, _, err := image.Decode(srcFile)
 	if err != nil {
 		return fmt.Errorf("could not decode image: %w", err)
 	}
 
+	tmpFile, err := os.CreateTemp(filepath.Dir(destPath), filepath.Base(destPath)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("could not create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	encodeErr := encodeImage(tmpFile, img, targetFormat)
+	closeErr := tmpFile.Close()
+	if encodeErr == nil && closeErr == nil {
+		if err := os.Rename(tmpPath, destPath); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("could not move converted file into place: %w", err)
+		}
+		return nil
+	}
+
+	os.Remove(tmpPath)
+	if encodeErr != nil {
+		return encodeErr
+	}
+	return fmt.Errorf("could not finalize converted file: %w", closeErr)
+}
+
+// encodeImage 将解码后的图片按目标格式编码写入 w。
+func encodeImage(w io.Writer, img image.Image, targetFormat string) error {
 	switch targetFormat {
+	case "webp":
+		return webp.Encode(w, img, &webp.Options{Quality: 85})
 	case "jpg", "jpeg":
-		return imaging.Encode(destFile, img, imaging.JPEG, imaging.JPEGQuality(85))
+		return imaging.Encode(w, img, imaging.JPEG, imaging.JPEGQuality(85))
 	case "png":
-		return imaging.Encode(destFile, img, imaging.PNG)
+		return imaging.Encode(w, img, imaging.PNG)
 	case "gif":
-		return imaging.Encode(destFile, img, imaging.GIF)
+		return imaging.Encode(w, img, imaging.GIF)
 	default:
 		return fmt.Errorf("unsupported target format: %s", targetFormat)
 	}
