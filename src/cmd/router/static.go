@@ -43,7 +43,10 @@ func staticFileHandler() gin.HandlerFunc {
 
 		if currentCfg.Data.Database.Path != "" {
 			dbFileName := filepath.Base(currentCfg.Data.Database.Path)
-			if reqPath == "/"+dbFileName || reqPath == "/"+dbFileName+"/" {
+			// 拦截数据库本体及其伴随文件（-wal / -shm / -journal 等），
+			// WAL 模式下近期写入只存在于 database.db-wal 中
+			if reqPath == "/"+dbFileName || strings.HasPrefix(reqPath, "/"+dbFileName+"-") ||
+				reqPath == "/"+dbFileName+"/" || strings.HasPrefix(reqPath, "/"+dbFileName+"/-") {
 				c.String(http.StatusForbidden, "Forbidden")
 				return
 			}

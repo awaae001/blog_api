@@ -105,8 +105,23 @@ func (s *ResourceService) SaveReader(filename string, src io.Reader, subPath str
 }
 
 func (s *ResourceService) prepareSavePath(cfg *model.Config, filename, subPath string, overwrite bool) (string, string, error) {
+	// 文件名必须是不含目录成分的 basename，防止路径遍历攻击。
+	// 统一将 \ 视为分隔符，避免 Windows 风格分隔符在 Linux 下绕过。
+	filename = filepath.Base(strings.ReplaceAll(filename, "\\", "/"))
+	if filename == "" || filename == "." || filename == ".." || filename == "/" || filename != strings.TrimSpace(filename) {
+		return "", "", fmt.Errorf("非法的文件名")
+	}
+
+	// 检查文件扩展名是否在白名单中
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
-	if !s.isExtensionAllowed(cfg, ext) {
+	extAllowed := false
+	for _, allowedExt := range cfg.Safe.AllowExtension {
+		if ext == allowedExt {
+			extAllowed = true
+			break
+		}
+	}
+	if !extAllowed {
 		return "", "", fmt.Errorf("文件类型 '%s' 不被允许", ext)
 	}
 
@@ -127,14 +142,33 @@ func (s *ResourceService) prepareSavePath(cfg *model.Config, filename, subPath s
 		return "", "", fmt.Errorf("创建目录失败: %w", err)
 	}
 
-	// 根据 overwrite 标志决定文件名
-	var finalFilename string
-	if overwrite {
-		finalFilename = filename
-	} else {
-		finalFilename = s.findUniqueFilename(saveDir, filename)
+	// 根据 overwrite 标志决定文件名；不覆盖时若重名则添加后缀 (1), (2)...
+	finalFilename := filename
+	if !overwrite {
+		if _, err := os.Stat(filepath.Join(saveDir, filename)); err == nil {
+			baseName := strings.TrimSuffix(filename, filepath.Ext(filename))
+			for counter := 1; ; counter++ {
+				// 生成新的文件名，例如: "image(1).png"
+				candidate := fmt.Sprintf("%s(%d)%s", baseName, counter, filepath.Ext(filename))
+				if _, err := os.Stat(filepath.Join(saveDir, candidate)); os.IsNotExist(err) {
+					finalFilename = candidate
+					break
+				}
+			}
+		}
 	}
 	filePath := filepath.Join(saveDir, finalFilename)
+	absBasePath, err := filepath.Abs(filepath.Clean(basePath))
+	if err != nil {
+		return "", "", fmt.Errorf("获取资源根目录失败: %w", err)
+	}
+	absFilePath, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", "", fmt.Errorf("获取目标绝对路径失败: %w", err)
+	}
+	if !strings.HasPrefix(absFilePath, absBasePath+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("无效的路径")
+	}
 
 	// 从文件路径生成 URL
 	urlPath := strings.TrimPrefix(filePath, strings.TrimSuffix(basePath, "/"))
@@ -144,37 +178,6 @@ func (s *ResourceService) prepareSavePath(cfg *model.Config, filename, subPath s
 	}
 
 	return filePath, urlPath, nil
-}
-
-// isExtensionAllowed 检查文件扩展名是否在白名单中。
-func (s *ResourceService) isExtensionAllowed(cfg *model.Config, ext string) bool {
-	for _, allowedExt := range cfg.Safe.AllowExtension {
-		if ext == allowedExt {
-			return true
-		}
-	}
-	return false
-}
-
-// findUniqueFilename 检查文件名是否重复，如果重复则添加后缀 (1), (2)...
-func (s *ResourceService) findUniqueFilename(dir, filename string) string {
-	filePath := filepath.Join(dir, filename)
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return filename // 文件名不重复，直接返回
-	}
-
-	ext := filepath.Ext(filename)
-	baseName := strings.TrimSuffix(filename, ext)
-	counter := 1
-	for {
-		// 生成新的文件名，例如: "image(1).png"
-		newFilename := fmt.Sprintf("%s(%d)%s", baseName, counter, ext)
-		newFilePath := filepath.Join(dir, newFilename)
-		if _, err := os.Stat(newFilePath); os.IsNotExist(err) {
-			return newFilename // 找到一个不重复的文件名
-		}
-		counter++
-	}
 }
 
 // DeleteFile 删除指定路径的文件。
