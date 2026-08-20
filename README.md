@@ -33,7 +33,7 @@ go run main.go
 
 默认监听：`0.0.0.0:10024`。
 
-> 修改 `.env` 或 `data/config/*.json` 后需要重启后端服务才会生效；当前版本不支持完整热重载。
+> 通过管理面板保存公开 API 功能开关后会立即热生效。监听地址、数据库路径、机器人集成、OSS 等启动型配置仍可能需要重启；保存接口会返回 `restart_required_keys` 提示。
 
 ### 3. 启动前端管理面板（可选）
 
@@ -54,9 +54,33 @@ npm run build
 
 构建产物输出到 `data/panel`，由后端统一托管。
 
+## 公开 API 功能开关
+
+公开业务 API 默认全部关闭。可在管理面板的“系统设置 → 功能开关”中选择启用，或编辑 `data/config/system_config.json`：
+
+```json
+{
+  "system_conf": {
+    "safe_conf": {
+      "enabled_public_apis": ["moments", "image", "friend", "rss", "email"]
+    }
+  }
+}
+```
+
+支持以下 key：
+
+- `moments`：动态读取及 reaction 接口。
+- `image`：随机图和指定图片公开接口。
+- `friend`：公开友链读取及邮箱 token 自助管理接口。
+- `rss`：公开 RSS 文章读取接口。
+- `email`：发送/验证邮箱验证码及签发邮箱 token 的接口。
+
+未启用的接口统一返回 HTTP 404。未知 key（包括错误拼写）会被忽略；管理接口、管理员登录、Turnstile、指纹和公开验证配置不受此列表影响。通过管理面板保存该列表可立即生效，无需重启。
+
 ## 关键接口（示例）
 
-- 公共接口：
+- 公共接口（需在 `enabled_public_apis` 中启用对应 key）：
   - `GET /api/public/moments/`
   - `GET /api/public/rss/`
   - `GET /api/public/friend/`
@@ -70,7 +94,7 @@ npm run build
 
 - 认证相关：
   - `POST /api/verify/passwd`
-  - `POST /api/verify/email`
+  - `POST /api/verify/email`（需启用 `email`）
   - `POST /api/verify/turnstile`
   - `POST /api/verify/fingerprint`
 

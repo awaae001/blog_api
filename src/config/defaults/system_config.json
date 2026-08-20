@@ -20,7 +20,8 @@
       ],
       "exclude_paths": [
         "/config"
-      ]
+      ],
+      "enabled_public_apis": []
     },
     "data_conf": {
       "database": {

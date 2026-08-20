@@ -55,24 +55,32 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		verifyGroup := apiGroup.Group("/verify")
 		{
 			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandlerInstance.Login)
-			verifyGroup.POST("/email", middleware.AntiBotAuth(), verifyHandler.SendEmailCode)
+			verifyGroup.POST("/email", middleware.RequirePublicAPI(model.PublicAPIEmail), middleware.AntiBotAuth(), verifyHandler.SendEmailCode)
 			verifyGroup.POST("/turnstile", middleware.TurnstileVerify(), verifyHandler.IssueVerifyToken)
 			verifyGroup.POST("/fingerprint", middleware.AntiBotAuth(), fingerprintHandler.CreateFingerprint)
 		}
 		publicGroup := apiGroup.Group("/public")
 		{
 			publicGroup.GET("/verify_conf", verifyPublicHandler.GetVerifyConfig)
-			publicGroup.GET("/friend/", friendLinkHandler.GetAllFriendLinks)
-			publicGroup.GET("/friend/self", middleware.FriendLinkAuth(), friendLinkHandler.GetFriendLinkByEmailToken)
-			publicGroup.GET("/friend/:id", friendLinkHandler.GetFriendLinkByID)
-			publicGroup.POST("/friend", middleware.FriendLinkAuth(), updataHandler.CreateFriendLink)
-			publicGroup.PUT("/friend/:id", middleware.FriendLinkAuth(), updataHandler.EditFriendLink)
-			publicGroup.DELETE("/friend/:id", middleware.FriendLinkAuth(), updataHandler.DeleteOwnedFriendLink)
-			publicGroup.GET("/rss/", rssPostHandler.GetRssPosts)
-			publicGroup.GET("/image/*id", imagePublicHandler.GetImage)
-			publicGroup.GET("/moments/", momentHandler.GetMoments)
-			publicGroup.POST("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.AddReaction)
-			publicGroup.DELETE("/moments/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.DeleteReaction)
+			friendPublicGroup := publicGroup.Group("/friend")
+			friendPublicGroup.Use(middleware.RequirePublicAPI(model.PublicAPIFriend))
+			{
+				friendPublicGroup.GET("/", friendLinkHandler.GetAllFriendLinks)
+				friendPublicGroup.GET("/self", middleware.FriendLinkAuth(), friendLinkHandler.GetFriendLinkByEmailToken)
+				friendPublicGroup.GET("/:id", friendLinkHandler.GetFriendLinkByID)
+				friendPublicGroup.POST("", middleware.FriendLinkAuth(), updataHandler.CreateFriendLink)
+				friendPublicGroup.PUT("/:id", middleware.FriendLinkAuth(), updataHandler.EditFriendLink)
+				friendPublicGroup.DELETE("/:id", middleware.FriendLinkAuth(), updataHandler.DeleteOwnedFriendLink)
+			}
+			publicGroup.GET("/rss/", middleware.RequirePublicAPI(model.PublicAPIRSS), rssPostHandler.GetRssPosts)
+			publicGroup.GET("/image/*id", middleware.RequirePublicAPI(model.PublicAPIImage), imagePublicHandler.GetImage)
+			momentsPublicGroup := publicGroup.Group("/moments")
+			momentsPublicGroup.Use(middleware.RequirePublicAPI(model.PublicAPIMoments))
+			{
+				momentsPublicGroup.GET("/", momentHandler.GetMoments)
+				momentsPublicGroup.POST("/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.AddReaction)
+				momentsPublicGroup.DELETE("/:id/reactions", middleware.AntiBotAuth(), middleware.FingerprintAuth(), momentReactionHandler.DeleteReaction)
+			}
 		}
 		apiGroup.GET("/status", middleware.JWTAuth(), statusHandler.GetSystemStatus)
 

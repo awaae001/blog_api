@@ -25,6 +25,14 @@ type Config struct {
 	FriendLinks []FriendWebsite
 }
 
+const (
+	PublicAPIMoments = "moments"
+	PublicAPIImage   = "image"
+	PublicAPIFriend  = "friend"
+	PublicAPIRSS     = "rss"
+	PublicAPIEmail   = "email"
+)
+
 // CrawlerConfig 爬虫配置
 type CrawlerConfig struct {
 	Concurrency       int `mapstructure:"concurrency"`         // 并发数量，默认 5
@@ -43,6 +51,17 @@ type SafeConfig struct {
 	CorsAllowHostlist []string `mapstructure:"cors_allow_hostlist"`
 	ExcludePaths      []string `mapstructure:"exclude_paths"`
 	AllowExtension    []string `mapstructure:"allow_extension"`
+	EnabledPublicAPIs []string `mapstructure:"enabled_public_apis"`
+}
+
+// IsPublicAPIEnabled reports whether a normalized public API key is enabled.
+func (c SafeConfig) IsPublicAPIEnabled(key string) bool {
+	for _, enabled := range c.EnabledPublicAPIs {
+		if enabled == key {
+			return true
+		}
+	}
+	return false
 }
 
 // DataConfig 数据配置

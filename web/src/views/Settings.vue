@@ -142,6 +142,27 @@
           </el-form>
         </el-tab-pane>
 
+        <!-- 公开 API 功能开关 -->
+        <el-tab-pane label="功能开关" name="features">
+          <el-form :model="config.system_conf.safe_conf" label-width="180px">
+            <el-form-item label="启用的公开 API">
+              <el-checkbox-group v-model="config.system_conf.safe_conf.enabled_public_apis">
+                <div v-for="feature in publicAPIFeatures" :key="feature.value" class="feature-option">
+                  <el-checkbox :value="feature.value">{{ feature.label }}</el-checkbox>
+                  <div class="form-item-help">{{ feature.description }}</div>
+                </div>
+              </el-checkbox-group>
+              <el-alert
+                class="feature-alert"
+                type="warning"
+                :closable="false"
+                show-icon
+                title="未选中的公开 API 将返回 404；后台管理接口不受影响。"
+              />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
         <!-- 邮件配置 -->
         <el-tab-pane label="邮件配置" name="email">
           <el-form :model="config" label-width="150px">
@@ -428,7 +449,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSystemConfig, restartSystem, updateSystemConfig } from '@/api/config'
-import type { SystemConfig } from '@/model/config'
+import type { PublicAPIKey, SystemConfig } from '@/model/config'
 
 const activeTab = ref('safe')
 const saving = ref(false)
@@ -438,6 +459,13 @@ const newExcludePath = ref('')
 const newAllowExtension = ref('')
 const newTelegramFilterUserid = ref('')
 const newDiscordFilterUserid = ref('')
+const publicAPIFeatures: Array<{ value: PublicAPIKey; label: string; description: string }> = [
+  { value: 'moments', label: '动态 API', description: '公开读取动态，以及点赞和取消点赞接口。' },
+  { value: 'image', label: '图片 API', description: '随机图片和指定图片的公开访问接口。' },
+  { value: 'friend', label: '友链 API', description: '公开友链查询及邮箱令牌自助管理接口。' },
+  { value: 'rss', label: 'RSS API', description: '公开读取聚合后的 RSS 文章接口。' },
+  { value: 'email', label: '邮箱验证码 API', description: '发送、验证邮箱验证码并签发邮箱令牌。' }
+]
 // 用于存储原始配置以进行比较
 const originalConfig = ref<SystemConfig | null>(null)
 
@@ -446,7 +474,8 @@ const config = ref<SystemConfig>({
     safe_conf: {
       cors_allow_hostlist: [],
       exclude_paths: [],
-      allow_extension: []
+      allow_extension: [],
+      enabled_public_apis: []
     },
     data_conf: {
       database: {
@@ -542,6 +571,9 @@ onMounted(async () => {
       }
     } else if (!('site_key' in res.system_conf.verify_conf.turnstile)) {
       ;(res.system_conf.verify_conf.turnstile as any).site_key = ''
+    }
+    if (!Array.isArray(res.system_conf.safe_conf.enabled_public_apis)) {
+      res.system_conf.safe_conf.enabled_public_apis = []
     }
     if (!res.system_conf.email_conf) {
       res.system_conf.email_conf = {
@@ -644,6 +676,11 @@ const saveConfig = async () => {
         key: 'system_conf.safe_conf.allow_extension',
         currentValue: config.value.system_conf.safe_conf.allow_extension,
         originalValue: originalConfig.value.system_conf.safe_conf.allow_extension
+      },
+      {
+        key: 'system_conf.safe_conf.enabled_public_apis',
+        currentValue: config.value.system_conf.safe_conf.enabled_public_apis,
+        originalValue: originalConfig.value.system_conf.safe_conf.enabled_public_apis
       },
       {
         key: 'system_conf.data_conf.database.path',
@@ -788,6 +825,22 @@ const handleRestart = async () => {
   font-size: 12px;
   margin-top: 4px;
   line-height: 1.2;
+}
+
+.feature-option {
+  margin-bottom: 14px;
+}
+
+.feature-option :deep(.el-checkbox) {
+  margin-right: 0;
+}
+
+.feature-option .form-item-help {
+  margin-left: 24px;
+}
+
+.feature-alert {
+  margin-top: 12px;
 }
 
 .env-override-notice {

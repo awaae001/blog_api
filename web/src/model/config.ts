@@ -14,6 +14,7 @@ export interface SafeConfig {
   cors_allow_hostlist: string[];
   exclude_paths: string[];
   allow_extension: string[];
+  enabled_public_apis: PublicAPIKey[];
 }
 
 export interface DataConfig {
@@ -34,6 +35,8 @@ export interface ImageConfig {
 export interface ResourceConfig {
   path: string;
 }
+
+export type PublicAPIKey = 'moments' | 'image' | 'friend' | 'rss' | 'email';
 
 export interface CrawlerConfig {
   concurrency: number;

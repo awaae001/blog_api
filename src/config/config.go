@@ -218,6 +218,7 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 	if cfg.Crawler.RssTimeoutSeconds <= 0 {
 		cfg.Crawler.RssTimeoutSeconds = 15
 	}
+	cfg.Safe.EnabledPublicAPIs = normalizeEnabledPublicAPIs(cfg.Safe.EnabledPublicAPIs)
 
 	if telegramBotToken := v.GetString("TELEGRAM_BOT_TOKEN"); telegramBotToken != "" {
 		cfg.MomentsIntegrated.Integrated.Telegram.BotToken = telegramBotToken
@@ -254,6 +255,31 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 	}
 
 	return nil
+}
+
+func normalizeEnabledPublicAPIs(values []string) []string {
+	allowed := map[string]bool{
+		model.PublicAPIMoments: true,
+		model.PublicAPIImage:   true,
+		model.PublicAPIFriend:  true,
+		model.PublicAPIRSS:     true,
+		model.PublicAPIEmail:   true,
+	}
+	seen := make(map[string]bool, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if !allowed[value] {
+			log.Printf("[config][WARN]忽略未知的公开 API 功能键: %q", value)
+			continue
+		}
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		normalized = append(normalized, value)
+	}
+	return normalized
 }
 
 func parseEnvBool(val string) bool {
