@@ -13,57 +13,30 @@
         <el-tab-pane label="安全配置" name="safe">
           <el-form :model="config" label-width="150px">
             <el-form-item label="CORS 白名单">
-              <el-tag
-                v-for="(host, index) in config.system_conf.safe_conf.cors_allow_hostlist"
-                :key="index"
-                closable
-                @close="removeArrayItem('cors_allow_hostlist', index)"
-                style="margin-right: 8px; margin-bottom: 8px"
-              >
+              <el-tag v-for="(host, index) in config.system_conf.safe_conf.cors_allow_hostlist" :key="index" closable
+                @close="removeArrayItem('cors_allow_hostlist', index)" style="margin-right: 8px; margin-bottom: 8px">
                 {{ host }}
               </el-tag>
-              <el-input
-                v-model="newCorsHost"
-                placeholder="输入域名后按回车添加"
-                @keyup.enter="addCorsHost"
-                style="width: 300px"
-              />
+              <el-input v-model="newCorsHost" placeholder="输入域名后按回车添加" @keyup.enter="addCorsHost"
+                style="width: 300px" />
             </el-form-item>
 
             <el-form-item label="排除路径">
-              <el-tag
-                v-for="(path, index) in config.system_conf.safe_conf.exclude_paths"
-                :key="index"
-                closable
-                @close="removeArrayItem('exclude_paths', index)"
-                style="margin-right: 8px; margin-bottom: 8px"
-              >
+              <el-tag v-for="(path, index) in config.system_conf.safe_conf.exclude_paths" :key="index" closable
+                @close="removeArrayItem('exclude_paths', index)" style="margin-right: 8px; margin-bottom: 8px">
                 {{ path }}
               </el-tag>
-              <el-input
-                v-model="newExcludePath"
-                placeholder="输入路径后按回车添加"
-                @keyup.enter="addExcludePath"
-                style="width: 300px"
-              />
+              <el-input v-model="newExcludePath" placeholder="输入路径后按回车添加" @keyup.enter="addExcludePath"
+                style="width: 300px" />
             </el-form-item>
 
             <el-form-item label="允许的扩展名">
-              <el-tag
-                v-for="(ext, index) in config.system_conf.safe_conf.allow_extension"
-                :key="index"
-                closable
-                @close="removeArrayItem('allow_extension', index)"
-                style="margin-right: 8px; margin-bottom: 8px"
-              >
+              <el-tag v-for="(ext, index) in config.system_conf.safe_conf.allow_extension" :key="index" closable
+                @close="removeArrayItem('allow_extension', index)" style="margin-right: 8px; margin-bottom: 8px">
                 {{ ext }}
               </el-tag>
-              <el-input
-                v-model="newAllowExtension"
-                placeholder="输入扩展名后按回车添加"
-                @keyup.enter="addAllowExtension"
-                style="width: 300px"
-              />
+              <el-input v-model="newAllowExtension" placeholder="输入扩展名后按回车添加" @keyup.enter="addAllowExtension"
+                style="width: 300px" />
             </el-form-item>
 
             <el-divider content-position="left">验证配置</el-divider>
@@ -72,18 +45,13 @@
             </el-form-item>
             <template v-if="config.system_conf.verify_conf.turnstile.enable">
               <el-form-item label="Turnstile Site Key">
-                <el-input
-                  v-model="config.system_conf.verify_conf.turnstile.site_key"
-                  placeholder="Turnstile Site Key"
-                />
+                <el-input v-model="config.system_conf.verify_conf.turnstile.site_key"
+                  placeholder="Turnstile Site Key" />
                 <div class="form-item-help">用于前端渲染 Turnstile 组件。</div>
               </el-form-item>
               <el-form-item label="Turnstile Secret (敏感)">
-                <el-input
-                  v-model="config.system_conf.verify_conf.turnstile.secret"
-                  placeholder="Turnstile Secret"
-                  show-password
-                />
+                <el-input v-model="config.system_conf.verify_conf.turnstile.secret" placeholder="Turnstile Secret"
+                  show-password />
                 <div class="env-override-notice">
                   此配置可被环境变量 <code>TURNSTILE_SECRET</code> 覆盖。
                 </div>
@@ -93,14 +61,23 @@
               </el-form-item>
             </template>
             <el-form-item label="Fingerprint Secret">
-              <el-input
-                v-model="config.system_conf.verify_conf.fingerprint.secret"
-                placeholder="用于指纹签名的服务端密钥"
-                show-password
-              />
+              <el-input v-model="config.system_conf.verify_conf.fingerprint.secret" placeholder="用于指纹签名的服务端密钥"
+                show-password />
               <div class="env-override-notice">
                 此配置用于指纹签名，不是 Turnstile 的密钥。可被环境变量 <code>FINGERPRINT_SECRET</code> 覆盖。
               </div>
+            </el-form-item>
+
+            <el-divider content-position="left">公开 API 功能开关</el-divider>
+            <el-form-item label="启用的公开 API">
+              <el-checkbox-group v-model="config.system_conf.safe_conf.enabled_public_apis">
+                <div v-for="feature in publicAPIFeatures" :key="feature.value" class="feature-option">
+                  <el-checkbox :value="feature.value">{{ feature.label }}</el-checkbox>
+                  <div class="form-item-help">{{ feature.description }}</div>
+                </div>
+              </el-checkbox-group>
+              <el-alert class="feature-alert" type="warning" :closable="false" show-icon
+                title="未选中的公开 API 将返回 404；后台管理接口不受影响。" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -110,18 +87,12 @@
           <el-form :model="config" label-width="150px">
             <el-divider content-position="left">数据库配置</el-divider>
             <el-form-item label="数据库路径">
-              <el-input
-                v-model="config.system_conf.data_conf.database.path"
-                placeholder="例如: data/blog.db"
-              />
+              <el-input v-model="config.system_conf.data_conf.database.path" placeholder="例如: data/blog.db" />
             </el-form-item>
 
             <el-divider content-position="left">图片配置</el-divider>
             <el-form-item label="图片存储路径">
-              <el-input
-                v-model="config.system_conf.data_conf.image.path"
-                placeholder="例如: data/images"
-              />
+              <el-input v-model="config.system_conf.data_conf.image.path" placeholder="例如: data/images" />
             </el-form-item>
             <el-form-item label="图片转换格式">
               <el-select v-model="config.system_conf.data_conf.image.conv_to">
@@ -134,31 +105,7 @@
 
             <el-divider content-position="left">资源配置</el-divider>
             <el-form-item label="资源存储路径">
-              <el-input
-                v-model="config.system_conf.data_conf.resource.path"
-                placeholder="例如: data/resources"
-              />
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-
-        <!-- 公开 API 功能开关 -->
-        <el-tab-pane label="功能开关" name="features">
-          <el-form :model="config.system_conf.safe_conf" label-width="180px">
-            <el-form-item label="启用的公开 API">
-              <el-checkbox-group v-model="config.system_conf.safe_conf.enabled_public_apis">
-                <div v-for="feature in publicAPIFeatures" :key="feature.value" class="feature-option">
-                  <el-checkbox :value="feature.value">{{ feature.label }}</el-checkbox>
-                  <div class="form-item-help">{{ feature.description }}</div>
-                </div>
-              </el-checkbox-group>
-              <el-alert
-                class="feature-alert"
-                type="warning"
-                :closable="false"
-                show-icon
-                title="未选中的公开 API 将返回 404；后台管理接口不受影响。"
-              />
+              <el-input v-model="config.system_conf.data_conf.resource.path" placeholder="例如: data/resources" />
             </el-form-item>
           </el-form>
         </el-tab-pane>
@@ -171,35 +118,22 @@
             </el-form-item>
             <template v-if="config.system_conf.email_conf.enable">
               <el-form-item label="SMTP Host">
-                <el-input
-                  v-model="config.system_conf.email_conf.host"
-                  placeholder="smtp.example.com"
-                />
+                <el-input v-model="config.system_conf.email_conf.host" placeholder="smtp.example.com" />
               </el-form-item>
               <el-form-item label="SMTP 端口">
                 <el-input-number v-model="config.system_conf.email_conf.port" :min="1" :max="65535" />
               </el-form-item>
               <el-form-item label="SMTP 用户名">
-                <el-input
-                  v-model="config.system_conf.email_conf.user_name"
-                  placeholder="user@example.com"
-                />
+                <el-input v-model="config.system_conf.email_conf.user_name" placeholder="user@example.com" />
               </el-form-item>
               <el-form-item label="SMTP 密码 (敏感)">
-                <el-input
-                  v-model="config.system_conf.email_conf.password"
-                  placeholder="SMTP Password"
-                  show-password
-                />
+                <el-input v-model="config.system_conf.email_conf.password" placeholder="SMTP Password" show-password />
                 <div class="env-override-notice">
                   此配置可被环境变量 <code>EMAIL_PASSWORD</code> 覆盖。
                 </div>
               </el-form-item>
               <el-form-item label="发件人">
-                <el-input
-                  v-model="config.system_conf.email_conf.sender"
-                  placeholder="Blog <no-reply@example.com>"
-                />
+                <el-input v-model="config.system_conf.email_conf.sender" placeholder="Blog <no-reply@example.com>" />
               </el-form-item>
             </template>
           </el-form>
@@ -209,21 +143,13 @@
         <el-tab-pane label="爬虫配置" name="crawler">
           <el-form :model="config" label-width="150px">
             <el-form-item label="并发数量">
-              <el-input-number
-                v-model="config.system_conf.crawler_conf.concurrency"
-                :min="1"
-                :max="20"
-              />
+              <el-input-number v-model="config.system_conf.crawler_conf.concurrency" :min="1" :max="20" />
               <div style="color: #909399; font-size: 12px; margin-top: 8px">
                 设置 RSS 爬虫的并发数量，建议值为 5-10
               </div>
             </el-form-item>
             <el-form-item label="RSS 超时 (秒)">
-              <el-input-number
-                v-model="config.system_conf.crawler_conf.rss_timeout_seconds"
-                :min="1"
-                :max="120"
-              />
+              <el-input-number v-model="config.system_conf.crawler_conf.rss_timeout_seconds" :min="1" :max="120" />
               <div style="color: #909399; font-size: 12px; margin-top: 8px">
                 设置 RSS 解析请求的超时时间，建议值为 10-30
               </div>
@@ -233,11 +159,8 @@
 
         <!-- 动态集成配置 -->
         <el-tab-pane label="动态集成" name="moments">
-          <el-form
-            v-if="config.system_conf.moments_integrated_conf"
-            :model="config.system_conf.moments_integrated_conf"
-            label-width="180px"
-          >
+          <el-form v-if="config.system_conf.moments_integrated_conf" :model="config.system_conf.moments_integrated_conf"
+            label-width="180px">
             <el-form-item label="启用动态集成">
               <el-switch v-model="config.system_conf.moments_integrated_conf.enable" />
             </el-form-item>
@@ -245,116 +168,75 @@
             <template v-if="config.system_conf.moments_integrated_conf.enable">
               <el-divider content-position="left">通用设置</el-divider>
               <el-form-item label="API 单次返回数量">
-                <el-input-number
-                  v-model="config.system_conf.moments_integrated_conf.api_single_return_entries"
-                  :min="1"
-                  :max="100"
-                />
+                <el-input-number v-model="config.system_conf.moments_integrated_conf.api_single_return_entries" :min="1"
+                  :max="100" />
                 <div class="form-item-help">设置动态 API 单次返回的最大条目数。</div>
               </el-form-item>
 
               <el-divider content-position="left">Telegram 配置</el-divider>
               <el-form-item label="启用 Telegram 集成">
-                <el-switch
-                  v-model="config.system_conf.moments_integrated_conf.integrated.telegram.enable"
-                />
+                <el-switch v-model="config.system_conf.moments_integrated_conf.integrated.telegram.enable" />
               </el-form-item>
               <template v-if="config.system_conf.moments_integrated_conf.integrated.telegram.enable">
                 <el-form-item label="同步删除">
-                  <el-switch
-                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.sync_delete"
-                  />
+                  <el-switch v-model="config.system_conf.moments_integrated_conf.integrated.telegram.sync_delete" />
                 </el-form-item>
                 <el-form-item label="Bot Token">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.bot_token"
-                    placeholder="Telegram Bot Token"
-                    show-password
-                  />
+                  <el-input v-model="config.system_conf.moments_integrated_conf.integrated.telegram.bot_token"
+                    placeholder="Telegram Bot Token" show-password />
                   <div class="env-override-notice">
                     此配置可被环境变量 <code>TELEGRAM_BOT_TOKEN</code> 覆盖。
                   </div>
                 </el-form-item>
                 <el-form-item label="Channel ID">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.channel_id"
-                  />
+                  <el-input v-model="config.system_conf.moments_integrated_conf.integrated.telegram.channel_id" />
                 </el-form-item>
                 <el-form-item label="媒体目录">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.integrated.telegram.media_path"
-                    placeholder="默认 telegram"
-                  />
+                  <el-input v-model="config.system_conf.moments_integrated_conf.integrated.telegram.media_path"
+                    placeholder="默认 telegram" />
                 </el-form-item>
                 <el-form-item label="过滤用户 ID">
-                  <el-tag
-                    v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
-                      .telegram.filter_userid"
-                    :key="index"
-                    closable
+                  <el-tag v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
+                    .telegram.filter_userid" :key="index" closable
                     @close="removeMomentsArrayItem('telegram', 'filter_userid', index)"
-                    style="margin-right: 8px; margin-bottom: 8px"
-                  >
+                    style="margin-right: 8px; margin-bottom: 8px">
                     {{ id }}
                   </el-tag>
-                  <el-input
-                    v-model="newTelegramFilterUserid"
-                    placeholder="输入 User ID 后按回车添加"
-                    @keyup.enter="addTelegramFilterUserid"
-                    style="width: 300px"
-                  />
+                  <el-input v-model="newTelegramFilterUserid" placeholder="输入 User ID 后按回车添加"
+                    @keyup.enter="addTelegramFilterUserid" style="width: 300px" />
                 </el-form-item>
               </template>
 
               <el-divider content-position="left">Discord 配置</el-divider>
               <el-form-item label="启用 Discord 集成">
-                <el-switch
-                  v-model="config.system_conf.moments_integrated_conf.integrated.discord.enable"
-                />
+                <el-switch v-model="config.system_conf.moments_integrated_conf.integrated.discord.enable" />
               </el-form-item>
               <template v-if="config.system_conf.moments_integrated_conf.integrated.discord.enable">
                 <el-form-item label="同步删除">
-                  <el-switch
-                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.sync_delete"
-                  />
+                  <el-switch v-model="config.system_conf.moments_integrated_conf.integrated.discord.sync_delete" />
                 </el-form-item>
                 <el-form-item label="Bot Token">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.bot_token"
-                    placeholder="Discord Bot Token"
-                    show-password
-                  />
+                  <el-input v-model="config.system_conf.moments_integrated_conf.integrated.discord.bot_token"
+                    placeholder="Discord Bot Token" show-password />
                   <div class="env-override-notice">
                     此配置可被环境变量 <code>DISCORD_BOT_TOKEN</code> 覆盖。
                   </div>
                 </el-form-item>
                 <el-form-item label="Guild ID">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.guild_id"
-                  />
+                  <el-input v-model="config.system_conf.moments_integrated_conf.integrated.discord.guild_id" />
                 </el-form-item>
                 <el-form-item label="Channel ID">
-                  <el-input
-                    v-model="config.system_conf.moments_integrated_conf.integrated.discord.channel_id"
-                  />
+                  <el-input v-model="config.system_conf.moments_integrated_conf.integrated.discord.channel_id" />
                 </el-form-item>
                 <el-form-item label="过滤用户 ID">
-                  <el-tag
-                    v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
-                      .discord.filter_userid"
-                    :key="index"
-                    closable
+                  <el-tag v-for="(id, index) in config.system_conf.moments_integrated_conf.integrated
+                    .discord.filter_userid" :key="index" closable
                     @close="removeMomentsArrayItem('discord', 'filter_userid', index)"
-                    style="margin-right: 8px; margin-bottom: 8px"
-                  >
+                    style="margin-right: 8px; margin-bottom: 8px">
                     {{ id }}
                   </el-tag>
-                  <el-input
-                    v-model="newDiscordFilterUserid"
-                    placeholder="输入 User ID 后按回车添加"
-                    @keyup.enter="addDiscordFilterUserid"
-                    style="width: 300px"
-                  />
+                  <el-input v-model="newDiscordFilterUserid" placeholder="输入 User ID 后按回车添加"
+                    @keyup.enter="addDiscordFilterUserid" style="width: 300px" />
                 </el-form-item>
               </template>
             </template>
@@ -363,11 +245,7 @@
 
         <!-- OSS 配置 -->
         <el-tab-pane label="OSS 配置" name="oss">
-          <el-form
-            v-if="config.system_conf.oss_conf"
-            :model="config.system_conf.oss_conf"
-            label-width="180px"
-          >
+          <el-form v-if="config.system_conf.oss_conf" :model="config.system_conf.oss_conf" label-width="180px">
             <el-form-item label="启用 OSS">
               <el-switch v-model="config.system_conf.oss_conf.enable" />
             </el-form-item>
@@ -381,20 +259,14 @@
                 <div class="form-item-help">选择您的对象存储服务提供商。</div>
               </el-form-item>
               <el-form-item label="Access Key ID">
-                <el-input
-                  v-model="config.system_conf.oss_conf.accessKeyId"
-                  placeholder="OSS Access Key ID"
-                />
+                <el-input v-model="config.system_conf.oss_conf.accessKeyId" placeholder="OSS Access Key ID" />
                 <div class="env-override-notice">
                   此配置可被环境变量 <code>OSS_ACCESS_KEY_ID</code> 覆盖。
                 </div>
               </el-form-item>
               <el-form-item label="Access Key Secret">
-                <el-input
-                  v-model="config.system_conf.oss_conf.accessKeySecret"
-                  placeholder="OSS Access Key Secret"
-                  show-password
-                />
+                <el-input v-model="config.system_conf.oss_conf.accessKeySecret" placeholder="OSS Access Key Secret"
+                  show-password />
                 <div class="env-override-notice">
                   此配置可被环境变量 <code>OSS_ACCESS_KEY_SECRET</code> 覆盖。
                 </div>
@@ -409,10 +281,8 @@
                 <el-input v-model="config.system_conf.oss_conf.region" />
               </el-form-item>
               <el-form-item label="自定义域名">
-                <el-input
-                  v-model="config.system_conf.oss_conf.customDomain"
-                  placeholder="例如: https://oss.example.com"
-                />
+                <el-input v-model="config.system_conf.oss_conf.customDomain"
+                  placeholder="例如: https://oss.example.com" />
               </el-form-item>
               <el-form-item label="上传路径前缀">
                 <el-input v-model="config.system_conf.oss_conf.prefix" />
@@ -570,7 +440,7 @@ onMounted(async () => {
         site_key: ''
       }
     } else if (!('site_key' in res.system_conf.verify_conf.turnstile)) {
-      ;(res.system_conf.verify_conf.turnstile as any).site_key = ''
+      ; (res.system_conf.verify_conf.turnstile as any).site_key = ''
     }
     if (!Array.isArray(res.system_conf.safe_conf.enabled_public_apis)) {
       res.system_conf.safe_conf.enabled_public_apis = []
@@ -844,11 +714,13 @@ const handleRestart = async () => {
 }
 
 .env-override-notice {
-  color: #e6a23c; /* warning color */
+  color: #e6a23c;
+  /* warning color */
   font-size: 12px;
   margin-top: 4px;
   line-height: 1.2;
 }
+
 .env-override-notice code {
   background-color: #f4f4f5;
   padding: 2px 4px;
@@ -860,7 +732,8 @@ const handleRestart = async () => {
 :deep(.el-tabs__content) {
   max-height: 65vh;
   overflow-y: auto;
-  padding-right: 15px; /* 为滚动条留出空间，防止内容跳动 */
+  padding-right: 15px;
+  /* 为滚动条留出空间，防止内容跳动 */
 }
 
 .danger-zone {
