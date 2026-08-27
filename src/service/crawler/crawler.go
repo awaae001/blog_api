@@ -34,7 +34,7 @@ func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 		log.Printf("[crawler]创建获取 %s 的请求时出错: %v", rawURL, err)
 		return model.CrawlResult{Status: "error"}
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 -  blog_api_webCrawler")
+	req.Header.Set("User-Agent", CrawlerUserAgent)
 	resp, err := crawlerHTTPClient.Do(req)
 	if err != nil {
 		log.Printf("[crawler]获取 URL %s 时出错: %v", rawURL, err)

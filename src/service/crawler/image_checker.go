@@ -105,6 +105,7 @@ func checkImageExists(img model.Image, client *http.Client) (bool, bool, error) 
 		if err != nil {
 			return false, true, err
 		}
+		req.Header.Set("User-Agent", CrawlerUserAgent)
 		resp, err := client.Do(req)
 		if err != nil {
 			return false, true, err

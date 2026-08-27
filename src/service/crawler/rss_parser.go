@@ -48,7 +48,7 @@ func parseFeedURL(ctx context.Context, rawURL string) (*gofeed.Feed, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create RSS request: %w", err)
 	}
-	req.Header.Set("User-Agent", "blog_api RSS crawler")
+	req.Header.Set("User-Agent", CrawlerUserAgent)
 	resp, err := rssHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch RSS: %w", err)
