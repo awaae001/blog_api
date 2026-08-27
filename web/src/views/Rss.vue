@@ -1,127 +1,39 @@
 <template>
-  <el-container class="rss-container">
-    <!-- RSS Feeds List -->
-    <el-aside width="45%" class="feed-aside">
-      <el-card shadow="never" class="full-height-card">
-        <template #header>
-          <div class="card-header">
-            <span>RSS 订阅源</span>
-            <el-button type="primary" @click="handleCreate" style="margin-left: auto">
-              创建
-            </el-button>
+  <div class="rss-container">
+    <el-card shadow="never" class="full-height-card">
+      <template #header>
+        <div class="card-header">
+          <span>{{ viewTitle }}</span>
+          <div class="header-actions">
+            <el-button v-if="isAllPostsView" :icon="Back" @click="showFeedList">返回订阅源</el-button>
+            <el-button v-else type="primary" link @click="showAllPosts">查看所有文章</el-button>
+            <el-button type="primary" :icon="Plus" @click="handleCreate">创建</el-button>
           </div>
-        </template>
-        <el-table
-          :data="feeds"
-          v-loading="feedsLoading"
-          highlight-current-row
-          @row-click="handleFeedSelect"
-          height="calc(100vh - 210px)"
-          style="width: 100%"
-        >
-          <el-table-column prop="name" label="名称">
-            <template #default="{ row }">
-              <el-tooltip :content="row.rss_url" placement="top">
-                <a
-                  :href="row.rss_url"
-                  target="_blank"
-                  style="margin-right: 8px; vertical-align: middle; color: inherit"
-                >
-                  <el-icon><Link /></el-icon>
-                </a>
-              </el-tooltip>
-              <span>{{ row.name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="90">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" size="small">{{ row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="times" label="失败次数" width="90" />
-          <el-table-column label="归属友链" width="120">
-            <template #default="{ row }">
-              {{ friendLinkName(row.friend_link_id) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="失效" width="80">
-            <template #default="{ row }">
-              <el-tag :type="row.is_died ? 'danger' : 'success'" size="small">
-                {{ row.is_died ? '是' : '否' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="240">
-            <template #default="{ row }">
-              <el-button
-                type="success"
-                link
-                :icon="Refresh"
-                :loading="fetchingId === row.id"
-                :disabled="fetchingId !== null && fetchingId !== row.id"
-                @click.stop="handleImmediateFetch(row)"
-              >
-                立刻获取
-              </el-button>
-              <el-button type="primary" link :icon="Edit" @click.stop="handleEdit(row)">
-                编辑
-              </el-button>
-              <el-button type="danger" link :icon="Delete" @click.stop="handleDelete(row)">
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <el-pagination
-          background
-          layout="total, sizes, prev, pager, next"
-          :total="totalFeeds"
-          :page-sizes="[10, 20, 50]"
-          :page-size="feedPageSize"
-          :current-page="currentFeedPage"
-          @size-change="handleFeedSizeChange"
-          @current-change="handleFeedPageChange"
-          class="pagination-container"
-        />
-      </el-card>
-    </el-aside>
+        </div>
+      </template>
 
-    <!-- RSS Posts List -->
-    <el-main class="posts-main">
-      <el-card shadow="never" class="full-height-card">
-        <template #header>
-          <div class="card-header">
-            <span>{{ viewTitle }}</span>
-            <el-button type="primary" link @click="showAllPosts" style="margin-left: auto">
-              查看所有
-            </el-button>
-          </div>
-        </template>
-        <el-table
-          :data="posts"
-          v-loading="postsLoading"
-          height="calc(100vh - 210px)"
-          style="width: 100%"
-        >
-          <el-table-column prop="title" label="文章标题">
-            <template #default="{ row }">
-              <a :href="row.link" target="_blank" class="post-link">{{ row.title }}</a>
-            </template>
-          </el-table-column>
-          <el-table-column v-if="isAllPostsView" prop="author" label="作者" width="160" />
-          <el-table-column prop="time" label="发布时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.time) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="80">
-            <template #default="{ row }">
-              <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+      <!-- All posts view -->
+      <template v-if="isAllPostsView">
+        <el-scrollbar class="content-scroll">
+          <el-table :data="posts" v-loading="postsLoading" style="width: 100%">
+            <el-table-column prop="title" label="文章标题">
+              <template #default="{ row }">
+                <a :href="row.link" target="_blank" class="post-link">{{ row.title }}</a>
+              </template>
+            </el-table-column>
+            <el-table-column prop="author" label="作者" width="160" />
+            <el-table-column prop="time" label="发布时间" width="180">
+              <template #default="{ row }">
+                {{ formatDate(row.time) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="80">
+              <template #default="{ row }">
+                <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-scrollbar>
         <el-pagination
           background
           layout="total, sizes, prev, pager, next, jumper"
@@ -133,8 +45,87 @@
           @current-change="handlePostPageChange"
           class="pagination-container"
         />
-      </el-card>
-    </el-main>
+      </template>
+
+      <!-- Accordion feed list -->
+      <template v-else>
+        <el-scrollbar class="content-scroll" v-loading="feedsLoading">
+          <el-empty v-if="!feedsLoading && feeds.length === 0" description="暂无订阅源" />
+          <el-collapse v-else v-model="activeFeedId" accordion @change="handleFeedChange">
+            <el-collapse-item v-for="feed in feeds" :key="feed.id" :name="feed.id">
+              <template #title>
+                <div class="feed-title">
+                  <el-tooltip :content="feed.rss_url" placement="top">
+                    <a :href="feed.rss_url" target="_blank" class="feed-link" @click.stop>
+                      <el-icon><Link /></el-icon>
+                    </a>
+                  </el-tooltip>
+                  <span class="feed-name">{{ feed.name }}</span>
+                  <el-tag :type="statusTagType(feed.status)" size="small">{{ feed.status }}</el-tag>
+                  <el-tag v-if="feed.is_died" type="danger" size="small">已失效</el-tag>
+                  <span class="feed-meta">失败 {{ feed.times }} 次</span>
+                  <span class="feed-meta">归属：{{ friendLinkName(feed.friend_link_id) }}</span>
+                  <div class="feed-actions" @click.stop>
+                    <el-button
+                      type="success"
+                      link
+                      :icon="Refresh"
+                      :loading="fetchingId === feed.id"
+                      :disabled="fetchingId !== null && fetchingId !== feed.id"
+                      @click="handleImmediateFetch(feed)"
+                    >
+                      立刻获取
+                    </el-button>
+                    <el-button type="primary" link :icon="Edit" @click="handleEdit(feed)">编辑</el-button>
+                    <el-button type="danger" link :icon="Delete" @click="handleDelete(feed)">删除</el-button>
+                  </div>
+                </div>
+              </template>
+
+              <el-table :data="posts" v-loading="postsLoading" max-height="420" style="width: 100%">
+                <el-table-column prop="title" label="文章标题">
+                  <template #default="{ row }">
+                    <a :href="row.link" target="_blank" class="post-link">{{ row.title }}</a>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="time" label="发布时间" width="180">
+                  <template #default="{ row }">
+                    {{ formatDate(row.time) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80">
+                  <template #default="{ row }">
+                    <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-pagination
+                background
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="totalPosts"
+                :page-sizes="[10, 20, 50, 100]"
+                :page-size="postPageSize"
+                :current-page="currentPostPage"
+                @size-change="handlePostSizeChange"
+                @current-change="handlePostPageChange"
+                class="pagination-container"
+              />
+            </el-collapse-item>
+          </el-collapse>
+        </el-scrollbar>
+        <el-pagination
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="totalFeeds"
+          :page-sizes="[10, 20, 50]"
+          :page-size="feedPageSize"
+          :current-page="currentFeedPage"
+          @size-change="handleFeedSizeChange"
+          @current-change="handleFeedPageChange"
+          class="pagination-container feed-pagination"
+        />
+      </template>
+    </el-card>
 
     <!-- Edit Dialog -->
     <el-dialog v-model="editDialogVisible" title="编辑订阅源" width="500px">
@@ -212,7 +203,7 @@
         <el-button type="primary" @click="handleCreateSave">保存</el-button>
       </template>
     </el-dialog>
-  </el-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -220,7 +211,7 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Link, Refresh } from '@element-plus/icons-vue'
+import { Edit, Delete, Link, Refresh, Plus, Back } from '@element-plus/icons-vue'
 import {
   getRssFeeds,
   getPostsByFeed,
@@ -240,6 +231,8 @@ const posts = ref<RssPost[]>([])
 const friendLinks = ref<FriendLink[]>([])
 const selectedFeed = ref<RssFeed | null>(null)
 const isAllPostsView = ref(false)
+// Accordion keeps at most one panel open; '' means all collapsed.
+const activeFeedId = ref<number | ''>('')
 
 const feedsLoading = ref(false)
 const postsLoading = ref(false)
@@ -250,7 +243,7 @@ const viewTitle = computed(() => {
   if (isAllPostsView.value) {
     return '所有文章'
   }
-  return selectedFeed.value ? selectedFeed.value.name : '请选择一个订阅源'
+  return 'RSS 订阅源'
 })
 
 const editDialogVisible = ref(false)
@@ -396,9 +389,16 @@ const {
   reset: resetPostPagination
 } = usePagination(fetchCurrentViewPosts, 20)
 
-const handleFeedSelect = (feed: RssFeed) => {
-  if (selectedFeed.value?.id === feed.id && !isAllPostsView.value) return
-  isAllPostsView.value = false
+const handleFeedChange = (name: number | '' | (number | string)[]) => {
+  // Accordion mode emits a single name, but the typing allows an array.
+  const activeName = Array.isArray(name) ? name[0] : name
+  if (activeName === '' || activeName === undefined) {
+    selectedFeed.value = null
+    posts.value = []
+    return
+  }
+  const feed = feeds.value.find((item) => item.id === Number(activeName))
+  if (!feed) return
   selectedFeed.value = feed
   resetPostPagination()
   fetchPosts()
@@ -407,8 +407,17 @@ const handleFeedSelect = (feed: RssFeed) => {
 const showAllPosts = () => {
   isAllPostsView.value = true
   selectedFeed.value = null
+  activeFeedId.value = ''
   resetPostPagination()
   fetchAllPosts()
+}
+
+const showFeedList = () => {
+  isAllPostsView.value = false
+  selectedFeed.value = null
+  activeFeedId.value = ''
+  posts.value = []
+  resetPostPagination()
 }
 
 const handleEdit = (feed: RssFeed) => {
@@ -478,6 +487,7 @@ const handleDelete = (feed: RssFeed) => {
         // If the deleted feed was the selected one, clear the posts list
         if (selectedFeed.value?.id === feed.id) {
           selectedFeed.value = null
+          activeFeedId.value = ''
           posts.value = []
         }
       } else {
@@ -541,33 +551,77 @@ onMounted(() => {
 
 <style scoped>
 .rss-container {
-  height: 100%;
-}
-
-.feed-aside {
-  padding-right: 10px;
-  border-right: 1px solid #e4e7ed;
-}
-
-.posts-main {
-  padding: 0px;
-}
-
-.full-height-card {
-  height: 100%;
+  /* 60px header + 12px el-main padding */
+  height: calc(100vh - 72px);
   display: flex;
   flex-direction: column;
 }
 
-.full-height-card .el-card__body {
-  flex-grow: 1;
-  overflow: hidden;
+.full-height-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.full-height-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-scroll {
+  flex: 1;
+  min-height: 0;
 }
 
 .card-header {
   font-weight: bold;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feed-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding-right: 12px;
+  font-weight: normal;
+}
+
+.feed-link {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+}
+
+.feed-name {
+  font-weight: 600;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-meta {
+  font-size: 12px;
+  color: #909399;
+}
+
+.feed-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .post-link {
@@ -583,5 +637,10 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+.feed-pagination {
+  padding-top: 4px;
+  border-top: 1px solid #ebeef5;
 }
 </style>

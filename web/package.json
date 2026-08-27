@@ -11,20 +11,20 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "axios": "^1.18.1",
+    "axios": "^1.19.0",
     "codemirror": "^6.0.2",
-    "dayjs": "^1.11.21",
+    "dayjs": "^1.11.23",
     "echarts": "^6.1.0",
-    "element-plus": "^2.14.3",
-    "pinia": "^4.0.2",
-    "vue": "^3.5.40",
+    "element-plus": "^2.14.4",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.41",
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.2.0",
     "@vitejs/plugin-vue": "^6.0.8",
-    "typescript": "7.0.2",
-    "vite": "^8.1.5",
-    "vue-tsc": "3.3.7"
+    "typescript": "npm:typescript-native-bridge@6.0.3-bridge.13.tsgo.7.0.2",
+    "vite": "^8.2.2",
+    "vue-tsc": "3.3.10"
   }
 }

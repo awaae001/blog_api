@@ -32,7 +32,7 @@
         />
       </div>
 
-      <el-scrollbar height="60vh">
+      <el-scrollbar class="table-scroll">
         <el-table
           :data="images"
           v-loading="loading"
@@ -367,7 +367,29 @@ onMounted(() => {
 
 <style scoped>
 .image-management {
-  padding: 6px;
+  /* 60px header + 12px el-main padding */
+  height: calc(100vh - 72px);
+  display: flex;
+  flex-direction: column;
+}
+
+.image-management :deep(.el-card) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.image-management :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-scroll {
+  flex: 1;
+  min-height: 0;
 }
 .card-header {
   display: flex;
