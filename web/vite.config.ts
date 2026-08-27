@@ -1,13 +1,21 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import path from 'path'
 
 export default defineConfig({
   base: '/panel/',
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    Components({
+      dts: 'src/components.d.ts',
+      resolvers: [ElementPlusResolver({ importStyle: 'css' })]
+    })
+  ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(import.meta.dirname, './src')
     }
   },
   server: {
