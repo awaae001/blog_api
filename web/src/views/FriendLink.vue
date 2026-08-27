@@ -45,7 +45,7 @@
       </div>
 
       <!-- Friend Link Table -->
-      <el-scrollbar height="60vh">
+      <el-scrollbar class="table-scroll">
         <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
           <el-table-column prop="name" label="网站名称" width="180" />
           <el-table-column prop="link" label="链接">
@@ -475,6 +475,32 @@ const handleRssToggle = async (link: FriendLink) => {
 </script>
 
 <style scoped>
+.friend-link-container {
+  /* 60px header + 12px el-main padding */
+  height: calc(100vh - 72px);
+  display: flex;
+  flex-direction: column;
+}
+
+.friend-link-container :deep(.el-card) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.friend-link-container :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
