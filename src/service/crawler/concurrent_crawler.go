@@ -193,11 +193,12 @@ func ParseRssFeedsConcurrently(ctx context.Context, db *gorm.DB, feeds []model.F
 				continue
 			}
 			summary.SourceFailures++
-			if err := updateRssParseState(db, outcome.feed.ID, false); err != nil {
+			status, reason := classifyTransportError(outcome.err)
+			if err := updateRssParseState(db, outcome.feed.ID, false, status); err != nil {
 				summary.DatabaseFailures++
 				log.Printf("[ConcurrentCrawler][Writer] 记录 RSS 来源失败状态失败 (id=%d): %v", outcome.feed.ID, err)
 			}
-			log.Printf("[ConcurrentCrawler][Writer] RSS 来源解析失败 (id=%d, url=%s): %v", outcome.feed.ID, outcome.feed.RssURL, outcome.err)
+			log.Printf("[ConcurrentCrawler][Writer] RSS 来源解析失败 (id=%d, url=%s, 判定=%s, 原因=%s): %v", outcome.feed.ID, outcome.feed.RssURL, status, reason, outcome.err)
 			continue
 		}
 

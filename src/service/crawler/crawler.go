@@ -27,18 +27,19 @@ var crawlerHTTPClient = &http.Client{
 func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 	if _, err := ValidatePublicHTTPURL(rawURL); err != nil {
 		log.Printf("[crawler]拒绝爬取非法目标 %s: %v", rawURL, err)
-		return model.CrawlResult{Status: "error"}
+		return model.CrawlResult{Status: StatusError}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		log.Printf("[crawler]创建获取 %s 的请求时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: "error"}
+		return model.CrawlResult{Status: StatusError}
 	}
-	req.Header.Set("User-Agent", CrawlerUserAgent)
+	setHTMLRequestHeaders(req)
 	resp, err := crawlerHTTPClient.Do(req)
 	if err != nil {
-		log.Printf("[crawler]获取 URL %s 时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: "timeout"}
+		status, reason := classifyTransportError(err)
+		log.Printf("[crawler]获取 URL %s 失败，判定为 %s (%s): %v", rawURL, status, reason, err)
+		return model.CrawlResult{Status: status}
 	}
 	defer resp.Body.Close()
 
@@ -46,23 +47,23 @@ func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 		redirectLocation := resp.Header.Get("Location")
 		absoluteRedirectURL := toAbsoluteURL(resp.Request.URL, redirectLocation)
 		log.Printf("[crawler]检测到 %s 重定向到 %s (resolved to %s)", rawURL, redirectLocation, absoluteRedirectURL)
-		return model.CrawlResult{Status: "survival", RedirectURL: absoluteRedirectURL}
+		return model.CrawlResult{Status: StatusSurvival, RedirectURL: absoluteRedirectURL}
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("[crawler]错误: %s 的状态码非 200: %d", rawURL, resp.StatusCode)
-		return model.CrawlResult{Status: "error"}
+		return model.CrawlResult{Status: StatusError}
 	}
 	limitedBody := &limitedReader{reader: resp.Body, remaining: maxHTMLResponseBytes}
 	utf8Reader, err := charset.NewReader(limitedBody, resp.Header.Get("Content-Type"))
 	if err != nil {
 		log.Printf("[crawler]创建 %s 的字符集解码器时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: "error"}
+		return model.CrawlResult{Status: StatusError}
 	}
 	doc, err := goquery.NewDocumentFromReader(utf8Reader)
 	if err != nil {
 		log.Printf("[crawler]解析 %s 的 HTML 时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: "error"}
+		return model.CrawlResult{Status: StatusError}
 	}
 	description := doc.Find("meta[name='description']").AttrOr("content", "")
 	iconURL, exists := doc.Find("link[rel='icon']").Attr("href")
@@ -106,7 +107,7 @@ func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 	return model.CrawlResult{
 		Description: description,
 		IconURL:     iconURL,
-		Status:      "survival",
+		Status:      StatusSurvival,
 		RssURLs:     rssURLs,
 	}
 }

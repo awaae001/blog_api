@@ -138,6 +138,9 @@ func GetFriendLinkByEmail(db *gorm.DB, email string) (model.FriendWebsite, error
 func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlResult) error {
 	success := result.Status == "survival"
 	var reachedThreshold bool
+	// The crawler already distinguishes a definitive failure ("error", e.g. the
+	// domain no longer resolves) from a transient one ("timeout"), so its status
+	// is used verbatim as the failure status instead of being flattened.
 	link.Times, link.Status, reachedThreshold = model.ComputeFailureState(
 		link.Times,
 		success,

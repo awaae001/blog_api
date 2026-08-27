@@ -48,7 +48,7 @@ func parseFeedURL(ctx context.Context, rawURL string) (*gofeed.Feed, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create RSS request: %w", err)
 	}
-	req.Header.Set("User-Agent", CrawlerUserAgent)
+	setFeedRequestHeaders(req)
 	resp, err := rssHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch RSS: %w", err)
@@ -77,11 +77,12 @@ func ParseRssFeed(ctx context.Context, db *gorm.DB, friendRssID int, rssURL stri
 
 	fetched, err := fetchRssFeed(ctx, friendRss)
 	if err != nil {
-		log.Printf("解析 RSS feed %s 时出错: %v", rssURL, err)
+		status, reason := classifyTransportError(err)
+		log.Printf("解析 RSS feed %s 失败，判定为 %s (%s): %v", rssURL, status, reason, err)
 		if ctx.Err() != nil {
 			return model.RssFetchResult{}, ctx.Err()
 		}
-		if stateErr := updateRssParseState(db, friendRssID, false); stateErr != nil {
+		if stateErr := updateRssParseState(db, friendRssID, false, status); stateErr != nil {
 			return model.RssFetchResult{}, fmt.Errorf("record RSS fetch failure: %w", stateErr)
 		}
 		return model.RssFetchResult{}, fmt.Errorf("%w: %v", ErrRssSource, err)
@@ -154,7 +155,7 @@ func persistFetchedRssFeed(db *gorm.DB, fetched fetchedRssFeed) (model.RssFetchR
 			}
 		}
 
-		return updateRssParseState(tx, fetched.feed.ID, true)
+		return updateRssParseState(tx, fetched.feed.ID, true, "")
 	})
 	if err != nil {
 		return model.RssFetchResult{}, err
@@ -185,20 +186,24 @@ func rssItemAuthor(item *gofeed.Item, fallback string) string {
 	return fallback
 }
 
-func updateRssParseState(db *gorm.DB, friendRssID int, success bool) error {
+func updateRssParseState(db *gorm.DB, friendRssID int, success bool, failureStatus string) error {
 	var rss model.FriendRss
 	if err := db.Select("id, times, status, is_died").Where("id = ?", friendRssID).First(&rss).Error; err != nil {
 		log.Printf("更新 RSS 解析状态前查询失败 (id=%d): %v", friendRssID, err)
 		return err
 	}
 
+	if failureStatus == "" {
+		failureStatus = StatusTimeout
+	}
+
 	newTimes, newStatus, reachedThreshold := model.ComputeFailureState(
 		rss.Times,
 		success,
 		maxRssParseFailures,
-		"survival",
-		"timeout",
-		"error",
+		StatusSurvival,
+		failureStatus,
+		StatusError,
 	)
 	newIsDied := false
 	if !success {
