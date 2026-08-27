@@ -1,4 +1,4 @@
 onlyBuiltDependencies:
   - vue-demi
 overrides:
-  typescript: npm:typescript-native-bridge@6.0.3-bridge.12.tsgo.7.0.2
+  typescript: npm:typescript-native-bridge@6.0.3-bridge.13.tsgo.7.0.2
