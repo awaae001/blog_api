@@ -4,11 +4,27 @@
       <template #header>
         <div class="card-header">
           <span>友链管理</span>
-          <el-button type="primary" :icon="Plus" @click="openFormDialog()">
-            新增友链
-          </el-button>
+          <div class="header-actions">
+            <el-button type="success" plain :icon="Refresh" :loading="inspectionRunning" @click="handleRecheckAll">
+              {{ inspectionRunning ? `全量巡查中 ${progress?.processed ?? 0}/${progress?.total ?? 0}` : '全量巡查' }}
+            </el-button>
+            <el-button type="primary" :icon="Plus" @click="openFormDialog()">
+              新增友链
+            </el-button>
+          </div>
         </div>
       </template>
+
+      <!-- Inspection progress -->
+      <el-alert v-if="progress && progress.total > 0" class="inspection-alert" :type="inspectionAlertType"
+        :closable="!inspectionRunning" show-icon>
+        <template #title>
+          {{ progress.label || '巡查' }}{{ inspectionRunning ? '进行中' : '已结束' }}：
+          {{ progress.processed }}/{{ progress.total }}
+          （存活 {{ progress.survival }}，失败 {{ progress.failed }}，新增 RSS {{ progress.rss_discovered }}）
+          {{ progress.error ? `，异常：${progress.error}` : '' }}
+        </template>
+      </el-alert>
 
       <!-- Filter and Actions -->
       <div class="table-actions">
@@ -29,59 +45,58 @@
       </div>
 
       <!-- Friend Link Table -->
-        <el-scrollbar height="60vh">
-          <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
-            <el-table-column prop="name" label="网站名称" width="180" />
-            <el-table-column prop="link" label="链接">
-              <template #default="{ row }">
-                <a :href="row.link" target="_blank">{{ row.link }}</a>
-              </template>
-            </el-table-column>
-            <el-table-column prop="email" label="邮箱" width="200" />
-            <el-table-column prop="times" label="失败次数" width="100" />
-            <el-table-column label="是否失效" width="100">
-              <template #default="{ row }">
-                <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="updated_at" label="更新时间" width="180">
-              <template #default="{ row }">
-                {{ formatDate(row.updated_at) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="不巡查" width="100">
-              <template #default="{ row }">
-                <el-switch :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
-              </template>
-            </el-table-column>
-            <el-table-column label="订阅 RSS" width="100">
-              <template #default="{ row }">
-                <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="260" fixed="right">
-              <template #default="{ row }">
-                <el-button type="success" link :icon="Refresh"
-                  :loading="recheckingId === row.id"
-                  :disabled="recheckingId !== null && recheckingId !== row.id"
-                  @click="handleRecheck(row.id)">
-                  重新巡查
-                </el-button>
-                <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
-                  编辑
-                </el-button>
-                <el-button type="danger" link :icon="Delete" @click="handleDelete(row.id)">
-                  删除
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-scrollbar>
+      <el-scrollbar height="60vh">
+        <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
+          <el-table-column prop="name" label="网站名称" width="180" />
+          <el-table-column prop="link" label="链接">
+            <template #default="{ row }">
+              <a :href="row.link" target="_blank">{{ row.link }}</a>
+            </template>
+          </el-table-column>
+          <el-table-column prop="email" label="邮箱" width="200" />
+          <el-table-column prop="times" label="失败次数" width="100" />
+          <el-table-column label="是否失效" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="updated_at" label="更新时间" width="180">
+            <template #default="{ row }">
+              {{ formatDate(row.updated_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="不巡查" width="100">
+            <template #default="{ row }">
+              <el-switch :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="订阅 RSS" width="100">
+            <template #default="{ row }">
+              <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="260" fixed="right">
+            <template #default="{ row }">
+              <el-button type="success" link :icon="Refresh" :loading="recheckingId === row.id"
+                :disabled="inspectionRunning || (recheckingId !== null && recheckingId !== row.id)"
+                @click="handleRecheck(row.id)">
+                重新巡查
+              </el-button>
+              <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
+                编辑
+              </el-button>
+              <el-button type="danger" link :icon="Delete" @click="handleDelete(row.id)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-scrollbar>
 
       <!-- Pagination -->
       <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="totalLinks"
@@ -134,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Edit, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -143,9 +158,11 @@ import {
   createFriendLink,
   updateFriendLink,
   deleteFriendLink,
-  recheckFriendLink
+  recheckFriendLink,
+  recheckAllFriendLinks,
+  getRecheckProgress
 } from '@/api/friendLink'
-import type { FriendLink } from '@/model/friendLink'
+import type { FriendLink, FriendLinkInspectionProgress } from '@/model/friendLink'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
 
@@ -153,6 +170,8 @@ import { formatDate } from '@/utils/date'
 const friendLinks = ref<FriendLink[]>([])
 const loading = ref(false)
 const recheckingId = ref<number | null>(null)
+const progress = ref<FriendLinkInspectionProgress | null>(null)
+const inspectionRunning = computed(() => progress.value?.running === true)
 const filterStatus = ref('')
 const filterIsDied = ref<boolean | null>(null)
 const searchQuery = ref('')
@@ -221,7 +240,12 @@ const fetchFriendLinks = async () => {
   }
 }
 
-onMounted(fetchFriendLinks)
+onMounted(() => {
+  fetchFriendLinks()
+  refreshProgress()
+})
+
+onUnmounted(stopProgressPolling)
 
 // Table and Actions
 const handleFilter = () => {
@@ -308,7 +332,7 @@ const handleDelete = (id: number) => {
 }
 
 const handleRecheck = async (id: number) => {
-  if (recheckingId.value !== null) return
+  if (recheckingId.value !== null || inspectionRunning.value) return
 
   recheckingId.value = id
   try {
@@ -322,7 +346,66 @@ const handleRecheck = async (id: number) => {
   }
 }
 
-// UI Helpers
+// Full inspection: the backend runs it in the background, so the UI polls.
+let progressTimer: ReturnType<typeof setInterval> | null = null
+
+function stopProgressPolling() {
+  if (progressTimer !== null) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+const refreshProgress = async () => {
+  try {
+    const res = await getRecheckProgress()
+    if (res.code !== 200) return
+    const wasRunning = inspectionRunning.value
+    progress.value = res.data
+    if (res.data.running) {
+      startProgressPolling()
+    } else {
+      stopProgressPolling()
+      if (wasRunning) {
+        ElMessage.success('全量巡查完成')
+        await fetchFriendLinks()
+      }
+    }
+  } catch {
+    // The response interceptor reports request failures.
+    stopProgressPolling()
+  }
+}
+
+function startProgressPolling() {
+  if (progressTimer !== null) return
+  progressTimer = setInterval(refreshProgress, 2000)
+}
+
+const handleRecheckAll = async () => {
+  if (inspectionRunning.value) return
+
+  try {
+    await ElMessageBox.confirm(
+      '全量巡查会重新抽查所有未关闭巡查的友链（含已失效的），可能持续几分钟，确定继续吗？',
+      '提示',
+      { confirmButtonText: '开始巡查', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    const res = await recheckAllFriendLinks()
+    progress.value = res.data
+    ElMessage.success('全量巡查已开始')
+    startProgressPolling()
+  } catch {
+    // A 409 means another run holds the crawler; the interceptor reports it.
+    await refreshProgress()
+  }
+}
+
 const statusTagType = (status: string) => {
   switch (status) {
     case 'survival':
@@ -396,6 +479,15 @@ const handleRssToggle = async (link: FriendLink) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inspection-alert {
+  margin-bottom: 16px;
 }
 
 .table-actions {

@@ -205,7 +205,7 @@ func (h *FriendLinkHandler) GetFullFriendLinkByID(c *gin.Context) {
 	h.getFriendLinkByID(c, true)
 }
 
-// RecheckFriendLink handles POST /api/action/friend/:id/recheck.
+// RecheckFriendLink handles POST /api/action/friend/recheck/:id.
 // It performs one inspection even when scheduled health checks are disabled.
 func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -247,4 +247,61 @@ func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
+}
+
+// RecheckAllFriendLinks handles POST /api/action/friend/recheck.
+// The scan covers every friend link that has not opted out of health checks and
+// runs in the background, because one full pass can take minutes.
+func (h *FriendLinkHandler) RecheckAllFriendLinks(c *gin.Context) {
+	if err := crawlerService.StartFriendLinksInspection(h.DB, crawlerService.FullInspectionScope()); err != nil {
+		if errors.Is(err, crawlerService.ErrInspectionBusy) {
+			c.JSON(http.StatusConflict, model.NewErrorResponse(http.StatusConflict, "a friend link inspection is already running"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to start friend link inspection"))
+		return
+	}
+
+	c.JSON(http.StatusAccepted, model.ApiResponse{
+		Code:    http.StatusAccepted,
+		Message: "inspection started",
+		Data:    crawlerService.InspectionProgressSnapshot(),
+	})
+}
+
+// GetRecheckProgress handles GET /api/action/friend/recheck.
+// It reports the current or most recent inspection run of this process.
+func (h *FriendLinkHandler) GetRecheckProgress(c *gin.Context) {
+	c.JSON(http.StatusOK, model.NewSuccessResponse(crawlerService.InspectionProgressSnapshot()))
+}
+
+// GetFriendLinkRecheckProgress handles GET /api/action/friend/recheck/:id.
+// It reports one link's position inside the current or most recent run together
+// with the inspection state stored for that link.
+func (h *FriendLinkHandler) GetFriendLinkRecheckProgress(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id < 1 {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "invalid friend link ID"))
+		return
+	}
+
+	link, err := friendsRepositories.GetFriendLinkByID(h.DB, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "friend link not found"))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to retrieve friend link"))
+		return
+	}
+
+	progress := crawlerService.LinkInspectionSnapshot(id)
+	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
+		"id":         link.ID,
+		"in_run":     progress.InRun,
+		"done":       progress.Done,
+		"run_status": progress.Status,
+		"run":        progress.Run,
+		"link":       toFriendLinkDTO(link, true),
+	}))
 }

@@ -37,112 +37,13 @@ func scheduleFromNextMidnight(jobName string, interval time.Duration, job func()
 	}()
 }
 
-// 任务互斥锁：防止启动扫描与定时任务、以及任务超时重入导致的并发执行
+// 任务互斥锁：防止启动扫描与定时任务、以及任务超时重入导致的并发执行。
+// 友链巡查自身的互斥由 crawlerService 持有，因为手动全量巡查与定时任务
+// 读写同一批数据，必须共用同一把锁。
 var (
-	friendLinkCrawlerMu sync.Mutex
-	diedFriendLinkMu    sync.Mutex
-	diedRssCheckMu      sync.Mutex
-	rssParserMu         sync.Mutex
+	diedRssCheckMu sync.Mutex
+	rssParserMu    sync.Mutex
 )
-
-// RunFriendLinkCrawlerJob 执行友链爬取并发现 RSS 订阅源（并发模式）
-func RunFriendLinkCrawlerJob(db *gorm.DB) {
-	if !friendLinkCrawlerMu.TryLock() {
-		log.Println("[Cron] 友链爬取任务上一轮仍在执行，本次跳过")
-		return
-	}
-	defer friendLinkCrawlerMu.Unlock()
-
-	log.Println("[Cron] 正在运行友链爬取任务（并发模式）...")
-	isDied := false
-	skipHealthCheck := false
-	opts := model.FriendLinkQueryOptions{
-		IsDied:          &isDied,
-		SkipHealthCheck: &skipHealthCheck,
-	}
-	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
-	if err != nil {
-		log.Printf("[Cron] 获取全部友链失败： %v", err)
-		return
-	}
-	links := resp.Links
-
-	if len(links) == 0 {
-		log.Println("[Cron] 没有需要爬取的友链")
-		return
-	}
-
-	err = crawlerService.CrawlWebsitesConcurrently(context.Background(), links, func(crawlResult crawlerService.CrawlJobResult) error {
-		link := crawlResult.Link
-		result := crawlResult.Result
-
-		err := friendsRepositories.UpdateFriendLink(db, link, result)
-		if err != nil {
-			log.Printf("[Cron] 在 cron 任务中更新友链 %s 失败: %v", link.Name, err)
-		}
-		// 更新友链后，发现并插入 RSS 订阅源
-		if link.EnableRss && len(result.RssURLs) > 0 {
-			for _, rssURL := range result.RssURLs {
-				name, err := crawlerService.GetRssTitle(rssURL)
-				if err != nil {
-					log.Printf("[Cron] 获取 RSS 标题失败 %s: %v", rssURL, err)
-					continue
-				}
-				_, err = friendsRepositories.CreateFriendRssFeeds(db, link.ID, rssURL, name)
-				if err != nil {
-					log.Printf("[Cron] 在 cron 任务中为 %s 插入 RSS 订阅源失败: %v", link.Name, err)
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Printf("[Cron] 友链爬取中断: %v", err)
-	}
-	log.Println("[Cron] 友链爬取任务完成")
-}
-
-// RunDiedFriendLinkCheckJob 执行失效友链的检查（并发模式）
-func RunDiedFriendLinkCheckJob(db *gorm.DB) {
-	if !diedFriendLinkMu.TryLock() {
-		log.Println("[Cron] 失效友链检查任务上一轮仍在执行，本次跳过")
-		return
-	}
-	defer diedFriendLinkMu.Unlock()
-
-	log.Println("[Cron] 正在运行失效友链检查任务（并发模式）...")
-	isDied := true
-	skipHealthCheck := false
-	opts := model.FriendLinkQueryOptions{
-		IsDied:          &isDied,
-		SkipHealthCheck: &skipHealthCheck,
-	}
-	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
-	if err != nil {
-		log.Printf("[Cron] 获取全部 died 友链失败： %v", err)
-		return
-	}
-	links := resp.Links
-
-	if len(links) == 0 {
-		log.Println("[Cron] 没有需要检查的失效友链")
-		return
-	}
-
-	err = crawlerService.CrawlWebsitesConcurrently(context.Background(), links, func(crawlResult crawlerService.CrawlJobResult) error {
-		link := crawlResult.Link
-		result := crawlResult.Result
-		err := friendsRepositories.UpdateFriendLink(db, link, result)
-		if err != nil {
-			log.Printf("[Cron] 在 cron 任务中更新失效友链 %s 失败: %v", link.Name, err)
-		}
-		return nil
-	})
-	if err != nil {
-		log.Printf("[Cron] 失效友链检查中断: %v", err)
-	}
-	log.Println("[Cron] 失效友链检查任务完成")
-}
 
 // RunDiedRssCheckJob 执行失效 RSS 的探活检查（低频）
 func RunDiedRssCheckJob(db *gorm.DB) {
@@ -214,7 +115,8 @@ func StartCronJobs(db *gorm.DB) {
 
 	// 安排慢检查任务从下一天 0 点开始，每 48 小时运行一次
 	scheduleFromNextMidnight("失效检查（友链+RSS）", 48*time.Hour, func() {
-		RunDiedFriendLinkCheckJob(db)
+		// 巡查自身会记录跳过与失败原因，这里无需再处理返回值。
+		_, _ = crawlerService.InspectFriendLinks(context.Background(), db, crawlerService.DiedInspectionScope())
 		RunDiedRssCheckJob(db)
 	})
 	scheduleFromNextMidnight("图片资源检查", 48*time.Hour, func() {
@@ -227,14 +129,14 @@ func StartCronJobs(db *gorm.DB) {
 	})
 	// 安排友链爬取任务每 6 小时运行一次
 	c.AddFunc("0 */6 * * *", func() {
-		RunFriendLinkCrawlerJob(db)
+		_, _ = crawlerService.InspectFriendLinks(context.Background(), db, crawlerService.SurvivalInspectionScope())
 	})
 
 	// 如果配置了启动时扫描，则立即运行一次任务
 	if config.GetConfig().CronScanOnStartup {
 		go func() {
 			log.Println("[Cron] 调度启动时扫描任务")
-			RunFriendLinkCrawlerJob(db)
+			_, _ = crawlerService.InspectFriendLinks(context.Background(), db, crawlerService.SurvivalInspectionScope())
 			RunRssParserJob(db)
 		}()
 	} else {

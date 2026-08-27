@@ -64,3 +64,32 @@ export interface UpdateFriendLinkPayload {
     overwrite_if_blank?: boolean
   }
 }
+
+/**
+ * 一次巡查任务的进度（后端内存态，进程重启后重置）
+ */
+export interface FriendLinkInspectionProgress {
+  running: boolean
+  label?: string
+  started_at?: number
+  finished_at?: number
+  total: number
+  processed: number
+  survival: number
+  failed: number
+  database_failures: number
+  rss_discovered: number
+  error?: string
+}
+
+/**
+ * 单条友链在当前/最近一轮巡查中的位置
+ */
+export interface FriendLinkRecheckState {
+  id: number
+  in_run: boolean
+  done: boolean
+  run_status?: string
+  run: FriendLinkInspectionProgress
+  link: FriendLink
+}
