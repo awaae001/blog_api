@@ -26,17 +26,16 @@ var friendInspectionMu sync.Mutex
 // with the crawl results.
 type InspectionScope struct {
 	// IsDied filters by the stored died flag. A nil value covers every link.
-	IsDied *bool
-
-	// SkipHealthCheck filters by the "do not inspect" flag. A nil value
-	// ignores the flag entirely.
+	IsDied          *bool
 	SkipHealthCheck *bool
+	DiscoverRss     bool
 
-	// DiscoverRss enables RSS feed discovery for links that opted in.
-	DiscoverRss bool
-
-	// Label names the run in logs and in the reported progress.
-	Label string
+	// ExcludeStatuses drops links whose stored status matches any entry.
+	// Automatic patrols use it to leave "pending" (待定) links untouched:
+	// crawling one would overwrite its status with a crawl result and thus
+	// auto-approve a link that still awaits review.
+	ExcludeStatuses []string
+	Label           string
 }
 
 // InspectionProgress is an observable snapshot of the current or last run. It
@@ -58,17 +57,10 @@ type InspectionProgress struct {
 // LinkInspectionProgress describes one link's position inside the current or
 // last run.
 type LinkInspectionProgress struct {
-	// InRun reports whether the run covered this link at all.
-	InRun bool `json:"in_run"`
-
-	// Done reports whether the run already produced a result for this link.
-	Done bool `json:"done"`
-
-	// Status is the crawl status recorded by this run, empty until Done.
-	Status string `json:"status,omitempty"`
-
-	// Run is the overall progress of the run this link belongs to.
-	Run InspectionProgress `json:"run"`
+	InRun  bool               `json:"in_run"`
+	Done   bool               `json:"done"`
+	Status string             `json:"status,omitempty"`
+	Run    InspectionProgress `json:"run"`
 }
 
 // inspectionState holds the in-memory progress of the single active run. It is
@@ -127,7 +119,9 @@ func FullInspectionScope() InspectionScope {
 	}
 }
 
-// SurvivalInspectionScope covers the links that are currently alive.
+// SurvivalInspectionScope covers the links that are currently alive. Pending
+// links are excluded: they await manual review, and an automatic run must not
+// overwrite that status with a crawl result.
 func SurvivalInspectionScope() InspectionScope {
 	isDied := false
 	skipHealthCheck := false
@@ -135,11 +129,13 @@ func SurvivalInspectionScope() InspectionScope {
 		IsDied:          &isDied,
 		SkipHealthCheck: &skipHealthCheck,
 		DiscoverRss:     true,
+		ExcludeStatuses: []string{"pending"},
 		Label:           "友链爬取",
 	}
 }
 
-// DiedInspectionScope covers the links already marked as died.
+// DiedInspectionScope covers the links already marked as died. Pending links
+// are excluded for the same reason as in SurvivalInspectionScope.
 func DiedInspectionScope() InspectionScope {
 	isDied := true
 	skipHealthCheck := false
@@ -147,6 +143,7 @@ func DiedInspectionScope() InspectionScope {
 		IsDied:          &isDied,
 		SkipHealthCheck: &skipHealthCheck,
 		DiscoverRss:     false,
+		ExcludeStatuses: []string{"pending"},
 		Label:           "失效友链检查",
 	}
 }
@@ -182,6 +179,8 @@ func runInspection(ctx context.Context, db *gorm.DB, scope InspectionScope) (Ins
 	opts := model.FriendLinkQueryOptions{
 		IsDied:          scope.IsDied,
 		SkipHealthCheck: scope.SkipHealthCheck,
+		Statuses:        scope.ExcludeStatuses,
+		NotIn:           true,
 	}
 	resp, err := friendsRepositories.QueryFriendLinks(db, opts)
 	if err != nil {
