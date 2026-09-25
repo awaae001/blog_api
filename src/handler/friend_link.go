@@ -125,8 +125,11 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 		Limit:  pageSize,
 		IsDied: isDied,
 	}
-	resp, err := friendsRepositories.QueryFriendLinks(h.DB, opts)
+	resp, err := friendsRepositories.QueryFriendLinks(h.DB.WithContext(c.Request.Context()), opts)
 	if err != nil {
+		if handleCanceledQuery(c, err) {
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend links"))
 		return
 	}
@@ -152,8 +155,11 @@ func (h *FriendLinkHandler) getFriendLinkByID(c *gin.Context, isPrivate bool) {
 		return
 	}
 
-	link, err := friendsRepositories.GetFriendLinkByID(h.DB, id)
+	link, err := friendsRepositories.GetFriendLinkByID(h.DB.WithContext(c.Request.Context()), id)
 	if err != nil {
+		if handleCanceledQuery(c, err) {
+			return
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "friend link not found"))
 			return

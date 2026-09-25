@@ -2,6 +2,7 @@ package authHandler
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"blog_api/src/repositories"
 	"blog_api/src/service"
@@ -38,7 +39,14 @@ func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 	userAgent := c.Request.UserAgent()
 	tokenService := service.NewFingerprintTokenService(secret)
 
-	if token, ok, err := h.reuseFingerprintToken(c, tokenService, ip, userAgent, secret); err != nil {
+	// 请求级 context：客户端断开后查询会被取消
+	db := h.DB.WithContext(c.Request.Context())
+
+	if token, ok, err := h.reuseFingerprintToken(c, db, tokenService, ip, userAgent, secret); err != nil {
+		if middleware.IsRequestCanceled(err) || middleware.IsClientGone(c) {
+			c.AbortWithStatus(middleware.ClientGoneStatus)
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to update fingerprint"))
 		return
 	} else if ok {
@@ -50,9 +58,13 @@ func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 
 	fingerprintValue := hashFingerprint(ip, userAgent, secret)
 
-	record, err := repositories.GetFingerprintByValue(h.DB, fingerprintValue)
+	record, err := repositories.GetFingerprintByValue(db, fingerprintValue)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
+			if middleware.IsRequestCanceled(err) || middleware.IsClientGone(c) {
+				c.AbortWithStatus(middleware.ClientGoneStatus)
+				return
+			}
 			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to query fingerprint"))
 			return
 		}
@@ -64,7 +76,11 @@ func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 			PermissionsLevel: "normal",
 			CreatedAt:        time.Now().Unix(),
 		}
-		if err := repositories.CreateFingerprint(h.DB, record); err != nil {
+		if err := repositories.CreateFingerprint(db, record); err != nil {
+			if middleware.IsRequestCanceled(err) || middleware.IsClientGone(c) {
+				c.AbortWithStatus(middleware.ClientGoneStatus)
+				return
+			}
 			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create fingerprint"))
 			return
 		}
@@ -79,6 +95,7 @@ func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 
 func (h *FingerprintHandler) reuseFingerprintToken(
 	c *gin.Context,
+	db *gorm.DB,
 	tokenService *service.FingerprintTokenService,
 	ip, userAgent, secret string,
 ) (string, bool, error) {
@@ -92,7 +109,7 @@ func (h *FingerprintHandler) reuseFingerprintToken(
 		return "", false, nil
 	}
 
-	record, err := repositories.GetFingerprintByID(h.DB, id)
+	record, err := repositories.GetFingerprintByID(db, id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return "", false, nil
@@ -105,7 +122,7 @@ func (h *FingerprintHandler) reuseFingerprintToken(
 		return token, true, nil
 	}
 
-	if err := repositories.UpdateFingerprintIdentity(h.DB, record.ID, fingerprintValue, userAgent, ip); err != nil {
+	if err := repositories.UpdateFingerprintIdentity(db, record.ID, fingerprintValue, userAgent, ip); err != nil {
 		return "", false, err
 	}
 

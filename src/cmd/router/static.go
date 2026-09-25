@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"net/http"
 	"os"
@@ -14,6 +15,12 @@ import (
 
 func staticFileHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 客户端已断开时不再做磁盘 stat / 文件发送，直接结束
+		if middleware.IsClientGone(c) {
+			c.AbortWithStatus(middleware.ClientGoneStatus)
+			return
+		}
+
 		currentCfg := config.GetConfig()
 		baseDir := resolveStaticBaseDir(currentCfg)
 		absBaseDir, _ := filepath.Abs(baseDir)

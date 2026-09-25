@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"blog_api/src/model"
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -33,7 +35,7 @@ func InitDB(cfg *model.Config) (*gorm.DB, error) {
 	)
 
 	db, err := gorm.Open(sqlite.Open(sqliteDSN(dbPath)), &gorm.Config{
-		Logger: newLogger,
+		Logger: cancelAwareLogger{Interface: newLogger},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %w", err)
@@ -112,6 +114,19 @@ func sqliteDSN(path string) string {
 type schemaMigration struct {
 	Name      string `gorm:"column:name;primaryKey"`
 	AppliedAt int64  `gorm:"column:applied_at"`
+}
+
+// cancelAwareLogger 包装 gorm 日志器：客户端断开导致的 context 取消是客户端行为，
+// 不作为 SQL 错误写入日志，避免爬虫断连时刷错误日志。
+type cancelAwareLogger struct {
+	logger.Interface
+}
+
+func (l cancelAwareLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	if err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+		return
+	}
+	l.Interface.Trace(ctx, begin, fc, err)
 }
 
 func (schemaMigration) TableName() string {

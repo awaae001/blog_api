@@ -28,9 +28,15 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 	var image *model.Image
 	var err error
 
+	// 请求级 context：客户端断开后查询会被取消，不再占用数据库连接
+	db := h.db.WithContext(c.Request.Context())
+
 	if idStr == "" || idStr == "/" {
-		image, err = imageRepositories.GetRandomImage(h.db)
+		image, err = imageRepositories.GetRandomImage(db)
 		if err != nil {
+			if handleCanceledQuery(c, err) {
+				return
+			}
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "没有可用的图片"})
 			} else {
@@ -46,8 +52,11 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 			return
 		}
 
-		image, err = imageRepositories.GetImageByID(h.db, id)
+		image, err = imageRepositories.GetImageByID(db, id)
 		if err != nil {
+			if handleCanceledQuery(c, err) {
+				return
+			}
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "图片未找到"})
 			} else {

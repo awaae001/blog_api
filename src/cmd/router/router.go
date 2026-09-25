@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"net/http"
 	"os"
@@ -23,6 +24,7 @@ func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engin
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.MaxMultipartMemory = 8 << 20
+	router.Use(middleware.ClientDisconnectGuard())
 	router.Use(func(c *gin.Context) {
 		if c.Request.Body != nil {
 			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBodyBytes)

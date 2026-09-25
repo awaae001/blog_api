@@ -42,8 +42,11 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 		fingerprintID = &id
 	}
 
-	resp, err := service.GetMomentsWithMedia(h.DB, page, pageSize, "visible", fingerprintID)
+	resp, err := service.GetMomentsWithMedia(h.DB.WithContext(c.Request.Context()), page, pageSize, "visible", fingerprintID)
 	if err != nil {
+		if handleCanceledQuery(c, err) {
+			return
+		}
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve moments"))
 		return
 	}

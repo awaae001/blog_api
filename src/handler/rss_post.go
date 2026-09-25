@@ -64,8 +64,11 @@ func (h *RssPostHandler) GetRssPosts(c *gin.Context) {
 		query.PageSize = 100
 	}
 
-	posts, total, err := friendsRepositories.GetPosts(h.DB, &query)
+	posts, total, err := friendsRepositories.GetPosts(h.DB.WithContext(c.Request.Context()), &query)
 	if err != nil {
+		if handleCanceledQuery(c, err) {
+			return
+		}
 		log.Printf("[rss_post] failed to retrieve posts: %+v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve posts"))
 		return

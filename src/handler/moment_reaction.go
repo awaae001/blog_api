@@ -50,7 +50,10 @@ func (h *MomentReactionHandler) AddReaction(c *gin.Context) {
 		CreatedAt:     time.Now().Unix(),
 	}
 
-	if err := momentRepositories.CreateMomentReaction(h.DB, reaction); err != nil {
+	if err := momentRepositories.CreateMomentReaction(h.DB.WithContext(c.Request.Context()), reaction); err != nil {
+		if handleCanceledQuery(c, err) {
+			return
+		}
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			c.JSON(http.StatusConflict, model.NewErrorResponse(409, "reaction already exists"))
 			return
@@ -86,7 +89,10 @@ func (h *MomentReactionHandler) DeleteReaction(c *gin.Context) {
 		return
 	}
 
-	if err := momentRepositories.DeleteMomentReaction(h.DB, momentID, fingerprintID.(int), req.Reaction); err != nil {
+	if err := momentRepositories.DeleteMomentReaction(h.DB.WithContext(c.Request.Context()), momentID, fingerprintID.(int), req.Reaction); err != nil {
+		if handleCanceledQuery(c, err) {
+			return
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "reaction not found"))
 			return
