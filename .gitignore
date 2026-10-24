@@ -53,3 +53,4 @@ dist-ssr
 # data file
 data/
 web/tsconfig.node.tsbuildinfo
+web/src/components.d.ts

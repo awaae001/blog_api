@@ -7,6 +7,7 @@
 --   * friend_link_id = -1 或指向不存在的友链 -> NULL
 --   * status/is_died/times -> status(active/paused/dead) + error_count
 --   * friend_rss_post.rss_id -> feed_id，time -> published_at，新增 guid（旧数据用 link 填充）
+--   * 清理同源「标题 + 发布时间」相同的重复文章（换域名/改固定链接导致），保留最后抓到的一条
 --   * next_fetch_at = 0：服务启动后调度器会把所有源立刻抓一遍，顺带补齐 etag 等字段
 
 PRAGMA foreign_keys = OFF;
@@ -88,6 +89,15 @@ ALTER TABLE friend_rss_post_v2 RENAME TO friend_rss_post;
 CREATE INDEX idx_friend_rss_due ON friend_rss(status, next_fetch_at);
 CREATE INDEX idx_friend_rss_friend_link ON friend_rss(friend_link_id);
 CREATE INDEX idx_friend_rss_updated ON friend_rss(updated_at DESC, id DESC);
+DELETE FROM friend_rss_post
+WHERE title <> '' AND published_at > 0
+  AND id NOT IN (
+    SELECT MAX(id) FROM friend_rss_post
+    WHERE title <> '' AND published_at > 0
+    GROUP BY feed_id, title, published_at
+  );
+CREATE UNIQUE INDEX idx_friend_rss_post_feed_title_time
+    ON friend_rss_post(feed_id, title, published_at) WHERE title <> '' AND published_at > 0;
 CREATE INDEX idx_friend_rss_post_feed_published ON friend_rss_post(feed_id, published_at DESC);
 CREATE INDEX idx_friend_rss_post_published ON friend_rss_post(published_at DESC);
 

@@ -3,37 +3,97 @@ import type { ApiResponse } from '@/model/response'
 
 import type {
   CreateRssFeedPayload,
+  CreateRssFeedResult,
+  FeedCandidate,
   PaginatedResponse,
   RssFeed,
+  RssFeedListParams,
   RssFetchResult,
   RssPost,
   UpdateRssFeedPayload
 } from '@/model/rss'
 
 /**
- * Fetches the list of all RSS feeds.
- * Corresponds to GET /api/action/rss
+ * GET /api/action/rss
  */
 export const getRssFeeds = (
-  page = 1,
-  pageSize = 20
+  params: RssFeedListParams = {}
 ): Promise<ApiResponse<PaginatedResponse<RssFeed>>> => {
   return request({
     url: '/action/rss',
     method: 'get',
     params: {
-      page,
-      page_size: pageSize
+      page: params.page ?? 1,
+      page_size: params.page_size ?? 20,
+      status: params.status || undefined,
+      friend_link_id: params.friend_link_id || undefined
     }
   })
 }
 
 /**
- * Fetches posts for a specific RSS feed.
- * Corresponds to GET /api/rss
- * @param rssId - The ID of the RSS feed.
- * @param page - The page number for pagination.
- * @param pageSize - The number of items per page.
+ * POST /api/action/rss/discover
+ * Lists the feeds a web page advertises. Nothing is subscribed.
+ */
+export const discoverRssFeeds = (url: string): Promise<ApiResponse<FeedCandidate[]>> => {
+  return request({
+    url: '/action/rss/discover',
+    method: 'post',
+    data: { url },
+    timeout: 0
+  })
+}
+
+/**
+ * POST /api/action/rss
+ * The backend fetches the feed once to validate it and stores its articles.
+ */
+export const createRssFeed = (
+  data: CreateRssFeedPayload
+): Promise<ApiResponse<CreateRssFeedResult>> => {
+  return request({
+    url: '/action/rss',
+    method: 'post',
+    data,
+    timeout: 0
+  })
+}
+
+/**
+ * PUT /api/action/rss/:id
+ */
+export const updateRssFeed = (id: number, data: UpdateRssFeedPayload): Promise<ApiResponse> => {
+  return request({
+    url: `/action/rss/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * DELETE /api/action/rss/:id
+ */
+export const deleteRssFeed = (id: number): Promise<ApiResponse> => {
+  return request({
+    url: `/action/rss/${id}`,
+    method: 'delete'
+  })
+}
+
+/**
+ * POST /api/action/rss/:id/fetch
+ * Refreshes one feed now, bypassing its schedule and cache.
+ */
+export const fetchRssFeed = (id: number): Promise<ApiResponse<RssFetchResult>> => {
+  return request({
+    url: `/action/rss/${id}/fetch`,
+    method: 'post',
+    timeout: 0
+  })
+}
+
+/**
+ * GET /api/public/rss?rss_id=
  */
 export const getPostsByFeed = (
   rssId: number,
@@ -52,10 +112,7 @@ export const getPostsByFeed = (
 }
 
 /**
- * Fetches posts from all RSS feeds.
- * Corresponds to GET /api/public/rss
- * @param page - The page number for pagination.
- * @param pageSize - The number of items per page.
+ * GET /api/public/rss
  */
 export const getAllPosts = (
   page = 1,
@@ -72,67 +129,11 @@ export const getAllPosts = (
 }
 
 /**
- * Deletes one or more RSS feeds by their IDs.
- * Corresponds to DELETE /api/action/rss
- * @param ids - An array of RSS feed IDs to delete.
- */
-export const deleteRssFeed = (ids: number[]): Promise<ApiResponse> => {
-  return request({
-    url: `/action/rss/${ids[0]}`,
-    method: 'delete'
-  })
-}
-
-/**
- * Deletes one persisted RSS article.
- * Corresponds to DELETE /api/action/rss/posts/:id
+ * DELETE /api/action/rss/posts/:id
  */
 export const deleteRssPost = (id: number): Promise<ApiResponse<{ rows_affected: number }>> => {
   return request({
     url: `/action/rss/posts/${id}`,
     method: 'delete'
-  })
-}
-
-/**
- * Updates an existing RSS feed.
- * Corresponds to PUT /api/action/rss
- * @param id - The ID of the RSS feed to update.
- * @param data - The data to update.
- */
-export const updateRssFeed = (
-  id: number,
-  data: UpdateRssFeedPayload
-): Promise<ApiResponse> => {
-  return request({
-    url: `/action/rss/${id}`,
-    method: 'put',
-    data: {
-      data
-    }
-  })
-}
-
-/**
- * Creates a new RSS feed.
- * Corresponds to POST /api/action/rss
- * @param data - The RSS feed fields to create.
- */
-export const createRssFeed = (data: CreateRssFeedPayload): Promise<ApiResponse> => {
-  return request({
-    url: '/action/rss',
-    method: 'post',
-    data
-  })
-}
-
-/**
- * Fetches and persists articles from one RSS feed immediately.
- */
-export const fetchRssFeed = (id: number): Promise<ApiResponse<RssFetchResult>> => {
-  return request({
-    url: `/action/rss/${id}/fetch`,
-    method: 'post',
-    timeout: 0
   })
 }
