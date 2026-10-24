@@ -2,202 +2,89 @@ package friendsRepositories
 
 import (
 	"blog_api/src/model"
-	"fmt"
-	"log"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
-// QueryFriendRss provides a unified interface for querying friend RSS feeds.
-func QueryFriendRss(db *gorm.DB, opts model.FriendRssQueryOptions) (model.QueryFriendRssResponse, error) {
-	var resp model.QueryFriendRssResponse
-	query := db.Model(&model.FriendRss{})
-
-	if opts.Status != "" && opts.Status == "valid" {
-		query = db.Table("friend_rss").
-			Joins("JOIN friend_link ON friend_link.id = friend_rss.friend_link_id").
-			Where("friend_link.is_died = ?", false).
-			Where("friend_rss.is_died = ?", false).
-			Where("friend_rss.status != ?", "pause")
-		if opts.FriendLinkID > 0 {
-			query = query.Where("friend_rss.friend_link_id = ?", opts.FriendLinkID)
-		}
-	} else {
-		if opts.FriendLinkID > 0 {
-			query = query.Where("friend_link_id = ?", opts.FriendLinkID)
-		}
-		if opts.Status != "" {
-			query = query.Where("status = ?", opts.Status)
-		}
+// QueryRssFeeds returns one page of feeds for the admin list.
+func QueryRssFeeds(db *gorm.DB, opts model.RssFeedQueryOptions) ([]model.RssFeed, int64, error) {
+	query := db.Model(&model.RssFeed{})
+	if opts.FriendLinkID > 0 {
+		query = query.Where("friend_link_id = ?", opts.FriendLinkID)
 	}
-	if opts.IsDied != nil {
-		if opts.Status == "valid" {
-			query = query.Where("friend_rss.is_died = ?", *opts.IsDied)
-		} else {
-			query = query.Where("is_died = ?", *opts.IsDied)
-		}
+	if opts.Status != "" {
+		query = query.Where("status = ?", opts.Status)
 	}
 
-	// Get total count
-	if err := query.Count(&resp.Total).Error; err != nil {
-		return resp, err
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-
-	// Apply pagination
 	if opts.Page > 0 && opts.PageSize > 0 {
-		offset := (opts.Page - 1) * opts.PageSize
-		query = query.Offset(offset).Limit(opts.PageSize)
+		query = query.Offset((opts.Page - 1) * opts.PageSize).Limit(opts.PageSize)
 	}
 
-	query = query.Order("friend_rss.updated_at DESC").Order("friend_rss.id DESC")
-	if err := query.Find(&resp.Feeds).Error; err != nil {
-		return resp, err
-	}
-
-	return resp, nil
+	var feeds []model.RssFeed
+	err := query.Order("updated_at DESC").Order("id DESC").Find(&feeds).Error
+	return feeds, total, err
 }
 
-// GetFriendRssByID returns one RSS feed by its primary key.
-func GetFriendRssByID(db *gorm.DB, id int) (model.FriendRss, error) {
-	var feed model.FriendRss
-	err := db.Where("id = ?", id).First(&feed).Error
+// DueRssFeeds returns feeds whose next fetch time has passed. Paused feeds and
+// feeds owned by a died friend link are skipped.
+func DueRssFeeds(db *gorm.DB, now int64, limit int) ([]model.RssFeed, error) {
+	var feeds []model.RssFeed
+	err := db.Table("friend_rss AS f").
+		Select("f.*").
+		Joins("LEFT JOIN friend_link l ON l.id = f.friend_link_id").
+		Where("f.status <> ?", model.FeedStatusPaused).
+		Where("f.next_fetch_at <= ?", now).
+		Where("l.id IS NULL OR l.is_died = ?", false).
+		Order("f.next_fetch_at ASC").
+		Limit(limit).
+		Find(&feeds).Error
+	return feeds, err
+}
+
+// GetRssFeedByID returns one feed by its primary key.
+func GetRssFeedByID(db *gorm.DB, id int) (model.RssFeed, error) {
+	var feed model.RssFeed
+	err := db.First(&feed, id).Error
 	return feed, err
 }
 
-// CreateFriendRssFeeds creates a new friend_rss record, avoiding duplicates.
-func CreateFriendRssFeeds(db *gorm.DB, friendLinkID int, rssURL string, name string) (*model.FriendRss, error) {
-	if rssURL == "" {
-		return nil, fmt.Errorf("rssURL cannot be empty")
-	}
-
-	newRSS := model.FriendRss{
-		FriendLinkID: friendLinkID,
-		RssURL:       rssURL,
-		Name:         name,
-		Times:        0,
-		Status:       "survival",
-		IsDied:       false,
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "friend_link_id"}, {Name: "rss_url"}},
-		DoNothing: true,
-	}).Create(&newRSS)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		// 已存在，回查并返回已有记录
-		var existing model.FriendRss
-		if err := db.Where("friend_link_id = ? AND rss_url = ?", friendLinkID, rssURL).First(&existing).Error; err != nil {
-			return nil, err
-		}
-		log.Printf("RSS feed '%s' already exists for friend link ID %d, returning existing record.", rssURL, friendLinkID)
-		return &existing, nil
-	}
-
-	log.Printf("Successfully inserted RSS feed '%s' for friend link ID %d.", rssURL, friendLinkID)
-	return &newRSS, nil
+// RssFeedURLTaken reports whether another feed already uses feedURL.
+func RssFeedURLTaken(db *gorm.DB, feedURL string, exceptID int) (bool, error) {
+	var count int64
+	err := db.Model(&model.RssFeed{}).Where("feed_url = ? AND id <> ?", feedURL, exceptID).Count(&count).Error
+	return count > 0, err
 }
 
-// DeleteFriendRssByID deletes a friend_rss entry and all associated posts by its ID.
-func DeleteFriendRssByID(db *gorm.DB, id uint) (int64, error) {
-	var rowsAffected int64
-
-	err := db.Transaction(func(tx *gorm.DB) error {
-		// Delete associated posts first
-		if err := tx.Where("rss_id = ?", id).Delete(&model.RssPost{}).Error; err != nil {
-			return err
-		}
-
-		// GORM can delete with a primary key
-		result := tx.Delete(&model.FriendRss{}, id)
-		if result.Error != nil {
-			return result.Error
-		}
-		rowsAffected = result.RowsAffected
-		return nil
-	})
-
-	if err != nil {
-		return 0, err
-	}
-
-	if rowsAffected > 0 {
-		log.Printf("成功删除 %d 个 RSS 源", rowsAffected)
-	}
-
-	return rowsAffected, nil
+// FriendLinkHasRssFeeds reports whether a friend link already owns a feed.
+func FriendLinkHasRssFeeds(db *gorm.DB, friendLinkID int) (bool, error) {
+	var count int64
+	err := db.Model(&model.RssFeed{}).Where("friend_link_id = ?", friendLinkID).Count(&count).Error
+	return count > 0, err
 }
 
-// DeleteRssDataByFriendLinkID deletes all RSS feeds and their posts for a given friend_link_id within a transaction.
-func DeleteRssDataByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
-	// Find all RSS feeds associated with the friend link
-	var rssFeeds []model.FriendRss
-	if err := tx.Where("friend_link_id = ?", friendLinkID).Find(&rssFeeds).Error; err != nil {
-		return err
-	}
-
-	if len(rssFeeds) == 0 {
-		log.Printf("No RSS feeds to delete for friend_link_id %d", friendLinkID)
-		return nil // Nothing to do
-	}
-
-	// Collect all RSS feed IDs
-	rssIDs := make([]int, len(rssFeeds))
-	for i, feed := range rssFeeds {
-		rssIDs[i] = feed.ID
-	}
-
-	// Delete associated posts first (manual cascade for SQLite safety)
-	if err := tx.Where("rss_id IN ?", rssIDs).Delete(&model.RssPost{}).Error; err != nil {
-		return err
-	}
-
-	// Delete the RSS feeds themselves
-	if err := tx.Where("friend_link_id = ?", friendLinkID).Delete(&model.FriendRss{}).Error; err != nil {
-		return err
-	}
-
-	log.Printf("Successfully deleted %d RSS feeds and their posts for friend_link_id %d", len(rssFeeds), friendLinkID)
-	return nil
+// CreateRssFeed inserts a new feed. feed_url is unique; callers check
+// RssFeedURLTaken first for a friendly error.
+func CreateRssFeed(db *gorm.DB, feed *model.RssFeed) error {
+	return db.Create(feed).Error
 }
 
-// UpdateFriendRssByID updates a friend_rss entry by its ID.
-func UpdateFriendRssByID(db *gorm.DB, id uint, req model.EditFriendRssReq) (int64, error) {
-	if len(req.Data) == 0 {
-		return 0, fmt.Errorf("no data provided for update")
-	}
+// UpdateRssFeed applies column updates to one feed and reports whether it exists.
+func UpdateRssFeed(db *gorm.DB, id int, updates map[string]any) (bool, error) {
+	result := db.Model(&model.RssFeed{ID: id}).Updates(updates)
+	return result.RowsAffected > 0, result.Error
+}
 
-	// Whitelist of updatable columns
-	updatableColumns := map[string]bool{
-		"name":           true,
-		"rss_url":        true,
-		"status":         true,
-		"friend_link_id": true,
-		"is_died":        true,
-	}
+// DeleteRssFeedByID deletes one feed; its posts go with it via ON DELETE CASCADE.
+func DeleteRssFeedByID(db *gorm.DB, id int) (int64, error) {
+	result := db.Delete(&model.RssFeed{}, id)
+	return result.RowsAffected, result.Error
+}
 
-	updates := make(map[string]interface{})
-	for col, val := range req.Data {
-		if updatableColumns[col] {
-			updates[col] = val
-		}
-	}
-	if len(updates) == 0 {
-		log.Println("[db][friend_rss] No valid fields to update after filtering.")
-		return 0, nil
-	}
-
-	result := db.Model(&model.FriendRss{}).Where("id = ?", id).Updates(updates)
-	if result.Error != nil {
-		return 0, result.Error
-	}
-
-	rowsAffected := result.RowsAffected
-
-	log.Printf("[db][friend_rss] Updated friend_rss with ID: %d. Rows affected: %d", id, rowsAffected)
-	return rowsAffected, nil
+// DeleteRssFeedsByFriendLinkID drops every feed owned by a friend link.
+func DeleteRssFeedsByFriendLinkID(tx *gorm.DB, friendLinkID int) error {
+	return tx.Where("friend_link_id = ?", friendLinkID).Delete(&model.RssFeed{}).Error
 }

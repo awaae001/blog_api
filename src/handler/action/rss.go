@@ -4,270 +4,261 @@ import (
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
 	crawlerService "blog_api/src/service/crawler"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-// FriendRssHandler 处理与 friend_rss 相关的请求
+// FriendRssHandler serves the admin RSS subscription API.
 type FriendRssHandler struct {
 	DB *gorm.DB
 }
 
-func normalizeFriendLinkID(value interface{}) (int, error) {
-	var id int
-	switch value := value.(type) {
-	case int:
-		id = value
-	case float64:
-		const maxSafeInteger = float64(1<<53 - 1)
-		if math.Trunc(value) != value || value > maxSafeInteger || value < -maxSafeInteger {
-			return 0, fmt.Errorf("friend_link_id must be an integer")
-		}
-		id = int(value)
-	case json.Number:
-		parsed, err := strconv.Atoi(value.String())
-		if err != nil {
-			return 0, fmt.Errorf("friend_link_id must be an integer")
-		}
-		id = parsed
-	default:
-		return 0, fmt.Errorf("friend_link_id must be an integer")
-	}
-	if id == 0 {
-		return -1, nil
-	}
-	if id < -1 {
-		return 0, fmt.Errorf("friend_link_id must be -1 or a positive integer")
-	}
-	return id, nil
+var feedStatuses = map[string]bool{
+	model.FeedStatusActive: true,
+	model.FeedStatusPaused: true,
+	model.FeedStatusDead:   true,
 }
 
-func validateFriendLinkID(db *gorm.DB, friendLinkID int) error {
-	if friendLinkID == -1 {
-		return nil
+// GetRss handles GET /api/action/rss?status=&friend_link_id=&page=&page_size=
+func (h *FriendRssHandler) GetRss(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	friendLinkID, _ := strconv.Atoi(c.Query("friend_link_id"))
+	status := c.Query("status")
+	if page < 1 || pageSize < 1 || (status != "" && !feedStatuses[status]) {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的查询参数"))
+		return
 	}
-	exists, err := friendsRepositories.FriendLinkExists(db, friendLinkID)
+	pageSize = min(pageSize, 100)
+
+	feeds, total, err := friendsRepositories.QueryRssFeeds(h.DB, model.RssFeedQueryOptions{
+		FriendLinkID: friendLinkID,
+		Status:       status,
+		Page:         page,
+		PageSize:     pageSize,
+	})
 	if err != nil {
-		return fmt.Errorf("check friend link: %w", err)
+		log.Printf("[handler][rss] query feeds: %v", err)
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "获取订阅源失败"))
+		return
 	}
-	if !exists {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+
+	c.JSON(http.StatusOK, model.NewSuccessResponse(model.PaginatedResponse{
+		Items:    feeds,
+		Total:    int(total),
+		Page:     page,
+		PageSize: pageSize,
+	}))
 }
 
-// CreateRss 处理 POST /api/action/rss 请求，用于创建新的 RSS feed。
+// DiscoverRss handles POST /api/action/rss/discover: list the feeds a page advertises.
+func (h *FriendRssHandler) DiscoverRss(c *gin.Context) {
+	var req model.DiscoverRssReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体: "+err.Error()))
+		return
+	}
+
+	candidates, err := crawlerService.DiscoverFeeds(c.Request.Context(), strings.TrimSpace(req.URL))
+	if err != nil {
+		if c.Request.Context().Err() != nil {
+			return
+		}
+		c.JSON(http.StatusBadGateway, model.NewErrorResponse(http.StatusBadGateway, "无法读取页面: "+err.Error()))
+		return
+	}
+	if candidates == nil {
+		candidates = []model.FeedCandidate{}
+	}
+	c.JSON(http.StatusOK, model.NewSuccessResponse(candidates))
+}
+
+// CreateRss handles POST /api/action/rss: validate the feed and subscribe.
 func (h *FriendRssHandler) CreateRss(c *gin.Context) {
 	var req model.CreateRssReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体: "+err.Error()))
 		return
 	}
+	if !h.checkFriendLink(c, req.FriendLinkID) {
+		return
+	}
 
-	friendLinkID, err := normalizeFriendLinkID(req.FriendLinkID)
+	feed, result, err := crawlerService.Subscribe(c.Request.Context(), h.DB, req.FeedURL, req.FriendLinkID, req.Name)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, err.Error()))
+		h.writeFeedError(c, err)
 		return
 	}
-
-	if err := validateFriendLinkID(h.DB, friendLinkID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, fmt.Sprintf("ID 为 %d 的友链不存在", friendLinkID)))
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "检查友链是否存在时出错"))
-		return
-	}
-
-	name := req.Name
-	if name == "" {
-		var err error
-		name, err = crawlerService.GetRssTitle(req.RssURL)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "无法获取 RSS 标题: "+err.Error()))
-			return
-		}
-	}
-
-	createdFeed, err := friendsRepositories.CreateFriendRssFeeds(h.DB, friendLinkID, req.RssURL, name)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "创建 RSS 失败: "+err.Error()))
-		return
-	}
-	if createdFeed == nil {
-		c.JSON(http.StatusConflict, model.NewErrorResponse(http.StatusConflict, "RSS feed 已存在"))
-		return
-	}
-
-	c.JSON(http.StatusCreated, model.NewSuccessResponseWithCode(http.StatusCreated, gin.H{"id": createdFeed.ID}))
+	c.JSON(http.StatusCreated, model.NewSuccessResponseWithCode(http.StatusCreated, gin.H{"feed": feed, "result": result}))
 }
 
-// DeleteFriendRss 处理 DELETE /api/action/rss/:id 请求
-func (h *FriendRssHandler) DeleteFriendRss(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的 RSS ID"))
-		return
-	}
-
-	rowsAffected, err := friendsRepositories.DeleteFriendRssByID(h.DB, uint(id))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "删除 RSS 失败: "+err.Error()))
-		return
-	}
-
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"rows_affected": rowsAffected}))
-}
-
-// EditRss 处理 PUT /api/action/rss/:id 请求，用于更新现有的 RSS feed。
+// EditRss handles PUT /api/action/rss/:id.
 func (h *FriendRssHandler) EditRss(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的 RSS ID"))
+	id, ok := feedID(c)
+	if !ok {
 		return
 	}
-
-	var req model.EditFriendRssReq
+	var req model.EditRssFeedReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的请求体: "+err.Error()))
 		return
 	}
 
-	if value, ok := req.Data["friend_link_id"]; ok {
-		friendLinkID, err := normalizeFriendLinkID(value)
-		if err != nil {
+	updates := map[string]any{}
+	if req.Name != nil {
+		updates["name"] = strings.TrimSpace(*req.Name)
+	}
+	if req.FriendLinkID != nil {
+		if !h.checkFriendLink(c, *req.FriendLinkID) {
+			return
+		}
+		updates["friend_link_id"] = nil
+		if *req.FriendLinkID > 0 {
+			updates["friend_link_id"] = *req.FriendLinkID
+		}
+	}
+	if req.FeedURL != nil {
+		feedURL := strings.TrimSpace(*req.FeedURL)
+		if _, err := crawlerService.ValidatePublicHTTPURL(feedURL); err != nil {
 			c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, err.Error()))
 			return
 		}
-		if err := validateFriendLinkID(h.DB, friendLinkID); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, fmt.Sprintf("ID 为 %d 的友链不存在", friendLinkID)))
-				return
-			}
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "检查友链是否存在时出错"))
+		taken, err := friendsRepositories.RssFeedURLTaken(h.DB, feedURL, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "检查订阅地址失败"))
 			return
 		}
-		req.Data["friend_link_id"] = friendLinkID
+		if taken {
+			c.JSON(http.StatusConflict, model.NewErrorResponse(http.StatusConflict, "该订阅地址已存在"))
+			return
+		}
+		updates["feed_url"] = feedURL
+		resetSchedule(updates)
+	}
+	if req.Status != nil {
+		switch *req.Status {
+		case model.FeedStatusPaused:
+			updates["status"] = model.FeedStatusPaused
+		case model.FeedStatusActive:
+			updates["status"] = model.FeedStatusActive
+			resetSchedule(updates)
+		default:
+			c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "status 只能是 active 或 paused"))
+			return
+		}
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "没有需要更新的字段"))
+		return
 	}
 
-	rowsAffected, err := friendsRepositories.UpdateFriendRssByID(h.DB, uint(id), req)
+	found, err := friendsRepositories.UpdateRssFeed(h.DB, id, updates)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "更新 RSS 失败: "+err.Error()))
+		log.Printf("[handler][rss] update feed %d: %v", id, err)
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "更新订阅源失败"))
 		return
 	}
-
-	if rowsAffected == 0 {
-		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "未找到指定 ID 的 RSS 或没有字段需要更新"))
+	if !found {
+		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "未找到指定订阅源"))
 		return
 	}
-
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"rows_affected": rowsAffected}))
+	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
 }
 
-// FetchRss fetches and persists articles from one RSS feed immediately.
-func (h *FriendRssHandler) FetchRss(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil || id < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的 RSS ID"))
+// DeleteFriendRss handles DELETE /api/action/rss/:id; posts go with the feed.
+func (h *FriendRssHandler) DeleteFriendRss(c *gin.Context) {
+	id, ok := feedID(c)
+	if !ok {
 		return
 	}
+	rows, err := friendsRepositories.DeleteRssFeedByID(h.DB, id)
+	if err != nil {
+		log.Printf("[handler][rss] delete feed %d: %v", id, err)
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "删除订阅源失败"))
+		return
+	}
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "未找到指定订阅源"))
+		return
+	}
+	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
+}
 
-	feed, err := friendsRepositories.GetFriendRssByID(h.DB, id)
+// FetchRss handles POST /api/action/rss/:id/fetch: refresh one feed now.
+func (h *FriendRssHandler) FetchRss(c *gin.Context) {
+	id, ok := feedID(c)
+	if !ok {
+		return
+	}
+	feed, err := friendsRepositories.GetRssFeedByID(h.DB, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "未找到指定 RSS"))
+			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "未找到指定订阅源"))
 			return
 		}
-		log.Printf("[handler][rss] failed to retrieve RSS %d: %v", id, err)
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "获取 RSS 信息失败"))
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "获取订阅源失败"))
 		return
 	}
 
-	result, err := crawlerService.ParseRssFeed(c.Request.Context(), h.DB, feed.ID, feed.RssURL)
+	result, err := crawlerService.RefreshFeed(c.Request.Context(), h.DB, feed)
 	if err != nil {
-		if c.Request.Context().Err() != nil {
-			return
-		}
-		if errors.Is(err, crawlerService.ErrRssSource) {
-			c.JSON(http.StatusBadGateway, model.NewErrorResponse(http.StatusBadGateway, "获取或解析 RSS 失败"))
-			return
-		}
-		log.Printf("[handler][rss] failed to persist RSS %d: %v", id, err)
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "保存 RSS 获取结果失败"))
+		h.writeFeedError(c, err)
 		return
 	}
-
 	c.JSON(http.StatusOK, model.NewSuccessResponse(result))
 }
 
-// GetRss 处理 GET /api/action/rss 请求
-func (h *FriendRssHandler) GetRss(c *gin.Context) {
-	// 解析查询参数
-	status := c.Query("status")
+// resetSchedule makes the scheduler pick the feed up on its next tick with a
+// clean slate.
+func resetSchedule(updates map[string]any) {
+	updates["etag"] = ""
+	updates["last_modified"] = ""
+	updates["error_count"] = 0
+	updates["last_error"] = ""
+	updates["next_fetch_at"] = 0
+}
 
-	pageStr := c.DefaultQuery("page", "1")
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "无效的页面参数"))
-		return
+func feedID(c *gin.Context) (int, bool) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id < 1 {
+		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "无效的订阅源 ID"))
+		return 0, false
 	}
+	return id, true
+}
 
-	pageSizeStr := c.DefaultQuery("page_size", "20")
-	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "无效的页面大小参数"))
-		return
+// checkFriendLink accepts 0 (no owner) or an existing friend link ID.
+func (h *FriendRssHandler) checkFriendLink(c *gin.Context, id int) bool {
+	if id == 0 {
+		return true
 	}
-
-	// 限制最大页面大小
-	if pageSize > 100 {
-		pageSize = 100
-	}
-
-	// 如果提供了 status 参数，则进行验证
-	if status != "" {
-		validStatuses := map[string]bool{
-			"survival": true,
-			"timeout":  true,
-			"error":    true,
-			"pause":    true,
-			"valid":    true,
-		}
-		if !validStatuses[status] {
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "无效的状态参数"))
-			return
-		}
-	}
-
-	// 查询友链和总数
-	opts := model.FriendRssQueryOptions{
-		Status:   status,
-		Page:     page,
-		PageSize: pageSize,
-	}
-	resp, err := friendsRepositories.QueryFriendRss(h.DB, opts)
+	exists, err := friendsRepositories.FriendLinkExists(h.DB, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "获取友链列表失败"))
-		return
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "检查友链失败"))
+		return false
 	}
-
-	// 构建分页响应
-	paginatedData := model.PaginatedResponse{
-		Items:    resp.Feeds,
-		Total:    int(resp.Total),
-		Page:     page,
-		PageSize: pageSize,
+	if !exists {
+		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "友链不存在"))
+		return false
 	}
+	return true
+}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(paginatedData))
+func (h *FriendRssHandler) writeFeedError(c *gin.Context, err error) {
+	switch {
+	case c.Request.Context().Err() != nil:
+	case errors.Is(err, crawlerService.ErrFeedExists):
+		c.JSON(http.StatusConflict, model.NewErrorResponse(http.StatusConflict, "该订阅地址已存在"))
+	case errors.Is(err, crawlerService.ErrRssSource):
+		c.JSON(http.StatusBadGateway, model.NewErrorResponse(http.StatusBadGateway, err.Error()))
+	default:
+		log.Printf("[handler][rss] %v", err)
+		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "保存订阅源失败"))
+	}
 }

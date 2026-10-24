@@ -2,39 +2,32 @@ package friendsRepositories
 
 import (
 	"blog_api/src/model"
-	"log"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// InsertRssPost inserts a post unless another post already owns the same link.
-// It reports whether this call inserted a new row.
-func InsertRssPost(db *gorm.DB, post *model.RssPost) (bool, error) {
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "link"}},
-		DoNothing: true,
-	}).Create(post)
-	if result.Error != nil {
-		return false, result.Error
+// InsertRssPosts inserts posts and silently skips those already stored, either
+// under the same (feed_id, guid) or with the same link. It returns how many
+// rows were actually inserted.
+func InsertRssPosts(db *gorm.DB, posts []model.RssPost) (int, error) {
+	inserted := 0
+	for start := 0; start < len(posts); start += 100 {
+		end := min(start+100, len(posts))
+		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(posts[start:end])
+		if result.Error != nil {
+			return inserted, result.Error
+		}
+		inserted += int(result.RowsAffected)
 	}
-
-	if result.RowsAffected == 0 {
-		return false, nil
-	}
-
-	log.Printf("已插入新文章: %s", post.Title)
-	return true, nil
+	return inserted, nil
 }
 
 // DeleteRssPostByID deletes one RSS article by its primary key.
 // It returns zero when the article does not exist.
 func DeleteRssPostByID(db *gorm.DB, id int) (int64, error) {
 	result := db.Delete(&model.RssPost{}, id)
-	if result.Error != nil {
-		return 0, result.Error
-	}
-	return result.RowsAffected, nil
+	return result.RowsAffected, result.Error
 }
 
 // GetPosts retrieves posts based on the provided query parameters.
@@ -44,30 +37,21 @@ func GetPosts(db *gorm.DB, query *model.PostQuery) ([]model.RssPost, int, error)
 
 	baseTx := db.Table("friend_rss_post AS p")
 	if query.FriendLinkID != nil {
-		baseTx = baseTx.Joins("JOIN friend_rss r ON p.rss_id = r.id").Where("r.friend_link_id = ?", *query.FriendLinkID)
+		baseTx = baseTx.Joins("JOIN friend_rss f ON p.feed_id = f.id").Where("f.friend_link_id = ?", *query.FriendLinkID)
 	}
 	if query.RssID != nil {
-		baseTx = baseTx.Where("p.rss_id = ?", *query.RssID)
+		baseTx = baseTx.Where("p.feed_id = ?", *query.RssID)
 	}
 
 	if err := baseTx.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	dataTx := baseTx.Select("p.id, p.rss_id, p.title, p.link, p.description, p.author, p.time")
+	dataTx := baseTx.Select("p.id, p.feed_id, p.title, p.link, p.description, p.author, p.published_at")
 	if query.Page > 0 && query.PageSize > 0 {
-		offset := (query.Page - 1) * query.PageSize
-		dataTx = dataTx.Limit(query.PageSize).Offset(offset)
+		dataTx = dataTx.Limit(query.PageSize).Offset((query.Page - 1) * query.PageSize)
 	}
 
-	if err := dataTx.Order("p.time DESC").Order("p.id DESC").Scan(&posts).Error; err != nil {
-		return nil, 0, err
-	}
-	for i := range posts {
-		if posts[i].Time < 0 {
-			posts[i].Time = 0
-		}
-	}
-
-	return posts, int(total), nil
+	err := dataTx.Order("p.published_at DESC").Order("p.id DESC").Scan(&posts).Error
+	return posts, int(total), err
 }

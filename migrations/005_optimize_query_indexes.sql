@@ -5,12 +5,6 @@ ON friend_link(status, updated_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_friend_link_health_updated_id
 ON friend_link(is_died, updated_at DESC, id DESC);
 
-CREATE INDEX IF NOT EXISTS idx_friend_rss_link_status_died_updated_id
-ON friend_rss(friend_link_id, status, is_died, updated_at DESC, id DESC);
-
-CREATE INDEX IF NOT EXISTS idx_friend_rss_status_died_updated_id
-ON friend_rss(status, is_died, updated_at DESC, id DESC);
-
 CREATE INDEX IF NOT EXISTS idx_images_status_id
 ON images(status, id DESC);
 

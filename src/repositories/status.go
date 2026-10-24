@@ -46,9 +46,9 @@ func GetSystemStats(db *gorm.DB) (model.StatusData, error) {
 
 	// Get monthly RSS post count (for the last 12 months)
 	monthlyQuery := `
-		SELECT strftime('%Y-%m', datetime(time, 'unixepoch')) as month, COUNT(*) as count
+		SELECT strftime('%Y-%m', datetime(published_at, 'unixepoch')) as month, COUNT(*) as count
 		FROM friend_rss_post
-		WHERE time >= strftime('%s', date('now', '-12 months'))
+		WHERE published_at >= strftime('%s', date('now', '-12 months'))
 		GROUP BY month
 		ORDER BY month
 	`

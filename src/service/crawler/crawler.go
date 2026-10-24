@@ -74,41 +74,11 @@ func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 		}
 	}
 
-	// 查找 RSS feeds
-	var atomURLs []string
-	var rss2URLs []string
-	doc.Find("link[rel='alternate']").Each(func(i int, s *goquery.Selection) {
-		if href, exists := s.Attr("href"); exists {
-			linkType, _ := s.Attr("type")
-			absoluteURL := toAbsoluteURL(resp.Request.URL, href)
-			if absoluteURL == "" {
-				return // Skip if URL is invalid
-			}
-
-			switch linkType {
-			case "application/atom+xml":
-				atomURLs = append(atomURLs, absoluteURL)
-			case "application/rss+xml":
-				rss2URLs = append(rss2URLs, absoluteURL)
-			}
-		}
-	})
-
-	var rssURLs []string
-	if len(atomURLs) > 0 {
-		rssURLs = atomURLs
-	} else {
-		rssURLs = rss2URLs
-	}
-	if len(rssURLs) == 0 {
-		rssURLs = discoverCommonFeedURLs(ctx, resp.Request.URL)
-	}
-
 	return model.CrawlResult{
 		Description: description,
 		IconURL:     iconURL,
 		Status:      StatusSurvival,
-		RssURLs:     rssURLs,
+		Feeds:       extractFeedLinks(doc, resp.Request.URL),
 	}
 }
 
@@ -119,40 +89,4 @@ func toAbsoluteURL(base *url.URL, href string) string {
 		return ""
 	}
 	return base.ResolveReference(relativeURL).String()
-}
-
-// discoverCommonFeedURLs 尝试常见 RSS/Atom 地址作为兜底方案
-func discoverCommonFeedURLs(ctx context.Context, base *url.URL) []string {
-	if base == nil {
-		return nil
-	}
-
-	root := &url.URL{
-		Scheme: base.Scheme,
-		Host:   base.Host,
-	}
-	candidates := []string{
-		"/atom.xml",
-		"/rss.xml",
-		"/feed",
-		"/feed.xml",
-		"/index.xml",
-		"/rss",
-		"/atom",
-		"/feeds/posts/default?alt=rss",
-	}
-
-	found := make([]string, 0, 1)
-	for _, candidate := range candidates {
-		abs := toAbsoluteURL(root, candidate)
-		if abs == "" {
-			continue
-		}
-		feed, err := parseFeedURL(ctx, abs)
-		if err == nil && feed != nil {
-			found = append(found, abs)
-			break
-		}
-	}
-	return found
 }

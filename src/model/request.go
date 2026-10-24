@@ -8,9 +8,13 @@ type EditFriendLinkReq struct {
 	} `json:"opt"`
 }
 
-// EditFriendRssReq defines the request body for editing a friend rss link.
-type EditFriendRssReq struct {
-	Data map[string]interface{} `json:"data" binding:"required"`
+// EditRssFeedReq updates one feed. Nil fields stay untouched; FriendLinkID 0
+// clears the owner.
+type EditRssFeedReq struct {
+	Name         *string `json:"name"`
+	FeedURL      *string `json:"feed_url"`
+	FriendLinkID *int    `json:"friend_link_id"`
+	Status       *string `json:"status"`
 }
 
 // PostQuery defines the query parameters for fetching posts.
@@ -27,11 +31,17 @@ type UploadResourceReq struct {
 	Overwrite bool   `form:"overwrite"`
 }
 
-// CreateRssReq defines the request body for creating a rss link.
+// CreateRssReq subscribes to one feed URL. FriendLinkID 0 means no owner; an
+// empty name falls back to the feed title.
 type CreateRssReq struct {
+	FeedURL      string `json:"feed_url" binding:"required"`
 	FriendLinkID int    `json:"friend_link_id"`
-	RssURL       string `json:"rss_url" binding:"required"`
 	Name         string `json:"name"`
+}
+
+// DiscoverRssReq asks for the feeds a web page advertises.
+type DiscoverRssReq struct {
+	URL string `json:"url" binding:"required"`
 }
 
 // ImageQueryOptions defines the query parameters for fetching images.

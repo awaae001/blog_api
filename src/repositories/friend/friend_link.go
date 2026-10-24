@@ -214,7 +214,7 @@ func DeleteFriendLinkByID(db *gorm.DB, id uint) (model.FriendWebsite, error) {
 			return err
 		}
 
-		if err := DeleteRssDataByFriendLinkID(tx, int(id)); err != nil {
+		if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
 			return err
 		}
 
@@ -242,7 +242,7 @@ func DeleteFriendLinkByOwner(db *gorm.DB, id uint, email string) (model.FriendWe
 		if err := tx.Where("id = ? AND email = ?", id, email).First(&deletedLink).Error; err != nil {
 			return err
 		}
-		if err := DeleteRssDataByFriendLinkID(tx, int(id)); err != nil {
+		if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
 			return err
 		}
 		result := tx.Where("id = ? AND email = ?", id, email).Delete(&model.FriendWebsite{})
@@ -308,7 +308,7 @@ func UpdateFriendLinkByID(db *gorm.DB, id uint, req model.EditFriendLinkReq) (in
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// If disabling RSS, delete related data first
 		if disableRss {
-			if err := DeleteRssDataByFriendLinkID(tx, int(id)); err != nil {
+			if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
 				return err
 			}
 		}
@@ -375,7 +375,7 @@ func UpdateFriendLinkByOwner(db *gorm.DB, id uint, email string, req model.EditF
 			return gorm.ErrRecordNotFound
 		}
 		if disableRSS {
-			if err := DeleteRssDataByFriendLinkID(tx, int(id)); err != nil {
+			if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
 				return err
 			}
 		}

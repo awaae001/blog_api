@@ -5,7 +5,6 @@ import (
 	friendsRepositories "blog_api/src/repositories/friend"
 	crawlerService "blog_api/src/service/crawler"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -239,18 +238,7 @@ func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 		return
 	}
 
-	if link.EnableRss {
-		for _, rssURL := range result.RssURLs {
-			name, err := crawlerService.GetRssTitle(rssURL)
-			if err != nil {
-				log.Printf("[handler][friend] failed to get RSS title %s: %v", rssURL, err)
-				continue
-			}
-			if _, err := friendsRepositories.CreateFriendRssFeeds(h.DB, link.ID, rssURL, name); err != nil {
-				log.Printf("[handler][friend] failed to add RSS feed %s for friend link %d: %v", rssURL, link.ID, err)
-			}
-		}
-	}
+	crawlerService.SubscribeDiscovered(c.Request.Context(), h.DB, link, result.Feeds)
 
 	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
 }

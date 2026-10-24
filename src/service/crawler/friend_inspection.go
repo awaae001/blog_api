@@ -215,8 +215,8 @@ func runInspection(ctx context.Context, db *gorm.DB, scope InspectionScope) (Ins
 		}
 
 		discovered := 0
-		if scope.DiscoverRss && link.EnableRss && len(result.RssURLs) > 0 {
-			discovered = discoverRssFeeds(db, label, link, result.RssURLs)
+		if scope.DiscoverRss && SubscribeDiscovered(ctx, db, link, result.Feeds) {
+			discovered = 1
 		}
 
 		// consume 由单一 goroutine 顺序调用，加锁只是为了让 HTTP 读到一致快照。
@@ -257,25 +257,6 @@ func runInspection(ctx context.Context, db *gorm.DB, scope InspectionScope) (Ins
 		progress.RssDiscovered,
 	)
 	return progress, nil
-}
-
-// discoverRssFeeds registers the feeds found for one link and returns how many
-// were stored.
-func discoverRssFeeds(db *gorm.DB, label string, link model.FriendWebsite, rssURLs []string) int {
-	inserted := 0
-	for _, rssURL := range rssURLs {
-		name, err := GetRssTitle(rssURL)
-		if err != nil {
-			log.Printf("[Inspection][%s] 获取 RSS 标题失败 %s: %v", label, rssURL, err)
-			continue
-		}
-		if _, err := friendsRepositories.CreateFriendRssFeeds(db, link.ID, rssURL, name); err != nil {
-			log.Printf("[Inspection][%s] 为 %s 插入 RSS 订阅源失败: %v", label, link.Name, err)
-			continue
-		}
-		inserted++
-	}
-	return inserted
 }
 
 func scopeLabel(scope InspectionScope) string {
