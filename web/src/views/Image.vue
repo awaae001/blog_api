@@ -64,6 +64,7 @@
               <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
             </template>
           </el-table-column>
+          <!-- @vue-generic {Image} -->
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link :icon="Edit" @click="handleShowEditDialog(row)">
@@ -207,8 +208,8 @@ const fetchImages = async () => {
     })
     images.value = res.data.items
     total.value = res.data.total
-  } catch (error) {
-    console.error(error)
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     loading.value = false
   }
@@ -313,9 +314,8 @@ const handleSubmit = async () => {
         }
         dialogVisible.value = false
         fetchImages()
-      } catch (error) {
-        console.error(error)
-        // 错误消息已在各自的 api 调用中处理
+      } catch {
+        // Request errors are reported by the interceptor.
       } finally {
         actionLoading.value = false
       }
@@ -336,10 +336,8 @@ const handleDelete = async (row: Image) => {
     await deleteImage(row.id)
     ElMessage.success('删除成功')
     fetchImages()
-  } catch (error) {
-    console.error(error)
-    // 错误消息已在 api 调用中处理，或在此处提供通用消息
-    ElMessage.error('删除失败，请查看控制台获取更多信息')
+  } catch {
+    // Stop the deletion chain on failure; the interceptor reports the error.
   } finally {
     actionLoading.value = false
   }
@@ -356,7 +354,7 @@ const getStatusTagType = (status: string) => {
     case 'pending':
       return 'info'
     default:
-      return ''
+      return undefined
   }
 }
 

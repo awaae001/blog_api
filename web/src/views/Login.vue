@@ -138,7 +138,6 @@ const handleLogin = async () => {
       try {
         if (turnstileEnabled.value && !turnstileToken.value) {
           ElMessage.warning('请先完成人机验证')
-          loading.value = false
           return
         }
 
@@ -148,16 +147,11 @@ const handleLogin = async () => {
           turnstile_token: turnstileToken.value || undefined
         })
 
-        if (response.code === 200) {
-          localStorage.setItem('token', response.data.token)
-          localStorage.setItem('username', loginForm.username)
-          ElMessage.success('登录成功')
-          router.push('/')
-        } else {
-          ElMessage.error(response.message || '登录失败')
-        }
-      } catch (error) {
-        console.error('Login error:', error)
+        localStorage.setItem('token', response.data.token)
+        localStorage.setItem('username', loginForm.username)
+        ElMessage.success('登录成功')
+        router.push('/')
+      } catch {
         resetTurnstile()
       } finally {
         loading.value = false

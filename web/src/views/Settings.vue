@@ -458,9 +458,8 @@ onMounted(async () => {
     config.value = res
     // 深度克隆初始配置，用于后续比较
     originalConfig.value = JSON.parse(JSON.stringify(res))
-  } catch (error) {
-    ElMessage.error('请求配置时出错')
-    console.error(error)
+  } catch {
+    // Request errors are reported by the interceptor.
   }
 })
 
@@ -626,9 +625,8 @@ const saveConfig = async () => {
     } else {
       ElMessage.success(`成功保存 ${updates.length} 项配置，已刷新运行时配置`)
     }
-  } catch (error) {
-    ElMessage.error('保存配置失败')
-    console.error(error)
+  } catch {
+    // Preserve unsaved changes; request errors are reported by the interceptor.
   } finally {
     saving.value = false
   }
@@ -654,9 +652,8 @@ const handleRestart = async () => {
   try {
     const res = await restartSystem()
     ElMessage.success(res.message || '已发送重启请求，请等待服务重新上线')
-  } catch (error) {
-    ElMessage.error('发送重启请求失败')
-    console.error(error)
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     window.setTimeout(() => {
       restarting.value = false

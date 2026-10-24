@@ -32,7 +32,6 @@ type FriendLinkQueryOptions struct {
 	Search          string
 	Offset          int
 	Limit           int
-	Count           bool
 }
 
 // QueryFriendLinksResponse defines the response for the unified friend link query.

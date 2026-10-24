@@ -13,13 +13,13 @@
             <el-statistic title="RSS文章总数" :value="stats.status_data.rss_post_count" />
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
-            <el-statistic title="在线时长" :value="stats.uptime" />
+            <el-statistic title="在线时长" :formatter="() => stats.uptime" />
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
-            <el-statistic title="数据库占用" :value="formatBytes(stats.database_size_bytes)" />
+            <el-statistic title="数据库占用" :value="stats.database_size_bytes" :formatter="formatBytes" />
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
-            <el-statistic title="数据目录占用" :value="formatBytes(stats.data_folder_size_bytes)" />
+            <el-statistic title="数据目录占用" :value="stats.data_folder_size_bytes" :formatter="formatBytes" />
           </el-col>
         </el-row>
       </div>
@@ -39,7 +39,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
 import { statsApi } from '@/api/stats'
 import type { SystemStatus } from '@/model/stats'
 import * as echarts from 'echarts/core'
@@ -97,14 +96,10 @@ onMounted(async () => {
   username.value = localStorage.getItem('username') || '管理员'
   try {
     const res = await statsApi.getSystemStatus()
-    if (res.code === 200) {
-      stats.value = res.data
-      initCharts()
-    } else {
-      ElMessage.error(res.message || '获取状态信息失败')
-    }
-  } catch (error) {
-    ElMessage.error('请求状态信息时出错')
+    stats.value = res.data
+    initCharts()
+  } catch {
+    // Request errors are reported by the interceptor.
   }
 })
 

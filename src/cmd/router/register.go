@@ -23,7 +23,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 
 	friendLinkHandler := &handler.FriendLinkHandler{DB: db}
 	rssPostHandler := &handler.RssPostHandler{DB: db}
-	updataHandler := &handlerAction.UpdataHandler{DB: db}
+	friendActionHandler := &handlerAction.FriendLinkHandler{DB: db}
 	RssHandler := &handlerAction.FriendRssHandler{DB: db}
 	authHandlerInstance := authHandler.NewAuthHandler()
 	verifyHandler := &authHandler.VerifyHandler{DB: db}
@@ -68,9 +68,9 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				friendPublicGroup.GET("/", friendLinkHandler.GetAllFriendLinks)
 				friendPublicGroup.GET("/self", middleware.FriendLinkAuth(), friendLinkHandler.GetFriendLinkByEmailToken)
 				friendPublicGroup.GET("/:id", friendLinkHandler.GetFriendLinkByID)
-				friendPublicGroup.POST("", middleware.FriendLinkAuth(), updataHandler.CreateFriendLink)
-				friendPublicGroup.PUT("/:id", middleware.FriendLinkAuth(), updataHandler.EditFriendLink)
-				friendPublicGroup.DELETE("/:id", middleware.FriendLinkAuth(), updataHandler.DeleteOwnedFriendLink)
+				friendPublicGroup.POST("", middleware.FriendLinkAuth(), friendActionHandler.CreateFriendLink)
+				friendPublicGroup.PUT("/:id", middleware.FriendLinkAuth(), friendActionHandler.EditFriendLink)
+				friendPublicGroup.DELETE("/:id", middleware.FriendLinkAuth(), friendActionHandler.DeleteOwnedFriendLink)
 			}
 			publicGroup.GET("/rss/", middleware.RequirePublicAPI(model.PublicAPIRSS), rssPostHandler.GetRssPosts)
 			publicGroup.GET("/image/*id", middleware.RequirePublicAPI(model.PublicAPIImage), imagePublicHandler.GetImage)
@@ -91,9 +91,9 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			{
 				friendActionGroup.GET("", friendLinkHandler.GetFullFriendLinks)
 				friendActionGroup.GET("/:id", friendLinkHandler.GetFullFriendLinkByID)
-				friendActionGroup.POST("", updataHandler.CreateFriendLink)
-				friendActionGroup.PUT("/:id", updataHandler.EditFriendLink)
-				friendActionGroup.DELETE("/:id", updataHandler.DeleteFriendLink)
+				friendActionGroup.POST("", friendActionHandler.CreateFriendLink)
+				friendActionGroup.PUT("/:id", friendActionHandler.EditFriendLink)
+				friendActionGroup.DELETE("/:id", friendActionHandler.DeleteFriendLink)
 				friendActionGroup.POST("/recheck", friendLinkHandler.RecheckAllFriendLinks)
 				friendActionGroup.GET("/recheck", friendLinkHandler.GetRecheckProgress)
 				friendActionGroup.POST("/recheck/:id", friendLinkHandler.RecheckFriendLink)

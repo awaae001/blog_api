@@ -45,6 +45,7 @@
                 {{ formatDate(row.time) }}
               </template>
             </el-table-column>
+            <!-- @vue-generic {RssPost} -->
             <el-table-column label="操作" width="80">
               <template #default="{ row }">
                 <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">删除</el-button>
@@ -143,6 +144,7 @@
                     {{ formatDate(row.time) }}
                   </template>
                 </el-table-column>
+                <!-- @vue-generic {RssPost} -->
                 <el-table-column label="操作" width="80">
                   <template #default="{ row }">
                     <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">删除</el-button>
@@ -288,7 +290,7 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type CollapseModelValue } from 'element-plus'
 import { Edit, Delete, Link, Refresh, Plus, Back, Search, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import {
   getRssFeeds,
@@ -544,7 +546,7 @@ const handleStatusFilterChange = () => {
   fetchFeeds()
 }
 
-const handleFeedChange = (name: number | '' | (number | string)[]) => {
+const handleFeedChange = (name: CollapseModelValue) => {
   // Accordion mode emits a single name, but the typing allows an array.
   const activeName = Array.isArray(name) ? name[0] : name
   if (activeName === '' || activeName === undefined) {

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -24,27 +25,17 @@ func NewImagePublicHandler(db *gorm.DB) *ImagePublicHandler {
 }
 
 func (h *ImagePublicHandler) GetImage(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := strings.TrimPrefix(c.Param("id"), "/")
 	var image *model.Image
 	var err error
 
 	// 请求级 context：客户端断开后查询会被取消，不再占用数据库连接
 	db := h.db.WithContext(c.Request.Context())
 
-	if idStr == "" || idStr == "/" {
+	notFoundMessage := "图片未找到"
+	if idStr == "" {
+		notFoundMessage = "没有可用的图片"
 		image, err = imageRepositories.GetRandomImage(db)
-		if err != nil {
-			if handleCanceledQuery(c, err) {
-				return
-			}
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "没有可用的图片"})
-			} else {
-				log.Printf("[handler][image_public][ERR] 获取随机图片失败: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "内部服务器错误"})
-			}
-			return
-		}
 	} else {
 		id, errConv := strconv.Atoi(idStr)
 		if errConv != nil {
@@ -53,18 +44,18 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 		}
 
 		image, err = imageRepositories.GetImageByID(db, id)
-		if err != nil {
-			if handleCanceledQuery(c, err) {
-				return
-			}
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "图片未找到"})
-			} else {
-				log.Printf("[handler][image_public][ERR] 查询图片失败: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "内部服务器错误"})
-			}
+	}
+	if err != nil {
+		if handleCanceledQuery(c, err) {
 			return
 		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": notFoundMessage})
+		} else {
+			log.Printf("[handler][image_public][ERR] 查询图片失败: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "内部服务器错误"})
+		}
+		return
 	}
 
 	queryType := c.DefaultQuery("type", "image")

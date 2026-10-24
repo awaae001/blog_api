@@ -43,17 +43,6 @@ func NewDynamicResourceService() *ResourceService {
 	return &ResourceService{configProvider: config.GetConfig}
 }
 
-func (s *ResourceService) currentConfig() *model.Config {
-	if s.configProvider == nil {
-		return &model.Config{}
-	}
-	cfg := s.configProvider()
-	if cfg == nil {
-		return &model.Config{}
-	}
-	return cfg
-}
-
 // SaveFile 保存上传的文件。
 // 它会检查文件扩展名是否在白名单内，并清理目标路径以防止路径遍历。
 // overwrite 参数决定如果文件已存在，是覆盖它还是生成一个新名字。
@@ -68,7 +57,7 @@ func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, o
 
 // SaveReader streams a resource into local storage.
 func (s *ResourceService) SaveReader(filename string, src io.Reader, subPath string, overwrite bool) (string, string, error) {
-	cfg := s.currentConfig()
+	cfg := s.configProvider()
 	filePath, urlPath, err := s.prepareSavePath(cfg, filename, subPath, overwrite)
 	if err != nil {
 		return "", "", err
@@ -183,7 +172,7 @@ func (s *ResourceService) prepareSavePath(cfg *model.Config, filename, subPath s
 // DeleteFile 删除指定路径的文件。
 // 在删除前会进行严格的安全检查，以防止删除受保护的文件。
 func (s *ResourceService) DeleteFile(filePath string) error {
-	cfg := s.currentConfig()
+	cfg := s.configProvider()
 
 	// 1. 解析资源根目录（通常是 data），删除目标必须位于该目录内
 	basePath := cfg.Data.Resource.Path
@@ -243,13 +232,10 @@ func (s *ResourceService) DeleteFile(filePath string) error {
 		}
 	}
 
-	// 3. 检查文件是否存在
-	if _, err := os.Stat(cleanPath); os.IsNotExist(err) {
-		return fmt.Errorf("%w: '%s'", ErrResourceNotFound, filePath)
-	}
-
-	// 4. 执行删除
 	if err := os.Remove(cleanPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: '%s'", ErrResourceNotFound, filePath)
+		}
 		return fmt.Errorf("删除文件失败: %w", err)
 	}
 
@@ -261,7 +247,7 @@ func (s *ResourceService) DeleteFile(filePath string) error {
 // 如果路径指向目录，它将返回一个包含目录内容的 FileInfo 切片。
 // 如果路径不存在，则返回错误。
 func (s *ResourceService) GetFileOrDir(relativePath string) (string, []model.FileInfo, error) {
-	cfg := s.currentConfig()
+	cfg := s.configProvider()
 
 	// 清理路径以防止路径遍历
 	cleanPath := filepath.Clean(relativePath)
@@ -290,7 +276,7 @@ func (s *ResourceService) GetFileOrDir(relativePath string) (string, []model.Fil
 			return "", nil, fmt.Errorf("读取目录失败: %w", err)
 		}
 
-		var fileInfos []model.FileInfo
+		fileInfos := make([]model.FileInfo, 0, len(entries))
 		for _, entry := range entries {
 			entryInfo, err := entry.Info()
 			if err != nil {
@@ -306,8 +292,6 @@ func (s *ResourceService) GetFileOrDir(relativePath string) (string, []model.Fil
 			})
 		}
 		return "", fileInfos, nil
-	} else {
-		// 返回文件路径
-		return fullPath, nil, nil
 	}
+	return fullPath, nil, nil
 }

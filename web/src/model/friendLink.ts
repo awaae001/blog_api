@@ -81,15 +81,3 @@ export interface FriendLinkInspectionProgress {
   rss_discovered: number
   error?: string
 }
-
-/**
- * 单条友链在当前/最近一轮巡查中的位置
- */
-export interface FriendLinkRecheckState {
-  id: number
-  in_run: boolean
-  done: boolean
-  run_status?: string
-  run: FriendLinkInspectionProgress
-  link: FriendLink
-}

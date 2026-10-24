@@ -70,16 +70,19 @@
               {{ formatDate(row.updated_at) }}
             </template>
           </el-table-column>
+          <!-- @vue-generic {FriendLink} -->
           <el-table-column label="不巡查" width="100">
             <template #default="{ row }">
               <el-switch :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
             </template>
           </el-table-column>
+          <!-- @vue-generic {FriendLink} -->
           <el-table-column label="订阅 RSS" width="100">
             <template #default="{ row }">
               <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
             </template>
           </el-table-column>
+          <!-- @vue-generic {FriendLink} -->
           <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
               <el-button type="success" link :icon="Refresh" :loading="recheckingId === row.id"
@@ -172,6 +175,11 @@ const loading = ref(false)
 const recheckingId = ref<number | null>(null)
 const progress = ref<FriendLinkInspectionProgress | null>(null)
 const inspectionRunning = computed(() => progress.value?.running === true)
+const inspectionAlertType = computed(() => {
+  if (progress.value?.error || progress.value?.database_failures) return 'error'
+  if (inspectionRunning.value) return 'info'
+  return progress.value?.failed ? 'warning' : 'success'
+})
 const filterStatus = ref('')
 const filterIsDied = ref<boolean | null>(null)
 const searchQuery = ref('')
@@ -227,14 +235,10 @@ const fetchFriendLinks = async () => {
       search: searchQuery.value,
       is_died: filterIsDied.value === null ? undefined : filterIsDied.value
     })
-    if (res.code === 200) {
-      friendLinks.value = res.data.items
-      totalLinks.value = res.data.total
-    } else {
-      ElMessage.error(res.message || '获取友链列表失败')
-    }
-  } catch (error) {
-    ElMessage.error('请求友链列表时出错')
+    friendLinks.value = res.data.items
+    totalLinks.value = res.data.total
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     loading.value = false
   }
@@ -309,26 +313,23 @@ const submitForm = async () => {
         }
         dialogVisible.value = false
         fetchFriendLinks()
-      } catch (error) {
-        ElMessage.error(isEditMode.value ? '更新失败' : '创建失败')
+      } catch {
+        // Request errors are reported by the interceptor.
       }
     }
   })
 }
 
 // Delete operations
-const handleDelete = (id: number) => {
-  ElMessageBox.confirm('确定要删除这个友链吗？', '警告', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteFriendLink(id)
-      ElMessage.success('删除成功')
-      fetchFriendLinks()
-    } catch (error) {
-      ElMessage.error('删除失败')
-    }
-  })
+const handleDelete = async (id: number) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个友链吗？', '警告', { type: 'warning' })
+    await deleteFriendLink(id)
+    ElMessage.success('删除成功')
+    fetchFriendLinks()
+  } catch {
+    // Dismissals are normal; request errors are reported by the interceptor.
+  }
 }
 
 const handleRecheck = async (id: number) => {
@@ -359,7 +360,6 @@ function stopProgressPolling() {
 const refreshProgress = async () => {
   try {
     const res = await getRecheckProgress()
-    if (res.code !== 200) return
     const wasRunning = inspectionRunning.value
     progress.value = res.data
     if (res.data.running) {
@@ -429,9 +429,8 @@ const handleHealthCheckToggle = async (link: FriendLink) => {
     await updateFriendLink(link.id, { data: { skip_health_check: newValue } })
     ElMessage.success(`已${newValue ? '停止' : '恢复'}巡查`)
     fetchFriendLinks()
-  } catch (error) {
+  } catch {
     link.skip_health_check = originalValue
-    ElMessage.error('更新巡查状态失败')
   }
 }
 
@@ -466,8 +465,7 @@ const handleRssToggle = async (link: FriendLink) => {
     ElMessage.success(`已${newValue ? '开启' : '关闭'} RSS 订阅`)
     // On success, fetch the data again to ensure consistency
     fetchFriendLinks()
-  } catch (error) {
-    ElMessage.error('更新 RSS 订阅状态失败')
+  } catch {
     // Revert the switch on API failure
     link.enable_rss = originalValue
   }

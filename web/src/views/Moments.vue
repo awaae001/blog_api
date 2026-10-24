@@ -354,8 +354,8 @@ const fetchMoments = async () => {
     })
     moments.value = res.data.moments
     total.value = res.data.total
-  } catch (error) {
-    console.error(error)
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     pageLoading.value = false
   }
@@ -380,7 +380,7 @@ const statusTagType = (status: string) => {
     case 'deleted':
       return 'info'
     default:
-      return ''
+      return undefined
   }
 }
 
@@ -511,9 +511,8 @@ const handleCreateMoment = async () => {
     composer.mediaItems = []
     reset()
     fetchMoments()
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('上传失败，请重试')
+  } catch {
+    // Preserve the draft; request errors are reported by the interceptor.
   } finally {
     uploading.value = false
     actionLoading.value = false
@@ -594,9 +593,8 @@ const handleUpdateMoment = async () => {
     }
     ElMessage.success('更新成功')
     editDialogVisible.value = false
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('更新失败，请重试')
+  } catch {
+    // Preserve pending edits; request errors are reported by the interceptor.
   } finally {
     uploading.value = false
     actionLoading.value = false
@@ -609,8 +607,8 @@ const handleDeleteMoment = async (moment: MomentWithMedia) => {
     await deleteMoment(moment.id)
     ElMessage.success('已删除')
     fetchMoments()
-  } catch (error) {
-    console.error(error)
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     actionLoading.value = false
   }
@@ -648,8 +646,8 @@ const handleDeleteMedia = async (media: MomentMedia) => {
       target.media = target.media.filter((item) => item.id !== media.id)
     }
     ElMessage.success('已移除媒体')
-  } catch (error) {
-    console.error(error)
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     actionLoading.value = false
   }

@@ -39,6 +39,7 @@
         v-loading="loading"
         style="width: 100%"
       >
+        <!-- @vue-generic {ResourceEntry} -->
         <el-table-column label="名称" min-width="240">
           <template #default="{ row }">
             <div class="name-cell">
@@ -75,6 +76,7 @@
             {{ formatDate(row.mod_time) }}
           </template>
         </el-table-column>
+        <!-- @vue-generic {ResourceEntry} -->
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button
@@ -253,8 +255,8 @@ const fetchResources = async (path = currentPath.value) => {
     } else {
       entries.value = []
     }
-  } catch (error) {
-    ElMessage.error('获取资源列表失败')
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     loading.value = false
   }
@@ -304,8 +306,8 @@ const handleEdit = async (entry: ResourceEntry) => {
     editorDialogVisible.value = true
     await nextTick()
     mountEditor(editorContent.value)
-  } catch (error) {
-    ElMessage.error('读取文件失败')
+  } catch {
+    // Request errors are reported by the interceptor.
   } finally {
     editorLoading.value = false
   }
@@ -352,7 +354,7 @@ const handleEditorBeforeClose = (done: () => void) => {
   }
   ElMessageBox.confirm('文件内容尚未保存，确认关闭吗？', '提示', {
     type: 'warning'
-  }).then(() => done())
+  }).then(() => done(), () => {})
 }
 
 const handleSaveEdit = async () => {
@@ -382,8 +384,8 @@ const handleSaveEdit = async () => {
     originalEditorContent.value = editorContent.value
     ElMessage.success('保存成功')
     fetchResources(currentPath.value)
-  } catch (error) {
-    ElMessage.error('保存失败')
+  } catch {
+    // Keep the editor open; request errors are reported by the interceptor.
   } finally {
     editorSaving.value = false
   }
@@ -419,25 +421,22 @@ const handleUpload = async () => {
     ElMessage.success('上传成功')
     uploadDialogVisible.value = false
     fetchResources(currentPath.value)
-  } catch (error) {
-    ElMessage.error('上传失败')
+  } catch {
+    // Keep the upload dialog open; request errors are reported by the interceptor.
   } finally {
     uploading.value = false
   }
 }
 
-const handleDelete = (entry: ResourceEntry) => {
-  ElMessageBox.confirm(`确定要删除 ${entry.name} 吗？`, '提示', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteFile(normalizePath(entry.path), 'local')
-      ElMessage.success('删除成功')
-      fetchResources(currentPath.value)
-    } catch (error) {
-      ElMessage.error('删除失败')
-    }
-  })
+const handleDelete = async (entry: ResourceEntry) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除 ${entry.name} 吗？`, '提示', { type: 'warning' })
+    await deleteFile(normalizePath(entry.path), 'local')
+    ElMessage.success('删除成功')
+    fetchResources(currentPath.value)
+  } catch {
+    // Dismissals are normal; request errors are reported by the interceptor.
+  }
 }
 
 const formatSize = (size: number) => {

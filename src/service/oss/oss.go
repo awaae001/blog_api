@@ -78,9 +78,6 @@ func NewOSSService() (OSSService, error) {
 	switch cfg.OSS.Provider {
 	case "aliyun":
 		return NewAliyunOSSService(&cfg.OSS)
-	// case "tencent":
-	// 	// 可以在此添加腾讯云 COS 的实现
-	// 	// return nil, fmt.Errorf("tencent COS provider is not yet implemented")
 	case "s3":
 		return NewS3OSSService(&cfg.OSS)
 	default:

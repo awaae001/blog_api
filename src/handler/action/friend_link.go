@@ -12,22 +12,18 @@ import (
 	"gorm.io/gorm"
 )
 
-// UpdataHandler handles updata related requests
-type UpdataHandler struct {
+// FriendLinkHandler handles friend link mutations for admins and email owners.
+type FriendLinkHandler struct {
 	DB *gorm.DB
 }
 
-// CreateFriendLink handles POST /api/updata/friend request
-func (h *UpdataHandler) CreateFriendLink(c *gin.Context) {
-	log.Println("[handler][updata] Received friend link creation request")
+// CreateFriendLink handles POST /api/action/friend and /api/public/friend.
+func (h *FriendLinkHandler) CreateFriendLink(c *gin.Context) {
 	var req model.FriendWebsite
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[handler][updata][ERR] JSON binding error: %v", err)
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
 		return
 	}
-
-	log.Printf("[handler][updata] Received friend link data: %+v", req)
 
 	if authType, ok := c.Get("auth_type"); ok && authType == "email" {
 		authEmail, _ := c.Get("auth_email")
@@ -45,7 +41,7 @@ func (h *UpdataHandler) CreateFriendLink(c *gin.Context) {
 	// Insert into database
 	id, err := friendsRepositories.CreateFriendLink(h.DB, req)
 	if err != nil {
-		log.Printf("[handler][updata][ERR] 创建友情链接失败: %v", err)
+		log.Printf("[handler][friend][ERR] 创建友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create friend link"))
 		return
 	}
@@ -54,7 +50,7 @@ func (h *UpdataHandler) CreateFriendLink(c *gin.Context) {
 }
 
 // DeleteOwnedFriendLink handles deletion by an email-authenticated owner.
-func (h *UpdataHandler) DeleteOwnedFriendLink(c *gin.Context) {
+func (h *FriendLinkHandler) DeleteOwnedFriendLink(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil || id == 0 {
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid friend link ID"))
@@ -103,8 +99,7 @@ func (h *UpdataHandler) DeleteOwnedFriendLink(c *gin.Context) {
 }
 
 // DeleteFriendLink handles DELETE /api/action/friend/:id request
-func (h *UpdataHandler) DeleteFriendLink(c *gin.Context) {
-	log.Println("[handler][updata] Received friend link deletion request")
+func (h *FriendLinkHandler) DeleteFriendLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -112,11 +107,9 @@ func (h *UpdataHandler) DeleteFriendLink(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[handler][updata] Received friend link deletion request for ID: %d", id)
-
 	deletedLink, err := friendsRepositories.DeleteFriendLinkByID(h.DB, uint(id))
 	if err != nil {
-		log.Printf("[handler][updata][ERR] 删除友情链接失败: %v", err)
+		log.Printf("[handler][friend][ERR] 删除友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete friend link"))
 		return
 	}
@@ -125,8 +118,7 @@ func (h *UpdataHandler) DeleteFriendLink(c *gin.Context) {
 }
 
 // EditFriendLink handles PUT /api/action/friend/:id request
-func (h *UpdataHandler) EditFriendLink(c *gin.Context) {
-	log.Println("[handler][updata] Received friend link edit request")
+func (h *FriendLinkHandler) EditFriendLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -136,12 +128,9 @@ func (h *UpdataHandler) EditFriendLink(c *gin.Context) {
 
 	var req model.EditFriendLinkReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("[handler][updata][ERR] JSON binding error: %v", err)
 		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
 		return
 	}
-
-	log.Printf("[handler][updata] Received friend link edit data for ID %d: %+v", id, req)
 
 	if authType, ok := c.Get("auth_type"); ok && authType == "email" {
 		ownerFields := map[string]bool{
@@ -165,7 +154,7 @@ func (h *UpdataHandler) EditFriendLink(c *gin.Context) {
 				c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "friend link not found"))
 				return
 			}
-			log.Printf("[handler][updata][ERR] 查询友情链接失败: %v", err)
+			log.Printf("[handler][friend][ERR] 查询友情链接失败: %v", err)
 			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
 			return
 		}
@@ -200,13 +189,12 @@ func (h *UpdataHandler) EditFriendLink(c *gin.Context) {
 
 	rowsAffected, err := friendsRepositories.UpdateFriendLinkByID(h.DB, uint(id), req)
 	if err != nil {
-		log.Printf("[handler][updata][ERR] 更新友情链接失败: %v", err)
+		log.Printf("[handler][friend][ERR] 更新友情链接失败: %v", err)
 		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to update friend link"))
 		return
 	}
 
 	if rowsAffected == 0 {
-		log.Printf("[handler][updata] No friend link found with ID %d or no fields to update", id)
 		c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "no friend link found with the given ID or no fields needed update"))
 		return
 	}

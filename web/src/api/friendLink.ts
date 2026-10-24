@@ -5,8 +5,7 @@ import type {
   PaginatedFriendLinks,
   CreateFriendLinkPayload,
   UpdateFriendLinkPayload,
-  FriendLinkInspectionProgress,
-  FriendLinkRecheckState
+  FriendLinkInspectionProgress
 } from '@/model/friendLink'
 
 /**
@@ -97,17 +96,6 @@ export const recheckAllFriendLinks = (): Promise<ApiResponse<FriendLinkInspectio
 export const getRecheckProgress = (): Promise<ApiResponse<FriendLinkInspectionProgress>> => {
   return request({
     url: '/action/friend/recheck',
-    method: 'get'
-  })
-}
-
-
-/**
- * 查询单条友链在本轮巡查中的进度
- */
-export const getFriendLinkRecheckState = (id: number): Promise<ApiResponse<FriendLinkRecheckState>> => {
-  return request({
-    url: `/action/friend/recheck/${id}`,
     method: 'get'
   })
 }

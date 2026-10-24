@@ -22,24 +22,7 @@ type FriendLinkHandler struct {
 func toFriendLinkDTOs(links []model.FriendWebsite, isPrivate bool) []model.FriendLinkDTO {
 	dtoLinks := make([]model.FriendLinkDTO, 0, len(links))
 	for _, link := range links {
-		dto := model.FriendLinkDTO{
-			ID:          link.ID,
-			Name:        link.Name,
-			Link:        link.Link,
-			Avatar:      link.Avatar,
-			Description: link.Info,
-			Status:      link.Status,
-			EnableRss:   link.EnableRss,
-			UpdatedAt:   link.UpdatedAt,
-		}
-		if isPrivate {
-			dto.Email = link.Email
-			dto.Times = link.Times
-			dto.IsDied = link.IsDied
-			skipHealthCheck := link.SkipHealthCheck
-			dto.SkipHealthCheck = &skipHealthCheck
-		}
-		dtoLinks = append(dtoLinks, dto)
+		dtoLinks = append(dtoLinks, toFriendLinkDTO(link, isPrivate))
 	}
 	return dtoLinks
 }
@@ -171,7 +154,7 @@ func (h *FriendLinkHandler) getFriendLinkByID(c *gin.Context, isPrivate bool) {
 	c.JSON(http.StatusOK, model.NewSuccessResponse(dto))
 }
 
-// GetAllFriendLinks handles GET /api/friend/ request
+// GetAllFriendLinks handles GET /api/public/friend/ request
 func (h *FriendLinkHandler) GetAllFriendLinks(c *gin.Context) {
 	h.getFriendLinks(c, false, "")
 }

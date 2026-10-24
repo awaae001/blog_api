@@ -88,13 +88,6 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 		baseQuery = baseQuery.Where("website_name LIKE ? OR website_url LIKE ? OR description LIKE ?", searchPattern, searchPattern, searchPattern)
 	}
 
-	if opts.Count {
-		if err := baseQuery.Count(&resp.Count).Error; err != nil {
-			return resp, err
-		}
-		return resp, nil
-	}
-
 	if err := baseQuery.Count(&resp.Count).Error; err != nil {
 		return resp, err
 	}
@@ -126,21 +119,10 @@ func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
 	return link, err
 }
 
-// GetFriendLinkByEmail fetches a single friend link by email.
-func GetFriendLinkByEmail(db *gorm.DB, email string) (model.FriendWebsite, error) {
-	var link model.FriendWebsite
-	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, is_died, enable_rss, skip_health_check, updated_at"
-	err := db.Model(&model.FriendWebsite{}).Select(selectFields).Where("email = ?", email).First(&link).Error
-	return link, err
-}
-
 // UpdateFriendLink updates the details of a friend link after crawling.
 func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlResult) error {
 	success := result.Status == "survival"
 	var reachedThreshold bool
-	// The crawler already distinguishes a definitive failure ("error", e.g. the
-	// domain no longer resolves) from a transient one ("timeout"), so its status
-	// is used verbatim as the failure status instead of being flattened.
 	link.Times, link.Status, reachedThreshold = model.ComputeFailureState(
 		link.Times,
 		success,

@@ -22,10 +22,12 @@
 ### 1. 准备配置
 
 - 复制 `.env.example` 到 `.env` 并按需修改。
-- 复制 `system_config.example.json` 为 `data/config/system_config.json`。
-- 可选：复制 `friend_list.example.json` 为 `data/config/friend_list.json`（用于初始化友链）。
+- 首次启动会自动在 `data/config/` 生成 `system_config.json` 和 `friend_list.json`，不会覆盖已有文件。
+- 按需编辑 `friend_list.json`，用于空数据库的友链初始化。
 
 ### 2. 启动后端
+
+需要 Go 1.26+ 和 C 编译器（SQLite / WebP 使用 CGO）。
 
 ```bash
 go run main.go
@@ -39,8 +41,8 @@ go run main.go
 
 ```bash
 cd web
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 开发访问：`http://localhost:5173/panel/login`。
@@ -49,7 +51,7 @@ npm run dev
 
 ```bash
 cd web
-npm run build
+pnpm build
 ```
 
 构建产物输出到 `data/panel`，由后端统一托管。
