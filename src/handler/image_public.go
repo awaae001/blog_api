@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	imageRepositories "blog_api/src/repositories/image"
 	"errors"
@@ -16,12 +17,7 @@ import (
 
 // ImagePublicHandler 处理与图片相关的公开API请求
 type ImagePublicHandler struct {
-	db *gorm.DB
-}
-
-// NewImagePublicHandler 创建一个新的 ImagePublicHandler 实例
-func NewImagePublicHandler(db *gorm.DB) *ImagePublicHandler {
-	return &ImagePublicHandler{db: db}
+	DB *gorm.DB
 }
 
 func (h *ImagePublicHandler) GetImage(c *gin.Context) {
@@ -30,7 +26,7 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 	var err error
 
 	// 请求级 context：客户端断开后查询会被取消，不再占用数据库连接
-	db := h.db.WithContext(c.Request.Context())
+	db := h.DB.WithContext(c.Request.Context())
 
 	notFoundMessage := "图片未找到"
 	if idStr == "" {
@@ -46,7 +42,7 @@ func (h *ImagePublicHandler) GetImage(c *gin.Context) {
 		image, err = imageRepositories.GetImageByID(db, id)
 	}
 	if err != nil {
-		if handleCanceledQuery(c, err) {
+		if middleware.AbortIfCanceled(c, err) {
 			return
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {

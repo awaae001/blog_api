@@ -2,6 +2,7 @@ package handler
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"blog_api/src/service"
 	"net/http"
@@ -22,14 +23,14 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid page parameter"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid page parameter"})
 		return
 	}
 
 	pageSizeStr := c.DefaultQuery("page_size", "10")
 	pageSize, err := strconv.Atoi(pageSizeStr)
 	if err != nil || pageSize < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid page_size parameter"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid page_size parameter"})
 		return
 	}
 
@@ -44,10 +45,10 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 
 	resp, err := service.GetMomentsWithMedia(h.DB.WithContext(c.Request.Context()), page, pageSize, "visible", fingerprintID)
 	if err != nil {
-		if handleCanceledQuery(c, err) {
+		if middleware.AbortIfCanceled(c, err) {
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve moments"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve moments"})
 		return
 	}
 
@@ -73,7 +74,7 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 		PageSize: pageSize,
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(paginatedData))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: paginatedData})
 }
 
 func parseFingerprintID(c *gin.Context) (int, bool) {

@@ -68,33 +68,12 @@ func CreateImage(db *gorm.DB, image *model.Image) error {
 }
 
 // UpdateImage updates an existing image record in the database.
-func UpdateImage(db *gorm.DB, image *model.Image) error {
-	updates := map[string]interface{}{}
-	if image.Name != "" {
-		updates["name"] = image.Name
-	}
-	if image.URL != "" {
-		updates["url"] = image.URL
-	}
-	if image.LocalPath != "" {
-		updates["local_path"] = image.LocalPath
-	}
-	if image.IsLocal != 0 {
-		updates["is_local"] = image.IsLocal
-	}
-	if image.IsOss != 0 {
-		updates["is_oss"] = image.IsOss
-	}
-	if image.Status != "" {
-		updates["status"] = image.Status
-	}
-
-	if len(updates) == 0 {
-		log.Printf("[db][image][WARN] 没有可更新的字段，ID: %d", image.ID)
+func UpdateImage(db *gorm.DB, image *model.Image, updates model.UpdateImageReq) error {
+	if updates == (model.UpdateImageReq{}) {
 		return nil
 	}
 
-	result := db.Model(&model.Image{}).Where("id = ?", image.ID).Updates(updates)
+	result := db.Model(image).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}

@@ -19,13 +19,13 @@ type VerifyHandler struct {
 func (h *VerifyHandler) IssueVerifyToken(c *gin.Context) {
 	token, expiresAt, err := service.IssueAntiBotToken()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to issue verification token"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to issue verification token"})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(map[string]interface{}{
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]interface{}{
 		"antibot_token": token,
 		"expires_at":    expiresAt,
 		"expires_in":    service.AntiBotTTLSeconds(),
-	}))
+	}})
 }

@@ -20,13 +20,13 @@ func StateMasterAuth(password string) gin.HandlerFunc {
 		const prefix = "Bearer "
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, prefix) || len(header) == len(prefix) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewErrorResponse(http.StatusUnauthorized, "unauthorized"))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: http.StatusUnauthorized, Message: "unauthorized"})
 			return
 		}
 
 		actual := sha256.Sum256([]byte(header[len(prefix):]))
 		if subtle.ConstantTimeCompare(actual[:], expected[:]) != 1 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.NewErrorResponse(http.StatusUnauthorized, "unauthorized"))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: http.StatusUnauthorized, Message: "unauthorized"})
 			return
 		}
 		c.Next()

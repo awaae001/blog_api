@@ -36,6 +36,15 @@ func IsRequestCanceled(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
+// AbortIfCanceled keeps canceled requests out of normal error responses.
+func AbortIfCanceled(c *gin.Context, err error) bool {
+	if !IsRequestCanceled(err) && !IsClientGone(c) {
+		return false
+	}
+	c.AbortWithStatus(ClientGoneStatus)
+	return true
+}
+
 // clientGoneWriter 包装 gin.ResponseWriter，在请求上下文取消后抑制一切写入。
 type clientGoneWriter struct {
 	gin.ResponseWriter

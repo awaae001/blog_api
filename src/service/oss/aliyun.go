@@ -30,9 +30,6 @@ func NewAliyunOSSService(cfg *model.OSSConfig) (OSSService, error) {
 
 // Upload stores a stream in Aliyun OSS.
 func (s *AliyunOSSService) Upload(ctx context.Context, input UploadInput) (string, string, error) {
-	// Debug log to check configuration
-	fmt.Printf("[AliyunOSS] Uploading file. Config CustomDomain: '%s', Bucket: '%s'\n", s.config.CustomDomain, s.config.Bucket)
-
 	bucket, err := s.client.Bucket(s.config.Bucket)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get oss bucket: %w", err)

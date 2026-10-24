@@ -35,13 +35,13 @@ func TurnstileVerify() gin.HandlerFunc {
 
 		token := extractTurnstileToken(c)
 		if token == "" {
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "turnstile token is required"))
+			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "turnstile token is required"})
 			c.Abort()
 			return
 		}
 
 		if ok := verifyTurnstile(c, cfg.Verify.Turnstile.Secret, token); !ok {
-			c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "turnstile verification failed"))
+			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "turnstile verification failed"})
 			c.Abort()
 			return
 		}
@@ -55,13 +55,13 @@ func AntiBotAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := extractAntiBotToken(c)
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, model.NewErrorResponse(401, "antibot token is required"))
+			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "antibot token is required"})
 			c.Abort()
 			return
 		}
 
 		if !service.ValidateAntiBotToken(token) {
-			c.JSON(http.StatusUnauthorized, model.NewErrorResponse(401, "antibot token is invalid"))
+			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "antibot token is invalid"})
 			c.Abort()
 			return
 		}

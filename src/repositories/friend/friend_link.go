@@ -187,47 +187,22 @@ func CreateFriendLink(db *gorm.DB, link model.FriendWebsite) (int64, error) {
 	return int64(newLink.ID), nil
 }
 
-// DeleteFriendLinkByID deletes a friend link by its ID and returns the deleted link.
-func DeleteFriendLinkByID(db *gorm.DB, id uint) (model.FriendWebsite, error) {
-	var deletedLink model.FriendWebsite
-	var rowsDeleted int64
-	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", id).First(&deletedLink).Error; err != nil {
-			return err
-		}
-
-		if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
-			return err
-		}
-
-		res := tx.Delete(&deletedLink)
-		if res.Error != nil {
-			return res.Error
-		}
-		rowsDeleted = res.RowsAffected
-		return nil
-	})
-	if err != nil {
-		return model.FriendWebsite{}, err
+// DeleteFriendLink deletes a link and its RSS data. A non-nil ownerEmail
+// restricts deletion to that owner, including when the email is empty.
+func DeleteFriendLink(db *gorm.DB, id uint, ownerEmail *string) (model.FriendWebsite, error) {
+	match := map[string]any{"id": id}
+	if ownerEmail != nil {
+		match["email"] = *ownerEmail
 	}
-
-	log.Printf("[db][friend] 已删除 %d 个友链", rowsDeleted)
-
-	return deletedLink, nil
-}
-
-// DeleteFriendLinkByOwner deletes an owned friend link and all of its RSS data.
-// It returns gorm.ErrRecordNotFound when the id does not belong to the email.
-func DeleteFriendLinkByOwner(db *gorm.DB, id uint, email string) (model.FriendWebsite, error) {
 	var deletedLink model.FriendWebsite
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ? AND email = ?", id, email).First(&deletedLink).Error; err != nil {
+		if err := tx.Where(match).First(&deletedLink).Error; err != nil {
 			return err
 		}
-		if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
+		if err := DeleteRssFeedsByFriendLinkID(tx, deletedLink.ID); err != nil {
 			return err
 		}
-		result := tx.Where("id = ? AND email = ?", id, email).Delete(&model.FriendWebsite{})
+		result := tx.Where(match).Delete(&deletedLink)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -248,29 +223,16 @@ func UpdateFriendLinkByID(db *gorm.DB, id uint, req model.EditFriendLinkReq) (in
 		return 0, fmt.Errorf("no data provided for update")
 	}
 
-	// Whitelist of updatable columns
-	updatableColumns := map[string]bool{
-		"website_name":      true,
-		"website_url":       true,
-		"website_icon_url":  true,
-		"description":       true,
-		"email":             true,
-		"times":             true,
-		"status":            true,
-		"enable_rss":        true,
-		"is_died":           true,
-		"skip_health_check": true,
-	}
-
-	updates := map[string]interface{}{}
+	updates := make(map[string]any, len(req.Data))
 	for col, val := range req.Data {
-		if !updatableColumns[col] {
+		switch col {
+		case "website_name", "website_url", "website_icon_url", "description", "email",
+			"times", "status", "enable_rss", "is_died", "skip_health_check":
+		default:
 			continue
 		}
-		if !req.Opt.OverwriteIfBlank {
-			if s, ok := val.(string); ok && s == "" {
-				continue
-			}
+		if text, ok := val.(string); ok && text == "" && !req.Opt.OverwriteIfBlank {
+			continue
 		}
 		updates[col] = val
 	}
@@ -280,36 +242,7 @@ func UpdateFriendLinkByID(db *gorm.DB, id uint, req model.EditFriendLinkReq) (in
 		return 0, nil
 	}
 
-	// Check if enable_rss is being set to false
-	disableRss := false
-	if val, ok := updates["enable_rss"].(bool); ok && !val {
-		disableRss = true
-	}
-
-	var rowsAffected int64
-	err := db.Transaction(func(tx *gorm.DB) error {
-		// If disabling RSS, delete related data first
-		if disableRss {
-			if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
-				return err
-			}
-		}
-
-		// Perform the update
-		result := tx.Model(&model.FriendWebsite{}).Where("id = ?", id).Updates(updates)
-		if result.Error != nil {
-			return result.Error
-		}
-		rowsAffected = result.RowsAffected
-		return nil
-	})
-
-	if err != nil {
-		return 0, err
-	}
-
-	log.Printf("[db][friend] 为 ID: %d 更新友链. Rows affected: %d", id, rowsAffected)
-	return rowsAffected, nil
+	return updateFriendLink(db, id, nil, updates)
 }
 
 // UpdateFriendLinkByOwner updates owner-editable profile fields for a friend link.
@@ -319,22 +252,13 @@ func UpdateFriendLinkByOwner(db *gorm.DB, id uint, email string, req model.EditF
 		return 0, fmt.Errorf("no data provided for update")
 	}
 
-	allowed := map[string]bool{
-		"website_name":     true,
-		"website_url":      true,
-		"website_icon_url": true,
-		"description":      true,
-		"enable_rss":       true,
-	}
-	updates := make(map[string]interface{}, len(req.Data))
+	updates := make(map[string]any, len(req.Data))
 	for column, value := range req.Data {
-		if !allowed[column] {
+		if !model.IsFriendOwnerField(column) {
 			return 0, fmt.Errorf("field %q cannot be updated by owner", column)
 		}
-		if !req.Opt.OverwriteIfBlank {
-			if text, ok := value.(string); ok && text == "" {
-				continue
-			}
+		if text, ok := value.(string); ok && text == "" && !req.Opt.OverwriteIfBlank {
+			continue
 		}
 		updates[column] = value
 	}
@@ -342,35 +266,34 @@ func UpdateFriendLinkByOwner(db *gorm.DB, id uint, email string, req model.EditF
 		return 0, fmt.Errorf("no data provided for update")
 	}
 
-	enableRSS, changesRSS := updates["enable_rss"].(bool)
-	disableRSS := changesRSS && !enableRSS
+	return updateFriendLink(db, id, &email, updates)
+}
 
+func updateFriendLink(db *gorm.DB, id uint, ownerEmail *string, updates map[string]any) (int64, error) {
 	var rowsAffected int64
 	err := db.Transaction(func(tx *gorm.DB) error {
-		var count int64
-		if err := tx.Model(&model.FriendWebsite{}).
-			Where("id = ? AND email = ?", id, email).
-			Count(&count).Error; err != nil {
-			return err
+		query := tx.Model(&model.FriendWebsite{}).Where("id = ?", id)
+		if ownerEmail != nil {
+			query = query.Where("email = ?", *ownerEmail)
 		}
-		if count == 0 {
-			return gorm.ErrRecordNotFound
-		}
-		if disableRSS {
-			if err := DeleteRssFeedsByFriendLinkID(tx, int(id)); err != nil {
-				return err
-			}
-		}
-		result := tx.Model(&model.FriendWebsite{}).
-			Where("id = ? AND email = ?", id, email).
-			Updates(updates)
+		result := query.Updates(updates)
 		if result.Error != nil {
 			return result.Error
 		}
 		rowsAffected = result.RowsAffected
+		if rowsAffected == 0 && ownerEmail != nil {
+			return gorm.ErrRecordNotFound
+		}
+		// Ownership is checked by the update before deleting related RSS data.
+		if enabled, ok := updates["enable_rss"].(bool); ok && !enabled && rowsAffected > 0 {
+			return DeleteRssFeedsByFriendLinkID(tx, int(id))
+		}
 		return nil
 	})
-	return rowsAffected, err
+	if err != nil {
+		return 0, err
+	}
+	return rowsAffected, nil
 }
 
 // FriendLinkExists checks if a friend link with the given ID exists.

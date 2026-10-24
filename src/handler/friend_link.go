@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"blog_api/src/middleware"
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
 	crawlerService "blog_api/src/service/crawler"
@@ -22,30 +23,9 @@ type FriendLinkHandler struct {
 func toFriendLinkDTOs(links []model.FriendWebsite, isPrivate bool) []model.FriendLinkDTO {
 	dtoLinks := make([]model.FriendLinkDTO, 0, len(links))
 	for _, link := range links {
-		dtoLinks = append(dtoLinks, toFriendLinkDTO(link, isPrivate))
+		dtoLinks = append(dtoLinks, link.ToDTO(isPrivate))
 	}
 	return dtoLinks
-}
-
-func toFriendLinkDTO(link model.FriendWebsite, isPrivate bool) model.FriendLinkDTO {
-	dto := model.FriendLinkDTO{
-		ID:          link.ID,
-		Name:        link.Name,
-		Link:        link.Link,
-		Avatar:      link.Avatar,
-		Description: link.Info,
-		Status:      link.Status,
-		EnableRss:   link.EnableRss,
-		UpdatedAt:   link.UpdatedAt,
-	}
-	if isPrivate {
-		dto.Email = link.Email
-		dto.Times = link.Times
-		dto.IsDied = link.IsDied
-		skipHealthCheck := link.SkipHealthCheck
-		dto.SkipHealthCheck = &skipHealthCheck
-	}
-	return dto
 }
 
 // getFriendLinks is a helper function to get friend links with common logic.
@@ -65,14 +45,14 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 	pageStr := c.DefaultQuery("page", "1")
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid page parameter"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid page parameter"})
 		return
 	}
 
 	pageSizeStr := c.DefaultQuery("page_size", "20")
 	pageSize, err := strconv.Atoi(pageSizeStr)
 	if err != nil || pageSize < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid page_size parameter"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid page_size parameter"})
 		return
 	}
 
@@ -82,17 +62,11 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 	}
 
 	// Validate status parameter if provided
-	if status != "" {
-		validStatuses := map[string]bool{
-			"survival": true,
-			"timeout":  true,
-			"error":    true,
-			"pending":  true,
-		}
-		if !validStatuses[status] {
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid status parameter"))
-			return
-		}
+	switch status {
+	case "", "survival", "timeout", "error", "pending":
+	default:
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid status parameter"})
+		return
 	}
 
 	// Calculate offset
@@ -109,10 +83,10 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 	}
 	resp, err := friendsRepositories.QueryFriendLinks(h.DB.WithContext(c.Request.Context()), opts)
 	if err != nil {
-		if handleCanceledQuery(c, err) {
+		if middleware.AbortIfCanceled(c, err) {
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend links"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend links"})
 		return
 	}
 
@@ -127,31 +101,34 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 		PageSize: pageSize,
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(paginatedData))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: paginatedData})
 }
 
-func (h *FriendLinkHandler) getFriendLinkByID(c *gin.Context, isPrivate bool) {
+func (h *FriendLinkHandler) loadFriendLink(c *gin.Context) (model.FriendWebsite, bool) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid friend link ID"))
-		return
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid friend link ID"})
+		return model.FriendWebsite{}, false
 	}
 
 	link, err := friendsRepositories.GetFriendLinkByID(h.DB.WithContext(c.Request.Context()), id)
-	if err != nil {
-		if handleCanceledQuery(c, err) {
-			return
-		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "friend link not found"))
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
-		return
+	if err == nil {
+		return link, true
 	}
+	if !middleware.AbortIfCanceled(c, err) {
+		status, message := http.StatusInternalServerError, "failed to retrieve friend link"
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status, message = http.StatusNotFound, "friend link not found"
+		}
+		c.JSON(status, model.ApiResponse{Code: status, Message: message})
+	}
+	return model.FriendWebsite{}, false
+}
 
-	dto := toFriendLinkDTO(link, isPrivate)
-	c.JSON(http.StatusOK, model.NewSuccessResponse(dto))
+func (h *FriendLinkHandler) getFriendLinkByID(c *gin.Context, isPrivate bool) {
+	if link, ok := h.loadFriendLink(c); ok {
+		c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: link.ToDTO(isPrivate)})
+	}
 }
 
 // GetAllFriendLinks handles GET /api/public/friend/ request
@@ -168,14 +145,14 @@ func (h *FriendLinkHandler) GetFriendLinkByID(c *gin.Context) {
 func (h *FriendLinkHandler) GetFriendLinkByEmailToken(c *gin.Context) {
 	authType, ok := c.Get("auth_type")
 	if !ok || authType != "email" {
-		c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email token is required"))
+		c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email token is required"})
 		return
 	}
 
 	authEmail, _ := c.Get("auth_email")
 	email, _ := authEmail.(string)
 	if email == "" {
-		c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email token is invalid"))
+		c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email token is invalid"})
 		return
 	}
 
@@ -196,19 +173,8 @@ func (h *FriendLinkHandler) GetFullFriendLinkByID(c *gin.Context) {
 // RecheckFriendLink handles POST /api/action/friend/recheck/:id.
 // It performs one inspection even when scheduled health checks are disabled.
 func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil || id < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "invalid friend link ID"))
-		return
-	}
-
-	link, err := friendsRepositories.GetFriendLinkByID(h.DB, id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "friend link not found"))
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to retrieve friend link"))
+	link, ok := h.loadFriendLink(c)
+	if !ok {
 		return
 	}
 
@@ -217,13 +183,13 @@ func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 		return
 	}
 	if err := friendsRepositories.UpdateFriendLink(h.DB, link, result); err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to update friend link inspection"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "failed to update friend link inspection"})
 		return
 	}
 
 	crawlerService.SubscribeDiscovered(c.Request.Context(), h.DB, link, result.Feeds)
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: nil})
 }
 
 // RecheckAllFriendLinks handles POST /api/action/friend/recheck.
@@ -232,10 +198,10 @@ func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 func (h *FriendLinkHandler) RecheckAllFriendLinks(c *gin.Context) {
 	if err := crawlerService.StartFriendLinksInspection(h.DB, crawlerService.FullInspectionScope()); err != nil {
 		if errors.Is(err, crawlerService.ErrInspectionBusy) {
-			c.JSON(http.StatusConflict, model.NewErrorResponse(http.StatusConflict, "a friend link inspection is already running"))
+			c.JSON(http.StatusConflict, model.ApiResponse{Code: http.StatusConflict, Message: "a friend link inspection is already running"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to start friend link inspection"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "failed to start friend link inspection"})
 		return
 	}
 
@@ -249,36 +215,25 @@ func (h *FriendLinkHandler) RecheckAllFriendLinks(c *gin.Context) {
 // GetRecheckProgress handles GET /api/action/friend/recheck.
 // It reports the current or most recent inspection run of this process.
 func (h *FriendLinkHandler) GetRecheckProgress(c *gin.Context) {
-	c.JSON(http.StatusOK, model.NewSuccessResponse(crawlerService.InspectionProgressSnapshot()))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: crawlerService.InspectionProgressSnapshot()})
 }
 
 // GetFriendLinkRecheckProgress handles GET /api/action/friend/recheck/:id.
 // It reports one link's position inside the current or most recent run together
 // with the inspection state stored for that link.
 func (h *FriendLinkHandler) GetFriendLinkRecheckProgress(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil || id < 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "invalid friend link ID"))
+	link, ok := h.loadFriendLink(c)
+	if !ok {
 		return
 	}
 
-	link, err := friendsRepositories.GetFriendLinkByID(h.DB, id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "friend link not found"))
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to retrieve friend link"))
-		return
-	}
-
-	progress := crawlerService.LinkInspectionSnapshot(id)
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{
+	progress := crawlerService.LinkInspectionSnapshot(link.ID)
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{
 		"id":         link.ID,
 		"in_run":     progress.InRun,
 		"done":       progress.Done,
 		"run_status": progress.Status,
 		"run":        progress.Run,
-		"link":       toFriendLinkDTO(link, true),
-	}))
+		"link":       link.ToDTO(true),
+	}})
 }

@@ -23,7 +23,7 @@ type StatusHandler struct {
 func (h *StatusHandler) GetSystemStatus(c *gin.Context) {
 	stats, err := repositories.GetSystemStats(h.DB)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve system stats"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve system stats"})
 		return
 	}
 	var databaseSize int64
@@ -40,11 +40,11 @@ func (h *StatusHandler) GetSystemStatus(c *gin.Context) {
 	})
 
 	now := time.Now()
-	c.JSON(http.StatusOK, model.NewSuccessResponse(model.SystemStatus{
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: model.SystemStatus{
 		Uptime:              now.Sub(h.StartTime).Round(time.Second).String(),
 		StatusData:          stats,
 		DatabaseSizeBytes:   databaseSize,
 		DataFolderSizeBytes: dataFolderSize,
 		Time:                now.Unix(),
-	}))
+	}})
 }

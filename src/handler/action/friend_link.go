@@ -21,7 +21,7 @@ type FriendLinkHandler struct {
 func (h *FriendLinkHandler) CreateFriendLink(c *gin.Context) {
 	var req model.FriendWebsite
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 		return
 	}
 
@@ -29,7 +29,7 @@ func (h *FriendLinkHandler) CreateFriendLink(c *gin.Context) {
 		authEmail, _ := c.Get("auth_email")
 		email, _ := authEmail.(string)
 		if email == "" || (req.Email != "" && req.Email != email) {
-			c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email does not match the token"))
+			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email does not match the token"})
 			return
 		}
 		req.Email = email
@@ -42,60 +42,51 @@ func (h *FriendLinkHandler) CreateFriendLink(c *gin.Context) {
 	id, err := friendsRepositories.CreateFriendLink(h.DB, req)
 	if err != nil {
 		log.Printf("[handler][friend][ERR] 创建友情链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create friend link"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create friend link"})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"id": id}))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"id": id}})
 }
 
 // DeleteOwnedFriendLink handles deletion by an email-authenticated owner.
 func (h *FriendLinkHandler) DeleteOwnedFriendLink(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil || id == 0 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid friend link ID"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid friend link ID"})
 		return
 	}
 	authEmail, _ := c.Get("auth_email")
 	email, _ := authEmail.(string)
 	if email == "" {
-		c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email token is invalid"))
+		c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email token is invalid"})
 		return
 	}
 
 	link, err := friendsRepositories.GetFriendLinkByID(h.DB, int(id))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "friend link not found"))
+			c.JSON(http.StatusNotFound, model.ApiResponse{Code: 404, Message: "friend link not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
 		return
 	}
 	if link.Email != email {
-		c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "friend link does not belong to this email"))
+		c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "friend link does not belong to this email"})
 		return
 	}
 
-	deleted, err := friendsRepositories.DeleteFriendLinkByOwner(h.DB, uint(id), email)
+	deleted, err := friendsRepositories.DeleteFriendLink(h.DB, uint(id), &email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "friend link ownership changed"))
+			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "friend link ownership changed"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete friend link"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to delete friend link"})
 		return
 	}
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"deleted_link": gin.H{
-		"id":          deleted.ID,
-		"name":        deleted.Name,
-		"link":        deleted.Link,
-		"avatar":      deleted.Avatar,
-		"description": deleted.Info,
-		"status":      deleted.Status,
-		"enable_rss":  deleted.EnableRss,
-		"updated_at":  deleted.UpdatedAt,
-	}}))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"deleted_link": deleted.ToDTO(false)}})
 }
 
 // DeleteFriendLink handles DELETE /api/action/friend/:id request
@@ -103,18 +94,18 @@ func (h *FriendLinkHandler) DeleteFriendLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid friend link ID"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid friend link ID"})
 		return
 	}
 
-	deletedLink, err := friendsRepositories.DeleteFriendLinkByID(h.DB, uint(id))
+	deletedLink, err := friendsRepositories.DeleteFriendLink(h.DB, uint(id), nil)
 	if err != nil {
 		log.Printf("[handler][friend][ERR] 删除友情链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete friend link"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to delete friend link"})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"deleted_link": deletedLink}))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"deleted_link": deletedLink}})
 }
 
 // EditFriendLink handles PUT /api/action/friend/:id request
@@ -122,27 +113,20 @@ func (h *FriendLinkHandler) EditFriendLink(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid friend link ID"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid friend link ID"})
 		return
 	}
 
 	var req model.EditFriendLinkReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 		return
 	}
 
 	if authType, ok := c.Get("auth_type"); ok && authType == "email" {
-		ownerFields := map[string]bool{
-			"website_name":     true,
-			"website_url":      true,
-			"website_icon_url": true,
-			"description":      true,
-			"enable_rss":       true,
-		}
 		for field := range req.Data {
-			if !ownerFields[field] {
-				c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "field cannot be updated with this token: "+field))
+			if !model.IsFriendOwnerField(field) {
+				c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "field cannot be updated with this token: " + field})
 				return
 			}
 		}
@@ -151,38 +135,38 @@ func (h *FriendLinkHandler) EditFriendLink(c *gin.Context) {
 		link, err := friendsRepositories.GetFriendLinkByID(h.DB, int(id))
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "friend link not found"))
+				c.JSON(http.StatusNotFound, model.ApiResponse{Code: 404, Message: "friend link not found"})
 				return
 			}
 			log.Printf("[handler][friend][ERR] 查询友情链接失败: %v", err)
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
+			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
 			return
 		}
 		if link.Email == "" {
-			c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email is not set for this friend link"))
+			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email is not set for this friend link"})
 			return
 		}
 		if email == "" || link.Email != email {
-			c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "email does not match the token"))
+			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email does not match the token"})
 			return
 		}
 
 		rowsAffected, err := friendsRepositories.UpdateFriendLinkByOwner(h.DB, uint(id), email, req)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusForbidden, model.NewErrorResponse(403, "friend link ownership changed"))
+				c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "friend link ownership changed"})
 				return
 			}
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, err.Error()))
+			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"rows_affected": rowsAffected}))
+		c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"rows_affected": rowsAffected}})
 		return
 	}
 
 	if value, exists := req.Data["skip_health_check"]; exists {
 		if _, ok := value.(bool); !ok {
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "skip_health_check must be a boolean"))
+			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "skip_health_check must be a boolean"})
 			return
 		}
 	}
@@ -190,14 +174,14 @@ func (h *FriendLinkHandler) EditFriendLink(c *gin.Context) {
 	rowsAffected, err := friendsRepositories.UpdateFriendLinkByID(h.DB, uint(id), req)
 	if err != nil {
 		log.Printf("[handler][friend][ERR] 更新友情链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to update friend link"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to update friend link"})
 		return
 	}
 
 	if rowsAffected == 0 {
-		c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "no friend link found with the given ID or no fields needed update"))
+		c.JSON(http.StatusNotFound, model.ApiResponse{Code: 404, Message: "no friend link found with the given ID or no fields needed update"})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(gin.H{"rows_affected": rowsAffected}))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"rows_affected": rowsAffected}})
 }

@@ -14,7 +14,7 @@ import (
 func RequirePublicAPI(feature string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !config.GetConfig().Safe.IsPublicAPIEnabled(feature) {
-			c.AbortWithStatusJSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "not found"))
+			c.AbortWithStatusJSON(http.StatusNotFound, model.ApiResponse{Code: http.StatusNotFound, Message: "not found"})
 			return
 		}
 		c.Next()

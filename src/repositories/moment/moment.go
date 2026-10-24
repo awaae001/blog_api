@@ -74,12 +74,12 @@ func DeleteMoment(db *gorm.DB, id int) error {
 }
 
 // UpdateMoment updates fields for a moment.
-func UpdateMoment(db *gorm.DB, id int, updates map[string]interface{}) error {
-	if len(updates) == 0 {
+func UpdateMoment(db *gorm.DB, moment *model.Moment, updates model.UpdateMomentRequest) error {
+	if updates == (model.UpdateMomentRequest{}) {
 		return nil
 	}
 
-	result := db.Model(&model.Moment{}).Where("id = ?", id).Updates(updates)
+	result := db.Model(moment).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}

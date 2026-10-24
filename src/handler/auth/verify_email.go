@@ -22,19 +22,19 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 		Code  string `json:"code"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 		return
 	}
 
 	if req.Code != "" {
 		if !service.ValidateEmailVerifyCode(req.Email, req.Code) {
-			c.JSON(http.StatusUnauthorized, model.NewErrorResponse(401, "invalid email verification code"))
+			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "invalid email verification code"})
 			return
 		}
 
 		token, expiresAt, err := service.IssueEmailToken(req.Email)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to issue email token"))
+			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to issue email token"})
 			return
 		}
 
@@ -44,20 +44,20 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 				Email: req.Email,
 			})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to retrieve friend link"))
+				c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
 				return
 			}
 			for _, link := range result.Links {
-				friendLinks = append(friendLinks, toPublicFriendLinkDTO(link))
+				friendLinks = append(friendLinks, link.ToDTO(false))
 			}
 		}
 
-		c.JSON(http.StatusOK, model.NewSuccessResponse(map[string]interface{}{
+		c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]interface{}{
 			"token":        token,
 			"expires_at":   expiresAt,
 			"expires_in":   service.EmailTokenTTLSeconds(),
 			"friend_links": friendLinks,
-		}))
+		}})
 		return
 	}
 
@@ -65,10 +65,10 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 	code, expiresAt, err := service.IssueEmailVerifyCode(req.Email)
 	if err != nil {
 		if errors.Is(err, service.ErrEmailCodeResendTooSoon) {
-			c.JSON(http.StatusTooManyRequests, model.NewErrorResponse(429, "verification code requested too frequently"))
+			c.JSON(http.StatusTooManyRequests, model.ApiResponse{Code: 429, Message: "verification code requested too frequently"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to issue email code"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to issue email code"})
 		return
 	}
 
@@ -79,36 +79,17 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 	}
 	if !cfg.Email.Enable {
 		log.Printf("[email][disabled] To=%s Subject=%s Body=%s", req.Email, content.Subject, content.Body)
-		if cfg.IsDev {
-			c.JSON(http.StatusOK, model.NewSuccessResponse(map[string]interface{}{
-				"expires_at": expiresAt,
-				"expires_in": service.EmailCodeTTLSeconds(),
-			}))
-		} else {
-			c.JSON(http.StatusServiceUnavailable, model.NewErrorResponse(503, "email service is disabled"))
+		if !cfg.IsDev {
+			c.JSON(http.StatusServiceUnavailable, model.ApiResponse{Code: 503, Message: "email service is disabled"})
+			return
 		}
-		return
-	}
-	if err := service.SendEmail(cfg.Email, []string{req.Email}, content); err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to send verification email"))
+	} else if err := service.SendEmail(cfg.Email, []string{req.Email}, content); err != nil {
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to send verification email"})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(map[string]interface{}{
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]interface{}{
 		"expires_at": expiresAt,
 		"expires_in": service.EmailCodeTTLSeconds(),
-	}))
-}
-
-func toPublicFriendLinkDTO(link model.FriendWebsite) model.FriendLinkDTO {
-	return model.FriendLinkDTO{
-		ID:          link.ID,
-		Name:        link.Name,
-		Link:        link.Link,
-		Avatar:      link.Avatar,
-		Description: link.Info,
-		Status:      link.Status,
-		EnableRss:   link.EnableRss,
-		UpdatedAt:   link.UpdatedAt,
-	}
+	}})
 }

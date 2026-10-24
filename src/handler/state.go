@@ -66,14 +66,14 @@ func (h *StateHandler) PutState(c *gin.Context) {
 	if err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
-			c.JSON(http.StatusRequestEntityTooLarge, model.NewErrorResponse(http.StatusRequestEntityTooLarge, "state payload exceeds 256 KiB"))
+			c.JSON(http.StatusRequestEntityTooLarge, model.ApiResponse{Code: http.StatusRequestEntityTooLarge, Message: "state payload exceeds 256 KiB"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "failed to read state payload"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: http.StatusBadRequest, Message: "failed to read state payload"})
 		return
 	}
 	if int64(len(payload)) > maxStateBodyBytes {
-		c.JSON(http.StatusRequestEntityTooLarge, model.NewErrorResponse(http.StatusRequestEntityTooLarge, "state payload exceeds 256 KiB"))
+		c.JSON(http.StatusRequestEntityTooLarge, model.ApiResponse{Code: http.StatusRequestEntityTooLarge, Message: "state payload exceeds 256 KiB"})
 		return
 	}
 
@@ -81,15 +81,15 @@ func (h *StateHandler) PutState(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidStatePayload):
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, err.Error()))
+			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: http.StatusBadRequest, Message: err.Error()})
 		case errors.Is(err, service.ErrStatePayloadTooLarge):
-			c.JSON(http.StatusRequestEntityTooLarge, model.NewErrorResponse(http.StatusRequestEntityTooLarge, err.Error()))
+			c.JSON(http.StatusRequestEntityTooLarge, model.ApiResponse{Code: http.StatusRequestEntityTooLarge, Message: err.Error()})
 		case errors.Is(err, service.ErrStateCapacityReached):
-			c.JSON(http.StatusInsufficientStorage, model.NewErrorResponse(http.StatusInsufficientStorage, err.Error()))
+			c.JSON(http.StatusInsufficientStorage, model.ApiResponse{Code: http.StatusInsufficientStorage, Message: err.Error()})
 		case errors.Is(err, service.ErrStateMemoryLimitReached):
-			c.JSON(http.StatusInsufficientStorage, model.NewErrorResponse(http.StatusInsufficientStorage, err.Error()))
+			c.JSON(http.StatusInsufficientStorage, model.ApiResponse{Code: http.StatusInsufficientStorage, Message: err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(http.StatusInternalServerError, "failed to store state"))
+			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "failed to store state"})
 		}
 		return
 	}
@@ -109,10 +109,10 @@ func (h *StateHandler) GetState(c *gin.Context) {
 	}
 	state, found := h.store.Get(key)
 	if !found {
-		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "state not found"))
+		c.JSON(http.StatusNotFound, model.ApiResponse{Code: http.StatusNotFound, Message: "state not found"})
 		return
 	}
-	c.JSON(http.StatusOK, model.NewSuccessResponse(newStateResponse(key, state)))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: newStateResponse(key, state)})
 }
 
 // DeleteState handles DELETE /api/internal/states/:key.
@@ -122,7 +122,7 @@ func (h *StateHandler) DeleteState(c *gin.Context) {
 		return
 	}
 	if !h.store.Delete(key) {
-		c.JSON(http.StatusNotFound, model.NewErrorResponse(http.StatusNotFound, "state not found"))
+		c.JSON(http.StatusNotFound, model.ApiResponse{Code: http.StatusNotFound, Message: "state not found"})
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -131,7 +131,7 @@ func (h *StateHandler) DeleteState(c *gin.Context) {
 func validStateKey(c *gin.Context) (string, bool) {
 	key := c.Param("key")
 	if !stateKeyPattern.MatchString(key) {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "invalid state key"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: http.StatusBadRequest, Message: "invalid state key"})
 		return "", false
 	}
 	return key, true
@@ -144,7 +144,7 @@ func parseStateTTL(c *gin.Context) (time.Duration, bool) {
 	}
 	seconds, err := strconv.ParseInt(rawTTL, 10, 64)
 	if err != nil || seconds <= 0 || seconds > int64(maxStateTTL/time.Second) {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(http.StatusBadRequest, "ttl_seconds must be between 1 and 604800"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: http.StatusBadRequest, Message: "ttl_seconds must be between 1 and 604800"})
 		return 0, false
 	}
 	return time.Duration(seconds) * time.Second, true

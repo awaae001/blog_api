@@ -4,9 +4,9 @@ import "time"
 
 // ApiResponse 统一API响应结构
 type ApiResponse struct {
-	Code    int         `json:"code"`    // HTTP状态码
-	Message string      `json:"message"` // 响应消息
-	Data    interface{} `json:"data"`    // 响应数据
+	Code    int    `json:"code"`    // HTTP状态码
+	Message string `json:"message"` // 响应消息
+	Data    any    `json:"data"`    // 响应数据
 }
 
 // PaginatedResponse 分页响应结构
@@ -17,7 +17,7 @@ type PaginatedResponse struct {
 	PageSize int         `json:"page_size"` // 每页数量
 }
 
-// FriendLinkDTO 友链数据传输对象（不包含敏感字段times）
+// FriendLinkDTO omits private fields unless explicitly requested.
 type FriendLinkDTO struct {
 	ID              int    `json:"id"`
 	Name            string `json:"name"`
@@ -33,22 +33,25 @@ type FriendLinkDTO struct {
 	UpdatedAt       int64  `json:"updated_at"`
 }
 
-// NewSuccessResponse 创建成功响应
-func NewSuccessResponse(data interface{}) ApiResponse {
-	return ApiResponse{
-		Code:    200,
-		Message: "success",
-		Data:    data,
+// ToDTO controls private field exposure for every friend link response.
+func (link FriendWebsite) ToDTO(includePrivate bool) FriendLinkDTO {
+	dto := FriendLinkDTO{
+		ID:          link.ID,
+		Name:        link.Name,
+		Link:        link.Link,
+		Avatar:      link.Avatar,
+		Description: link.Info,
+		Status:      link.Status,
+		EnableRss:   link.EnableRss,
+		UpdatedAt:   link.UpdatedAt,
 	}
-}
-
-// NewSuccessResponseWithCode creates a success response whose code matches the HTTP status.
-func NewSuccessResponseWithCode(code int, data interface{}) ApiResponse {
-	return ApiResponse{
-		Code:    code,
-		Message: "success",
-		Data:    data,
+	if includePrivate {
+		dto.Email = link.Email
+		dto.Times = link.Times
+		dto.IsDied = link.IsDied
+		dto.SkipHealthCheck = &link.SkipHealthCheck
 	}
+	return dto
 }
 
 // MomentWithMedia represents a moment with its associated media files.
@@ -82,15 +85,6 @@ type QueryMomentsResponse struct {
 type QueryMediaResponse struct {
 	Media []MomentMedia `json:"media"`
 	Total int64         `json:"total"`
-}
-
-// NewErrorResponse 创建错误响应
-func NewErrorResponse(code int, message string) ApiResponse {
-	return ApiResponse{
-		Code:    code,
-		Message: message,
-		Data:    nil,
-	}
 }
 
 // FileInfo represents a file or directory in the resource list.

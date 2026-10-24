@@ -1,14 +1,11 @@
 package bot
 
 import (
-	"blog_api/src/config"
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
-	coreService "blog_api/src/service"
 	"blog_api/src/service/oss"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"mime"
 	"net/http"
@@ -318,7 +315,7 @@ func (l *telegramListener) downloadAndStore(msg *tgbotapi.Message) ([]model.Mome
 		return nil, err
 	}
 
-	storedURL, isLocal, err := l.storeFile(fileName, mimeType, tempFile, size)
+	storedURL, isLocal, err := storeAttachment(l.ossService, fileName, mimeType, tempFile, size)
 	if err != nil {
 		return nil, err
 	}
@@ -385,28 +382,4 @@ func normalizeTelegramFile(fileName, mimeType, mediaType string, sample []byte) 
 	}
 
 	return fileName, contentType, nil
-}
-
-func (l *telegramListener) storeFile(name, mimeType string, file *os.File, size int64) (string, int, error) {
-	datePath := time.Now().Format("060102")
-	finalSubPath := filepath.Join("moments", datePath)
-	if l.ossService != nil {
-		path := filepath.Join(finalSubPath, name)
-		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			return "", 0, err
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		url, err := UploadToOSS(ctx, l.ossService, path, mimeType, size, file)
-		cancel()
-		if err == nil {
-			return url, 0, nil
-		}
-	}
-
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", 0, err
-	}
-	svc := coreService.NewResourceService(config.GetConfig())
-	_, url, err := svc.SaveReader(name, file, finalSubPath, false)
-	return url, 1, err
 }

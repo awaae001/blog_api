@@ -21,6 +21,15 @@ func (FriendWebsite) TableName() string {
 	return "friend_link"
 }
 
+// IsFriendOwnerField defines the fields an email owner may update.
+func IsFriendOwnerField(field string) bool {
+	switch field {
+	case "website_name", "website_url", "website_icon_url", "description", "enable_rss":
+		return true
+	}
+	return false
+}
+
 // FriendLinkQueryOptions defines the options for querying friend links.
 type FriendLinkQueryOptions struct {
 	Status          string

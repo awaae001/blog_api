@@ -4,7 +4,6 @@ import (
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -19,32 +18,28 @@ type MediaHandler struct {
 func (h *MediaHandler) CreateMedia(c *gin.Context) {
 	var req model.CreateMomentMediaReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 		return
 	}
 
 	if req.MomentID <= 0 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid moment_id"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid moment_id"})
 		return
 	}
 	if req.MediaURL == "" {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "media_url is required"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "media_url is required"})
 		return
 	}
 
 	if req.MediaType == "" {
 		req.MediaType = "image"
 	}
-	validMediaTypes := map[string]bool{
-		"image": true,
-		"video": true,
-	}
-	if !validMediaTypes[req.MediaType] {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid media_type"))
+	if req.MediaType != "image" && req.MediaType != "video" {
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid media_type"})
 		return
 	}
 	if req.IsLocal != 0 && req.IsLocal != 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid is_local"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid is_local"})
 		return
 	}
 
@@ -58,101 +53,61 @@ func (h *MediaHandler) CreateMedia(c *gin.Context) {
 	}
 
 	if err := momentRepositories.CreateMomentMedia(h.DB, &media); err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to create media"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create media"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, model.NewSuccessResponseWithCode(http.StatusCreated, media))
+	c.JSON(http.StatusCreated, model.ApiResponse{Code: http.StatusCreated, Message: "success", Data: media})
 }
 
 // DeleteMedia handles DELETE /api/action/moments/media/:id request
 func (h *MediaHandler) DeleteMedia(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid media id"))
+	id, ok := parseRecordID(c, "invalid media id")
+	if !ok {
 		return
 	}
 
-	if err := momentRepositories.DeleteMomentMedia(h.DB, id); err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "media not found"))
-		} else {
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to delete media"))
-		}
+	if err := momentRepositories.DeleteMomentMedia(h.DB.WithContext(c.Request.Context()), id); err != nil {
+		writeRecordError(c, err, "media not found", "failed to delete media")
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(nil))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: nil})
 }
 
 // UpdateMedia handles PUT /api/action/moments/media/:id request
 func (h *MediaHandler) UpdateMedia(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid media id"))
+	id, ok := parseRecordID(c, "invalid media id")
+	if !ok {
 		return
 	}
 
 	var req model.UpdateMomentMediaReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid request body"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 		return
 	}
 
 	if req.MomentID != nil && *req.MomentID <= 0 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid moment_id"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid moment_id"})
 		return
 	}
-	if req.MediaType != nil {
-		validMediaTypes := map[string]bool{
-			"image": true,
-			"video": true,
-		}
-		if !validMediaTypes[*req.MediaType] {
-			c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid media_type"))
-			return
-		}
+	if req.MediaType != nil && *req.MediaType != "image" && *req.MediaType != "video" {
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid media_type"})
+		return
 	}
 	if req.IsLocal != nil && *req.IsLocal != 0 && *req.IsLocal != 1 {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid is_local"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid is_local"})
 		return
 	}
 
-	updates := map[string]interface{}{}
 	media := model.MomentMedia{ID: id}
-	if req.MomentID != nil {
-		updates["moment_id"] = *req.MomentID
-		media.MomentID = *req.MomentID
-	}
-	if req.Name != nil {
-		updates["name"] = *req.Name
-		media.Name = *req.Name
-	}
-	if req.MediaURL != nil {
-		updates["media_url"] = *req.MediaURL
-		media.MediaURL = *req.MediaURL
-	}
-	if req.MediaType != nil {
-		updates["media_type"] = *req.MediaType
-		media.MediaType = *req.MediaType
-	}
-	if req.IsLocal != nil {
-		updates["is_local"] = *req.IsLocal
-		media.IsLocal = *req.IsLocal
-	}
-
-	if err := momentRepositories.UpdateMomentMedia(h.DB, id, updates); err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, model.NewErrorResponse(404, "media not found"))
-		} else {
-			c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to update media"))
-		}
+	if err := momentRepositories.UpdateMomentMedia(h.DB.WithContext(c.Request.Context()), &media, req); err != nil {
+		writeRecordError(c, err, "media not found", "failed to update media")
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(media))
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: media})
 }
 
 // GetMedia handles GET /api/action/moments/media request
@@ -165,7 +120,7 @@ func (h *MediaHandler) GetMedia(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.NewErrorResponse(400, "invalid query parameters"))
+		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid query parameters"})
 		return
 	}
 
@@ -178,12 +133,12 @@ func (h *MediaHandler) GetMedia(c *gin.Context) {
 
 	media, total, err := momentRepositories.QueryMedia(h.DB, req.Page, req.PageSize, req.MomentID, req.MediaType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.NewErrorResponse(500, "failed to get media"))
+		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to get media"})
 		return
 	}
 
-	c.JSON(http.StatusOK, model.NewSuccessResponse(&model.QueryMediaResponse{
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: &model.QueryMediaResponse{
 		Media: media,
 		Total: total,
-	}))
+	}})
 }

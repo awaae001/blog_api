@@ -3,6 +3,7 @@ package crawlerService
 import (
 	"blog_api/src/model"
 	imageRepositories "blog_api/src/repositories/image"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -38,28 +39,28 @@ func CheckImagesHealth(db *gorm.DB) {
 		checkedCount++
 		mu.Unlock()
 
+		status := img.Status
 		if !exists {
-			if img.Status != "broken" {
-				if err := imageRepositories.UpdateImage(db, &model.Image{ID: img.ID, Status: "broken"}); err != nil && err != gorm.ErrRecordNotFound {
-					log.Printf("[crawler][image][WARN] Failed to mark broken image (ID: %d): %v", img.ID, err)
-				} else {
-					mu.Lock()
-					brokenCount++
-					mu.Unlock()
-				}
+			status = "broken"
+		} else if status == "broken" {
+			status = "normal"
+		}
+		if status == img.Status {
+			return
+		}
+		if err := imageRepositories.UpdateImage(db, &model.Image{ID: img.ID}, model.UpdateImageReq{Status: &status}); err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				log.Printf("[crawler][image][WARN] Failed to update image status (ID: %d): %v", img.ID, err)
 			}
 			return
 		}
-
-		if img.Status == "broken" {
-			if err := imageRepositories.UpdateImage(db, &model.Image{ID: img.ID, Status: "normal"}); err != nil && err != gorm.ErrRecordNotFound {
-				log.Printf("[crawler][image][WARN] Failed to mark recovered image (ID: %d): %v", img.ID, err)
-			} else {
-				mu.Lock()
-				recoveredCount++
-				mu.Unlock()
-			}
+		mu.Lock()
+		if status == "broken" {
+			brokenCount++
+		} else {
+			recoveredCount++
 		}
+		mu.Unlock()
 	}
 
 	afterID := 0

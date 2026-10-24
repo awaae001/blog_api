@@ -24,12 +24,12 @@ func DeleteMomentMedia(db *gorm.DB, id int) error {
 }
 
 // UpdateMomentMedia updates fields for a media record.
-func UpdateMomentMedia(db *gorm.DB, id int, updates map[string]interface{}) error {
-	if len(updates) == 0 {
+func UpdateMomentMedia(db *gorm.DB, media *model.MomentMedia, updates model.UpdateMomentMediaReq) error {
+	if updates == (model.UpdateMomentMediaReq{}) {
 		return nil
 	}
 
-	result := db.Model(&model.MomentMedia{}).Where("id = ?", id).Updates(updates)
+	result := db.Model(media).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}

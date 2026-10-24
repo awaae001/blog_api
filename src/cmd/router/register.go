@@ -33,15 +33,15 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		DatabasePath: cfg.Data.Database.Path,
 	}
 	imageHandler := &handlerAction.ImageHandler{DB: db}
-	resourceHandler := handlerAction.NewResourceHandler(ossService)
-	imagePublicHandler := handler.NewImagePublicHandler(db)
+	resourceHandler := &handlerAction.ResourceHandler{OSSService: ossService}
+	imagePublicHandler := &handler.ImagePublicHandler{DB: db}
 	verifyPublicHandler := &authHandler.VerifyPublicHandler{}
 	momentHandler := &handler.MomentHandler{DB: db}
 	momentReactionHandler := &handler.MomentReactionHandler{DB: db}
 	momentActionHandler := &handlerAction.MomentHandler{DB: db}
 	mediaHandler := &handlerAction.MediaHandler{DB: db}
 	configHandler := &handlerAction.ConfigHandler{}
-	fingerprintHandler := authHandler.NewFingerprintHandler(db)
+	fingerprintHandler := &authHandler.FingerprintHandler{DB: db}
 	systemHandler := &handlerAction.SystemHandler{}
 
 	// API routes

@@ -12,53 +12,28 @@ import (
 	"strings"
 )
 
-// ResourceService handles local resource reads, writes, and deletes.
-type ResourceService struct {
-	configProvider func() *model.Config
-}
-
 var (
 	ErrInvalidResourcePath = errors.New("invalid resource path")
 	ErrProtectedResource   = errors.New("protected resource")
 	ErrResourceNotFound    = errors.New("resource not found")
 )
 
-// NewResourceService creates a ResourceService backed by a fixed config snapshot.
-//
-// Use NewDynamicResourceService for request handlers that must observe runtime
-// config reloads.
-func NewResourceService(cfg *model.Config) *ResourceService {
-	return &ResourceService{
-		configProvider: func() *model.Config {
-			return cfg
-		},
-	}
-}
-
-// NewDynamicResourceService creates a ResourceService backed by live config.
-//
-// Each operation reads the latest published config snapshot before resolving
-// resource paths and safety rules.
-func NewDynamicResourceService() *ResourceService {
-	return &ResourceService{configProvider: config.GetConfig}
-}
-
-// SaveFile 保存上传的文件。
+// SaveResourceFile 保存上传的文件。
 // 它会检查文件扩展名是否在白名单内，并清理目标路径以防止路径遍历。
 // overwrite 参数决定如果文件已存在，是覆盖它还是生成一个新名字。
-func (s *ResourceService) SaveFile(file *multipart.FileHeader, subPath string, overwrite bool) (string, string, error) {
+func SaveResourceFile(file *multipart.FileHeader, subPath string, overwrite bool) (string, string, error) {
 	src, err := file.Open()
 	if err != nil {
 		return "", "", fmt.Errorf("打开上传文件失败: %w", err)
 	}
 	defer src.Close()
-	return s.SaveReader(file.Filename, src, subPath, overwrite)
+	return SaveResourceReader(file.Filename, src, subPath, overwrite)
 }
 
-// SaveReader streams a resource into local storage.
-func (s *ResourceService) SaveReader(filename string, src io.Reader, subPath string, overwrite bool) (string, string, error) {
-	cfg := s.configProvider()
-	filePath, urlPath, err := s.prepareSavePath(cfg, filename, subPath, overwrite)
+// SaveResourceReader streams a resource into local storage using live config.
+func SaveResourceReader(filename string, src io.Reader, subPath string, overwrite bool) (string, string, error) {
+	cfg := config.GetConfig()
+	filePath, urlPath, err := prepareSavePath(cfg, filename, subPath, overwrite)
 	if err != nil {
 		return "", "", err
 	}
@@ -93,7 +68,7 @@ func (s *ResourceService) SaveReader(filename string, src io.Reader, subPath str
 	return filePath, urlPath, nil
 }
 
-func (s *ResourceService) prepareSavePath(cfg *model.Config, filename, subPath string, overwrite bool) (string, string, error) {
+func prepareSavePath(cfg *model.Config, filename, subPath string, overwrite bool) (string, string, error) {
 	// 文件名必须是不含目录成分的 basename，防止路径遍历攻击。
 	// 统一将 \ 视为分隔符，避免 Windows 风格分隔符在 Linux 下绕过。
 	filename = filepath.Base(strings.ReplaceAll(filename, "\\", "/"))
@@ -169,10 +144,9 @@ func (s *ResourceService) prepareSavePath(cfg *model.Config, filename, subPath s
 	return filePath, urlPath, nil
 }
 
-// DeleteFile 删除指定路径的文件。
-// 在删除前会进行严格的安全检查，以防止删除受保护的文件。
-func (s *ResourceService) DeleteFile(filePath string) error {
-	cfg := s.configProvider()
+// DeleteResourceFile checks protected paths before removing a local resource.
+func DeleteResourceFile(filePath string) error {
+	cfg := config.GetConfig()
 
 	// 1. 解析资源根目录（通常是 data），删除目标必须位于该目录内
 	basePath := cfg.Data.Resource.Path
@@ -242,12 +216,9 @@ func (s *ResourceService) DeleteFile(filePath string) error {
 	return nil
 }
 
-// GetFileOrDir 检索文件或列出目录的内容。
-// 如果路径指向文件，它将返回文件路径和 nil 切片。
-// 如果路径指向目录，它将返回一个包含目录内容的 FileInfo 切片。
-// 如果路径不存在，则返回错误。
-func (s *ResourceService) GetFileOrDir(relativePath string) (string, []model.FileInfo, error) {
-	cfg := s.configProvider()
+// GetResourceFileOrDir returns a local file path or directory entries.
+func GetResourceFileOrDir(relativePath string) (string, []model.FileInfo, error) {
+	cfg := config.GetConfig()
 
 	// 清理路径以防止路径遍历
 	cleanPath := filepath.Clean(relativePath)
