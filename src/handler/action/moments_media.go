@@ -52,7 +52,7 @@ func (h *MediaHandler) CreateMedia(c *gin.Context) {
 		IsDeleted: 0,
 	}
 
-	if err := momentRepositories.CreateMomentMedia(h.DB, &media); err != nil {
+	if err := h.DB.Create(&media).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create media"})
 		return
 	}

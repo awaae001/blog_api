@@ -55,9 +55,6 @@ func fetchFeed(ctx context.Context, feedURL, etag, lastModified string) (feedRes
 		return feedResponse{}, err
 	}
 	timeout := time.Duration(config.GetConfig().Crawler.RssTimeoutSeconds) * time.Second
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

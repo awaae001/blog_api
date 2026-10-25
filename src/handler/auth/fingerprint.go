@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,11 +25,6 @@ type FingerprintHandler struct {
 func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 	cfg := config.GetConfig()
 	secret := cfg.Verify.Fingerprint.Secret
-	if secret == "" {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "fingerprint secret is not configured"})
-		return
-	}
-
 	ip := c.ClientIP()
 	userAgent := c.Request.UserAgent()
 	tokenService := service.NewFingerprintTokenService(secret)
@@ -67,7 +61,7 @@ func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 			PermissionsLevel: "normal",
 			CreatedAt:        time.Now().Unix(),
 		}
-		if err := repositories.CreateFingerprint(db, record); err != nil {
+		if err := db.Create(record).Error; err != nil {
 			if !middleware.AbortIfCanceled(c, err) {
 				c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create fingerprint"})
 			}
@@ -88,13 +82,13 @@ func (h *FingerprintHandler) reuseFingerprintToken(
 	tokenService *service.FingerprintTokenService,
 	ip, userAgent, secret string,
 ) (string, bool, error) {
-	token := extractFingerprintToken(c)
+	token := middleware.ExtractFingerprintToken(c)
 	if token == "" {
 		return "", false, nil
 	}
 
 	id, ok := tokenService.Verify(token)
-	if !ok || id <= 0 {
+	if !ok {
 		return "", false, nil
 	}
 
@@ -121,20 +115,4 @@ func (h *FingerprintHandler) reuseFingerprintToken(
 func hashFingerprint(ip, userAgent, secret string) string {
 	sum := sha256.Sum256([]byte(ip + "|" + userAgent + "|" + secret))
 	return hex.EncodeToString(sum[:])
-}
-
-func extractFingerprintToken(c *gin.Context) string {
-	if token := c.GetHeader("X-Fingerprint-Token"); token != "" {
-		return token
-	}
-
-	authHeader := c.GetHeader("Authorization")
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && strings.EqualFold(parts[0], "Fingerprint") {
-			return parts[1]
-		}
-	}
-
-	return ""
 }

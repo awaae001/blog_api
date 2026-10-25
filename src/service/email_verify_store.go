@@ -2,7 +2,6 @@ package service
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,10 +10,10 @@ import (
 )
 
 const (
-	defaultEmailCodeTTLSeconds  = 600
-	defaultEmailTokenTTLSeconds = 86400
-	maxEmailCodes               = 10000
-	maxEmailTokens              = 10000
+	EmailCodeTTLSeconds  = 600
+	EmailTokenTTLSeconds = 86400
+	maxEmailCodes        = 10000
+	maxEmailTokens       = 10000
 	// maxEmailCodeAttempts bounds brute-force tries against one code before it is invalidated.
 	maxEmailCodeAttempts = 5
 	// minEmailCodeResendIntervalSeconds throttles code re-issue per email so an
@@ -49,23 +48,13 @@ var emailVerifyStore = &EmailVerifyStore{
 	tokens: make(map[string]emailTokenEntry),
 }
 
-// EmailCodeTTLSeconds returns the default TTL for email verification codes.
-func EmailCodeTTLSeconds() int {
-	return defaultEmailCodeTTLSeconds
-}
-
-// EmailTokenTTLSeconds returns the default TTL for email auth tokens.
-func EmailTokenTTLSeconds() int {
-	return defaultEmailTokenTTLSeconds
-}
-
 // IssueEmailVerifyCode creates a new verification code for the given email.
 func IssueEmailVerifyCode(email string) (string, int64, error) {
 	code, err := generateEmailCode()
 	if err != nil {
 		return "", 0, err
 	}
-	expiresAt := time.Now().Add(defaultEmailCodeTTLSeconds * time.Second).Unix()
+	expiresAt := time.Now().Add(EmailCodeTTLSeconds * time.Second).Unix()
 
 	now := time.Now().Unix()
 	emailVerifyStore.mu.Lock()
@@ -116,11 +105,8 @@ func ValidateEmailVerifyCode(email, code string) bool {
 
 // IssueEmailToken creates a new short-lived token bound to the email.
 func IssueEmailToken(email string) (string, int64, error) {
-	token, err := generateEmailToken()
-	if err != nil {
-		return "", 0, err
-	}
-	expiresAt := time.Now().Add(defaultEmailTokenTTLSeconds * time.Second).Unix()
+	token := randomHex(32)
+	expiresAt := time.Now().Add(EmailTokenTTLSeconds * time.Second).Unix()
 
 	emailVerifyStore.mu.Lock()
 	defer emailVerifyStore.mu.Unlock()
@@ -172,12 +158,4 @@ func generateEmailCode() (string, error) {
 		return "", fmt.Errorf("generate email code: %w", err)
 	}
 	return fmt.Sprintf("%06d", num.Int64()), nil
-}
-
-func generateEmailToken() (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("generate email token: %w", err)
-	}
-	return hex.EncodeToString(bytes), nil
 }

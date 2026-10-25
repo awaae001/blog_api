@@ -28,7 +28,7 @@ func ClientDisconnectGuard() gin.HandlerFunc {
 }
 
 func IsClientGone(c *gin.Context) bool {
-	return c != nil && c.Request != nil && c.Request.Context().Err() != nil
+	return c.Request.Context().Err() != nil
 }
 
 // IsRequestCanceled 判断错误是否由请求上下文取消（客户端断开 / 请求超时）引起。

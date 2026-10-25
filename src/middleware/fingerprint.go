@@ -15,13 +15,7 @@ import (
 func FingerprintAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		secret := config.GetConfig().Verify.Fingerprint.Secret
-		if secret == "" {
-			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "fingerprint secret is not configured"})
-			c.Abort()
-			return
-		}
-
-		token := extractFingerprintToken(c)
+		token := ExtractFingerprintToken(c)
 		if token == "" {
 			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "fingerprint token is required"})
 			c.Abort()
@@ -30,7 +24,7 @@ func FingerprintAuth() gin.HandlerFunc {
 
 		tokenService := service.NewFingerprintTokenService(secret)
 		id, ok := tokenService.Verify(token)
-		if !ok || id <= 0 {
+		if !ok {
 			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "invalid fingerprint token"})
 			c.Abort()
 			return
@@ -41,7 +35,8 @@ func FingerprintAuth() gin.HandlerFunc {
 	}
 }
 
-func extractFingerprintToken(c *gin.Context) string {
+// ExtractFingerprintToken reads the fingerprint header or Authorization scheme.
+func ExtractFingerprintToken(c *gin.Context) string {
 	if token := c.GetHeader("X-Fingerprint-Token"); token != "" {
 		return token
 	}

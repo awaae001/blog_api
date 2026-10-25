@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 )
 
@@ -21,29 +22,19 @@ import (
 var defaultConfigFiles embed.FS
 
 var (
-	currentConfig atomic.Pointer[model.Config]
-	loadErr       error
-	once          sync.Once
-	reloadMu      sync.Mutex
-	updateMu      sync.Mutex
+	currentConfig   atomic.Pointer[model.Config]
+	loadErr         error
+	once            sync.Once
+	reloadMu        sync.Mutex
+	updateMu        sync.Mutex
+	configValidator = validator.New(validator.WithRequiredStructEnabled())
 )
 
-// UpdateResult describes the runtime effects of a persisted config update.
-//
-// Reloaded is true when the in-memory snapshot was atomically replaced.
-// RestartRequiredKeys contains accepted update keys whose full effect still
-// depends on startup-only resources such as listeners, cron jobs, or clients.
 type UpdateResult struct {
 	Reloaded            bool     `json:"reloaded"`
 	RestartRequiredKeys []string `json:"restart_required_keys"`
 }
 
-// Load initializes the global configuration snapshot once.
-//
-// It releases missing default JSON files, reads .env and JSON config files,
-// applies environment overrides, and publishes the resulting immutable snapshot
-// for GetConfig. After the first successful call, use Reload to publish a new
-// snapshot.
 func Load() (*model.Config, error) {
 	once.Do(func() {
 		reloadMu.Lock()
@@ -208,9 +199,16 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 		return fmt.Errorf("解析系统配置失败: %w", err)
 	}
 
-	if cfg.Data.Database.Path != "" {
-		cfg.Safe.ExcludePaths = append(cfg.Safe.ExcludePaths, cfg.Data.Database.Path)
+	cfg.Safe.ExcludePaths = append(cfg.Safe.ExcludePaths, cfg.Data.Database.Path)
+	if cfg.Data.Database.MigrationsPath == "" {
+		cfg.Data.Database.MigrationsPath = "migrations"
 	}
+	cfg.Data.Resource.Path = strings.TrimSpace(cfg.Data.Resource.Path)
+	if cfg.Data.Resource.Path == "" {
+		cfg.Data.Resource.Path = "data"
+	}
+	cfg.Data.Resource.Path = filepath.Clean(cfg.Data.Resource.Path)
+	cfg.Data.Image.ConvTo = strings.ToLower(strings.TrimSpace(cfg.Data.Image.ConvTo))
 
 	if cfg.Crawler.Concurrency <= 0 {
 		cfg.Crawler.Concurrency = 5
@@ -226,6 +224,9 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 	if discordBotToken := v.GetString("DISCORD_BOT_TOKEN"); discordBotToken != "" {
 		cfg.MomentsIntegrated.Integrated.Discord.BotToken = discordBotToken
 	}
+	targets := &cfg.MomentsIntegrated.Integrated
+	targets.Telegram.BotToken = strings.TrimSpace(targets.Telegram.BotToken)
+	targets.Discord.BotToken = strings.TrimSpace(targets.Discord.BotToken)
 	if ossAccessKeyId := v.GetString("OSS_ACCESS_KEY_ID"); ossAccessKeyId != "" {
 		cfg.OSS.AccessKeyID = ossAccessKeyId
 	}
@@ -240,6 +241,20 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 	}
 	if emailPassword := v.GetString("EMAIL_PASSWORD"); emailPassword != "" {
 		cfg.Email.Password = emailPassword
+	}
+	cfg.Verify.Turnstile.Secret = strings.TrimSpace(cfg.Verify.Turnstile.Secret)
+	cfg.Verify.Fingerprint.Secret = strings.TrimSpace(cfg.Verify.Fingerprint.Secret)
+	if cfg.Email.Sender == "" {
+		cfg.Email.Sender = cfg.Email.UserName
+	}
+	if err := configValidator.Struct(cfg); err != nil {
+		return fmt.Errorf("配置校验失败: %w", err)
+	}
+	// Only validate bot targets when the integration's master switch is on.
+	if cfg.MomentsIntegrated.Enable {
+		if err := configValidator.Struct(targets); err != nil {
+			return fmt.Errorf("机器人配置校验失败: %w", err)
+		}
 	}
 
 	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")
@@ -302,9 +317,6 @@ func UpdateAndSaveConfigs(updates []model.UpdateConfigReq) (*UpdateResult, error
 	defer updateMu.Unlock()
 
 	configPath := GetConfig().ConfigPath
-	if configPath == "" {
-		return nil, fmt.Errorf("配置路径未设置")
-	}
 	filePath := filepath.Join(configPath, "system_config.json")
 
 	existingData, err := os.ReadFile(filePath)

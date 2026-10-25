@@ -12,7 +12,7 @@ import (
 
 // AliyunOSSService 实现了 OSSService 接口，用于阿里云 OSS
 type AliyunOSSService struct {
-	client *oss.Client
+	bucket *oss.Bucket
 	config *model.OSSConfig
 }
 
@@ -22,20 +22,20 @@ func NewAliyunOSSService(cfg *model.OSSConfig) (OSSService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aliyun oss client: %w", err)
 	}
+	bucket, err := client.Bucket(cfg.Bucket)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get oss bucket: %w", err)
+	}
 	return &AliyunOSSService{
-		client: client,
+		bucket: bucket,
 		config: cfg,
 	}, nil
 }
 
 // Upload stores a stream in Aliyun OSS.
 func (s *AliyunOSSService) Upload(ctx context.Context, input UploadInput) (string, string, error) {
-	bucket, err := s.client.Bucket(s.config.Bucket)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get oss bucket: %w", err)
-	}
 	objectKey := generateFilePath(s.config.Prefix, input.Name)
-	err = bucket.PutObject(objectKey, input.Body, oss.ContentType(input.ContentType), oss.WithContext(ctx))
+	err := s.bucket.PutObject(objectKey, input.Body, oss.ContentType(input.ContentType), oss.WithContext(ctx))
 	if err != nil {
 		return "", "", fmt.Errorf("failed to upload file to oss: %w", err)
 	}
@@ -58,13 +58,7 @@ func (s *AliyunOSSService) DeleteFile(objectKey string) error {
 	if cleanPrefix != "" && !strings.HasPrefix(cleanKey, cleanPrefix) {
 		return fmt.Errorf("delete operation is not allowed for this object key: %s", objectKey)
 	}
-	bucket, err := s.client.Bucket(s.config.Bucket)
-	if err != nil {
-		return fmt.Errorf("failed to get oss bucket: %w", err)
-	}
-
-	err = bucket.DeleteObject(cleanKey)
-	if err != nil {
+	if err := s.bucket.DeleteObject(cleanKey); err != nil {
 		return fmt.Errorf("failed to delete object from oss: %w", err)
 	}
 	return nil

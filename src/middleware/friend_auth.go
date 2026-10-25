@@ -12,8 +12,6 @@ import (
 
 // FriendLinkAuth allows either admin JWTs or one-time email tokens.
 func FriendLinkAuth() gin.HandlerFunc {
-	authService := service.NewAuthService()
-
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -30,7 +28,7 @@ func FriendLinkAuth() gin.HandlerFunc {
 		}
 
 		token := parts[1]
-		if claims, err := authService.ValidateJWT(token); err == nil {
+		if claims, err := service.ValidateJWT(token); err == nil {
 			c.Set("username", claims.Username)
 			c.Set("auth_type", "jwt")
 			c.Next()

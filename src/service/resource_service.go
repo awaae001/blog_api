@@ -96,9 +96,6 @@ func prepareSavePath(cfg *model.Config, filename, subPath string, overwrite bool
 	}
 
 	basePath := cfg.Data.Resource.Path
-	if basePath == "" {
-		basePath = "data/" // 默认路径
-	}
 	saveDir := filepath.Join(basePath, cleanSubPath)
 
 	// 创建目录（如果不存在）
@@ -150,9 +147,6 @@ func DeleteResourceFile(filePath string) error {
 
 	// 1. 解析资源根目录（通常是 data），删除目标必须位于该目录内
 	basePath := cfg.Data.Resource.Path
-	if basePath == "" {
-		basePath = "data/"
-	}
 	absBasePath, err := filepath.Abs(filepath.Clean(basePath))
 	if err != nil {
 		return fmt.Errorf("获取资源根目录失败: %w", err)
@@ -227,9 +221,6 @@ func GetResourceFileOrDir(relativePath string) (string, []model.FileInfo, error)
 	}
 
 	basePath := cfg.Data.Resource.Path
-	if basePath == "" {
-		basePath = "data/" // 默认路径
-	}
 	fullPath := filepath.Join(basePath, cleanPath)
 
 	info, err := os.Stat(fullPath)

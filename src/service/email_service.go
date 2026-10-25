@@ -18,27 +18,11 @@ type EmailContent struct {
 
 // SendEmail sends an email using the provided config, recipients, and content.
 func SendEmail(conf model.EmailConf, to []string, content EmailContent) error {
-	if !conf.Enable {
-		return fmt.Errorf("email is disabled")
-	}
-	if conf.Host == "" {
-		return fmt.Errorf("email host is required")
-	}
-	if conf.Port == 0 {
-		return fmt.Errorf("email port is required")
-	}
-	if conf.UserName == "" {
-		return fmt.Errorf("email username is required")
-	}
 	if len(to) == 0 {
 		return fmt.Errorf("email recipients are required")
 	}
 
 	sender := conf.Sender
-	if sender == "" {
-		sender = conf.UserName
-	}
-
 	msg, err := buildEmailMessage(sender, to, content)
 	if err != nil {
 		return err
@@ -74,11 +58,9 @@ func buildEmailMessage(sender string, to []string, content EmailContent) ([]byte
 
 // doSend performs the SMTP transaction after a connection is established.
 func doSend(client *smtp.Client, sender string, to []string, auth smtp.Auth, msg []byte) error {
-	if auth != nil {
-		if ok, _ := client.Extension("AUTH"); ok {
-			if err := client.Auth(auth); err != nil {
-				return fmt.Errorf("email auth failed: %w", err)
-			}
+	if ok, _ := client.Extension("AUTH"); ok {
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("email auth failed: %w", err)
 		}
 	}
 	if err := client.Mail(sender); err != nil {

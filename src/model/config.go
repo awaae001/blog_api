@@ -35,8 +35,8 @@ const (
 
 // CrawlerConfig 爬虫配置
 type CrawlerConfig struct {
-	Concurrency       int `mapstructure:"concurrency"`         // 并发数量，默认 5
-	RssTimeoutSeconds int `mapstructure:"rss_timeout_seconds"` // RSS 解析超时（秒）
+	Concurrency       int `mapstructure:"concurrency" validate:"gte=1"`         // 并发数量，默认 5
+	RssTimeoutSeconds int `mapstructure:"rss_timeout_seconds" validate:"gte=1"` // RSS 解析超时（秒）
 }
 
 // FriendLinksConf 对应 friend_list.json 的结构
@@ -73,7 +73,7 @@ type DataConfig struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Path string `mapstructure:"path"`
+	Path string `mapstructure:"path" validate:"required"`
 	// MigrationsPath SQL 迁移文件目录，默认 "migrations"（相对 CWD）。
 	// 显式配置为绝对路径可避免二进制在不同目录启动时找错迁移文件。
 	MigrationsPath string `mapstructure:"migrations_path"`
@@ -82,30 +82,30 @@ type DatabaseConfig struct {
 // ImageConfig 图片配置
 type ImageConfig struct {
 	Path   string `mapstructure:"path"`
-	ConvTo string `mapstructure:"conv_to"`
+	ConvTo string `mapstructure:"conv_to" validate:"omitempty,oneof=webp jpg jpeg png gif"`
 }
 
 // ResourceConfig 资源配置
 type ResourceConfig struct {
-	Path string `mapstructure:"path"`
+	Path string `mapstructure:"path" validate:"required"`
 }
 
 // MomentsIntegratedConfig 动态集成配置
 type MomentsIntegratedConfig struct {
 	Enable                 bool              `mapstructure:"enable"`
 	ApiSingleReturnEntries int               `mapstructure:"api_single_return_entries"`
-	Integrated             IntegratedTargets `mapstructure:"integrated"`
+	Integrated             IntegratedTargets `mapstructure:"integrated" validate:"-"`
 }
 
 // OSSConfig OSS 配置
 type OSSConfig struct {
-	Provider        string `mapstructure:"provider"`
+	Provider        string `mapstructure:"provider" validate:"required_if=Enable true,omitempty,oneof=aliyun s3"`
 	Enable          bool   `mapstructure:"enable"`
-	AccessKeyID     string `mapstructure:"accessKeyId"`
-	AccessKeySecret string `mapstructure:"accessKeySecret"`
-	Bucket          string `mapstructure:"bucket"`
-	Endpoint        string `mapstructure:"endpoint"`
-	Region          string `mapstructure:"region"`
+	AccessKeyID     string `mapstructure:"accessKeyId" validate:"required_if=Enable true"`
+	AccessKeySecret string `mapstructure:"accessKeySecret" validate:"required_if=Enable true"`
+	Bucket          string `mapstructure:"bucket" validate:"required_if=Enable true"`
+	Endpoint        string `mapstructure:"endpoint" validate:"required_if=Enable true Provider aliyun"`
+	Region          string `mapstructure:"region" validate:"required_if=Enable true Provider s3"`
 	CustomDomain    string `mapstructure:"customDomain"`
 	Secure          bool   `mapstructure:"secure"`
 	Timeout         int    `mapstructure:"timeout"`
@@ -121,13 +121,13 @@ type VerifyConfig struct {
 // TurnstileConfig Turnstile 配置
 type TurnstileConfig struct {
 	Enable  bool   `mapstructure:"enable"`
-	Secret  string `mapstructure:"secret"`
+	Secret  string `mapstructure:"secret" validate:"required_if=Enable true"`
 	SiteKey string `mapstructure:"site_key"`
 }
 
 // FingerprintConfig 指纹配置
 type FingerprintConfig struct {
-	Secret string `mapstructure:"secret"`
+	Secret string `mapstructure:"secret" validate:"required"`
 }
 
 // IntegratedTargets 集成目标
@@ -140,7 +140,7 @@ type IntegratedTargets struct {
 type TelegramConfig struct {
 	Enable       bool     `mapstructure:"enable"`
 	SyncDelete   bool     `mapstructure:"sync_delete"`
-	BotToken     string   `mapstructure:"bot_token"`
+	BotToken     string   `mapstructure:"bot_token" validate:"required_if=Enable true"`
 	ChannelID    string   `mapstructure:"channel_id"`
 	FilterUserid []string `mapstructure:"filter_userid"`
 	StartTime    int64    `mapstructure:"start_time"` // Unix timestamp, 只接受此时间之后的消息（0 表示使用 bot 启动时间）
@@ -149,10 +149,10 @@ type TelegramConfig struct {
 // EmailConf 邮箱配置
 type EmailConf struct {
 	Enable   bool   `mapstructure:"enable"`
-	Host     string `mapstructure:"host"`
-	UserName string `mapstructure:"user_name"`
+	Host     string `mapstructure:"host" validate:"required_if=Enable true"`
+	UserName string `mapstructure:"user_name" validate:"required_if=Enable true"`
 	Password string `mapstructure:"password"`
-	Port     int    `mapstructure:"port"`
+	Port     int    `mapstructure:"port" validate:"required_if=Enable true,omitempty,min=1,max=65535"`
 	Sender   string `mapstructure:"sender"`
 }
 
@@ -160,7 +160,7 @@ type EmailConf struct {
 type DiscordConfig struct {
 	Enable       bool     `mapstructure:"enable"`
 	SyncDelete   bool     `mapstructure:"sync_delete"`
-	BotToken     string   `mapstructure:"bot_token"`
+	BotToken     string   `mapstructure:"bot_token" validate:"required_if=Enable true"`
 	GuildID      string   `mapstructure:"guild_id"`
 	ChannelID    string   `mapstructure:"channel_id"`
 	FilterUserid []string `mapstructure:"filter_userid"`

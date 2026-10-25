@@ -27,9 +27,9 @@ type discordListener struct {
 	syncDelete    bool
 }
 
-func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
+func StartDiscordListener(db *gorm.DB, cfg *model.Config, ossService oss.OSSService) {
 	dCfg := cfg.MomentsIntegrated.Integrated.Discord
-	if !cfg.MomentsIntegrated.Enable || !dCfg.Enable || dCfg.BotToken == "" {
+	if !cfg.MomentsIntegrated.Enable || !dCfg.Enable {
 		return
 	}
 
@@ -46,19 +46,12 @@ func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 		channelID:     strings.TrimSpace(dCfg.ChannelID),
 		filterUserIDs: make(map[string]bool),
 		syncDelete:    dCfg.SyncDelete,
+		ossService:    ossService,
 	}
 
 	for _, id := range dCfg.FilterUserid {
 		if trimmed := strings.TrimSpace(id); trimmed != "" {
 			listener.filterUserIDs[trimmed] = true
-		}
-	}
-
-	if cfg.OSS.Enable {
-		if ossService, err := oss.NewOSSService(); err == nil {
-			listener.ossService = ossService
-		} else {
-			log.Printf("[discord] oss init failed: %v", err)
 		}
 	}
 
@@ -69,7 +62,8 @@ func StartDiscordListener(db *gorm.DB, cfg *model.Config) {
 		log.Printf("[discord] open session failed: %v", err)
 		return
 	}
-	SetDiscordSession(session)
+	discordSession = session
+	discordSyncDelete = dCfg.SyncDelete
 
 	_ = session.UpdateStatusComplex(discordgo.UpdateStatusData{
 		Status: string(discordgo.StatusOnline),

@@ -25,11 +25,8 @@ func QueryMoments(db *gorm.DB, page, pageSize int, status string) ([]model.Momen
 		query = query.Offset(offset).Limit(pageSize)
 	}
 
-	if err := query.Order("created_at DESC").Order("id DESC").Find(&moments).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return moments, total, nil
+	err := query.Order("created_at DESC").Order("id DESC").Find(&moments).Error
+	return moments, total, err
 }
 
 // GetMediaForMoments retrieves media files for a list of moment IDs.
@@ -38,14 +35,11 @@ func GetMediaForMoments(db *gorm.DB, momentIDs []int) ([]model.MomentMedia, erro
 	if len(momentIDs) == 0 {
 		return media, nil
 	}
-	if err := db.Where("moment_id IN ? AND is_deleted = 0", momentIDs).
+	err := db.Where("moment_id IN ? AND is_deleted = 0", momentIDs).
 		Order("moment_id ASC").
 		Order("id ASC").
-		Find(&media).Error; err != nil {
-		return nil, err
-	}
-
-	return media, nil
+		Find(&media).Error
+	return media, err
 }
 
 // CreateMoment creates a new moment and its associated media in a transaction.
@@ -55,22 +49,14 @@ func CreateMoment(db *gorm.DB, moment *model.Moment, media []model.MomentMedia) 
 			return err
 		}
 
-		if len(media) > 0 {
-			for i := range media {
-				media[i].MomentID = moment.ID
-			}
-			if err := tx.Create(&media).Error; err != nil {
-				return err
-			}
+		if len(media) == 0 {
+			return nil
 		}
-
-		return nil
+		for i := range media {
+			media[i].MomentID = moment.ID
+		}
+		return tx.Create(&media).Error
 	})
-}
-
-// DeleteMoment deletes a moment.
-func DeleteMoment(db *gorm.DB, id int) error {
-	return db.Delete(&model.Moment{}, id).Error
 }
 
 // UpdateMoment updates fields for a moment.
@@ -118,8 +104,5 @@ func MomentExistsByChannelMessage(db *gorm.DB, channelID, messageID int64) (bool
 		Where("channel_id = ? AND message_id = ?", channelID, messageID).
 		Limit(1).
 		Scan(&id).Error
-	if err != nil {
-		return false, err
-	}
-	return id > 0, nil
+	return id > 0, err
 }

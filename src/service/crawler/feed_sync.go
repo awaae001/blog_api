@@ -163,7 +163,7 @@ func Subscribe(ctx context.Context, db *gorm.DB, feedURL string, friendLinkID in
 	if friendLinkID > 0 {
 		feed.FriendLinkID = &friendLinkID
 	}
-	if err := friendsRepositories.CreateRssFeed(db, &feed); err != nil {
+	if err := db.Create(&feed).Error; err != nil {
 		return model.RssFeed{}, model.RssFetchResult{}, fmt.Errorf("create feed: %w", err)
 	}
 

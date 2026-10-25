@@ -24,11 +24,6 @@ func GetFingerprintByID(db *gorm.DB, id int) (*model.Fingerprint, error) {
 	return &record, nil
 }
 
-// CreateFingerprint inserts a new fingerprint record.
-func CreateFingerprint(db *gorm.DB, fingerprint *model.Fingerprint) error {
-	return db.Create(fingerprint).Error
-}
-
 // UpdateFingerprintIdentity updates the fingerprint hash and current request identity fields.
 func UpdateFingerprintIdentity(db *gorm.DB, id int, fingerprint, userAgent, ip string) error {
 	return db.Model(&model.Fingerprint{}).

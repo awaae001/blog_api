@@ -28,7 +28,7 @@ const maxTurnstileRequestBytes = int64(1 << 20)
 func TurnstileVerify() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cfg := config.GetConfig()
-		if !cfg.Verify.Turnstile.Enable || cfg.Verify.Turnstile.Secret == "" {
+		if !cfg.Verify.Turnstile.Enable {
 			c.Next()
 			return
 		}

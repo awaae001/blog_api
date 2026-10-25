@@ -51,15 +51,6 @@ type StateStore struct {
 // All limits must be positive. maxTotalBytes limits owned payload bytes across
 // all entries; snapshots returned to callers are not included.
 func NewStateStore(maxEntries int, maxPayloadBytes, maxTotalBytes int64) *StateStore {
-	if maxEntries <= 0 {
-		panic("state store maxEntries must be positive")
-	}
-	if maxPayloadBytes <= 0 {
-		panic("state store maxPayloadBytes must be positive")
-	}
-	if maxTotalBytes <= 0 {
-		panic("state store maxTotalBytes must be positive")
-	}
 	return &StateStore{
 		entries:         make(map[string]stateEntry),
 		maxEntries:      maxEntries,
@@ -72,9 +63,6 @@ func NewStateStore(maxEntries int, maxPayloadBytes, maxTotalBytes int64) *StateS
 // RunCleanup removes expired entries at interval until ctx is canceled.
 // The method blocks and is intended to run in one application-owned goroutine.
 func (s *StateStore) RunCleanup(ctx context.Context, interval time.Duration) {
-	if interval <= 0 {
-		panic("state cleanup interval must be positive")
-	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {

@@ -3,7 +3,6 @@ package cmd
 import (
 	"blog_api/src/config"
 	"blog_api/src/middleware"
-	"blog_api/src/model"
 	"net/http"
 	"os"
 	"path"
@@ -22,7 +21,7 @@ func staticFileHandler() gin.HandlerFunc {
 		}
 
 		currentCfg := config.GetConfig()
-		baseDir := resolveStaticBaseDir(currentCfg)
+		baseDir := currentCfg.Data.Resource.Path
 		absBaseDir, _ := filepath.Abs(baseDir)
 
 		reqPath, ok := normalizeRequestPath(c.Request.URL.Path)
@@ -90,19 +89,6 @@ func staticFileHandler() gin.HandlerFunc {
 		}
 		c.File(fsPath)
 	}
-}
-
-func resolveStaticBaseDir(cfg *model.Config) string {
-	if cfg == nil {
-		return "data"
-	}
-
-	baseDir := strings.TrimSpace(cfg.Data.Resource.Path)
-	if baseDir == "" {
-		baseDir = "data"
-	}
-
-	return filepath.Clean(baseDir)
 }
 
 func normalizeRequestPath(raw string) (string, bool) {

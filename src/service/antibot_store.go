@@ -1,16 +1,14 @@
 package service
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"sync"
 	"time"
 )
 
 const (
-	defaultAntiBotTTLSeconds = 300
-	maxAntiBotTokens         = 10000
+	AntiBotTTLSeconds = 300
+	maxAntiBotTokens  = 10000
 )
 
 var errAntiBotCapacityReached = errors.New("anti-bot token capacity reached")
@@ -27,12 +25,8 @@ var antiBotStore = &AntiBotStore{
 
 // IssueAntiBotToken creates a new anti-bot token.
 func IssueAntiBotToken() (string, int64, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", 0, err
-	}
-	token := hex.EncodeToString(bytes)
-	expiresAt := time.Now().Add(defaultAntiBotTTLSeconds * time.Second).Unix()
+	token := randomHex(32)
+	expiresAt := time.Now().Add(AntiBotTTLSeconds * time.Second).Unix()
 
 	antiBotStore.mu.Lock()
 	defer antiBotStore.mu.Unlock()
@@ -43,11 +37,6 @@ func IssueAntiBotToken() (string, int64, error) {
 	antiBotStore.tokens[token] = expiresAt
 
 	return token, expiresAt, nil
-}
-
-// AntiBotTTLSeconds returns the default TTL for anti-bot tokens.
-func AntiBotTTLSeconds() int {
-	return defaultAntiBotTTLSeconds
 }
 
 // ValidateAntiBotToken validates a token and checks expiration.

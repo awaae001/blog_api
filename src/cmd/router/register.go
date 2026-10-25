@@ -14,18 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTime time.Time) {
-	ossService, err := oss.NewOSSService()
-	if err != nil {
-		// 记录错误但不中断启动，因为 OSS 可能不是必须的
-		log.Printf("Failed to initialize OSS service: %v", err)
-	}
-
+func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTime time.Time, ossService oss.OSSService) {
 	friendLinkHandler := &handler.FriendLinkHandler{DB: db}
 	rssPostHandler := &handler.RssPostHandler{DB: db}
 	friendActionHandler := &handlerAction.FriendLinkHandler{DB: db}
 	RssHandler := &handlerAction.FriendRssHandler{DB: db}
-	authHandlerInstance := authHandler.NewAuthHandler()
 	verifyHandler := &authHandler.VerifyHandler{DB: db}
 	statusHandler := &handler.StatusHandler{
 		DB:           db,
@@ -54,7 +47,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		}
 		verifyGroup := apiGroup.Group("/verify")
 		{
-			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandlerInstance.Login)
+			verifyGroup.POST("/passwd", middleware.TurnstileVerify(), authHandler.Login)
 			verifyGroup.POST("/email", middleware.RequirePublicAPI(model.PublicAPIEmail), middleware.AntiBotAuth(), verifyHandler.SendEmailCode)
 			verifyGroup.POST("/turnstile", middleware.TurnstileVerify(), verifyHandler.IssueVerifyToken)
 			verifyGroup.POST("/fingerprint", middleware.AntiBotAuth(), fingerprintHandler.CreateFingerprint)

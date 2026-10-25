@@ -12,8 +12,6 @@ import (
 
 // JWTAuth JWT 认证中间件
 func JWTAuth() gin.HandlerFunc {
-	authService := service.NewAuthService()
-
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -41,7 +39,7 @@ func JWTAuth() gin.HandlerFunc {
 		tokenString := parts[1]
 
 		// 验证 token
-		claims, err := authService.ValidateJWT(tokenString)
+		claims, err := service.ValidateJWT(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, model.ApiResponse{
 				Code:    http.StatusUnauthorized,

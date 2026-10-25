@@ -6,11 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateMomentReaction inserts a new reaction.
-func CreateMomentReaction(db *gorm.DB, reaction *model.MomentReaction) error {
-	return db.Create(reaction).Error
-}
-
 // DeleteMomentReaction removes a reaction by moment, fingerprint, and reaction type.
 func DeleteMomentReaction(db *gorm.DB, momentID, fingerprintID int, reaction string) error {
 	result := db.Where(

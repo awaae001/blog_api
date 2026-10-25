@@ -1,10 +1,8 @@
 package bot
 
 import (
-	"blog_api/src/config"
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
-	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -14,116 +12,62 @@ import (
 	"gorm.io/gorm"
 )
 
-// DeleteMomentWithSync deletes a moment locally and attempts to delete it from social platforms.
-// Remote delete errors are logged but do not block local deletion.
+// DeleteMomentWithSync attempts remote deletion before deleting the local moment.
+// A remote API failure is logged but does not block local deletion.
 func DeleteMomentWithSync(db *gorm.DB, id int) error {
 	moment, err := momentRepositories.GetMomentByID(db, id)
 	if err != nil {
 		return err
 	}
 
-	if err := syncDeleteMoment(config.GetConfig(), moment); err != nil {
-		log.Printf("[moment][WARN] sync delete failed for moment %d: %v", id, err)
-	}
-
-	return momentRepositories.DeleteMoment(db, id)
-}
-
-func syncDeleteMoment(cfg *model.Config, moment *model.Moment) error {
-	if cfg == nil || moment == nil {
-		return nil
-	}
-
-	var errs []string
-	if shouldDeleteDiscord(cfg, moment) {
-		if err := deleteDiscordMessage(moment); err != nil {
-			errs = append(errs, fmt.Sprintf("discord: %v", err))
+	platform := momentPlatform(moment)
+	switch platform {
+	case "discord":
+		if discordSession != nil && discordSyncDelete {
+			err = discordSession.ChannelMessageDelete(
+				strconv.FormatInt(moment.ChannelID, 10),
+				strconv.FormatInt(moment.MessageID, 10),
+			)
+		}
+	case "telegram":
+		if telegramSession != nil && telegramSyncDelete {
+			messageID := int(moment.MessageID)
+			if int64(messageID) != moment.MessageID {
+				err = fmt.Errorf("message ID out of int range: %d", moment.MessageID)
+			} else {
+				_, err = telegramSession.Request(tgbotapi.DeleteMessageConfig{
+					ChatID:    moment.ChannelID,
+					MessageID: messageID,
+				})
+			}
 		}
 	}
-	if shouldDeleteTelegram(cfg, moment) {
-		if err := deleteTelegramMessage(moment); err != nil {
-			errs = append(errs, fmt.Sprintf("telegram: %v", err))
-		}
-	}
-
-	if len(errs) > 0 {
-		return errors.New(strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-func shouldDeleteDiscord(cfg *model.Config, moment *model.Moment) bool {
-	if cfg == nil || moment == nil {
-		return false
-	}
-	dCfg := cfg.MomentsIntegrated.Integrated.Discord
-	if !cfg.MomentsIntegrated.Enable || !dCfg.Enable || !dCfg.SyncDelete || dCfg.BotToken == "" {
-		return false
-	}
-	if moment.ChannelID == 0 || moment.MessageID == 0 {
-		return false
-	}
-	link := strings.ToLower(moment.MessageLink)
-	if strings.Contains(link, "t.me") {
-		return false
-	}
-	return strings.Contains(link, "discord.com") || moment.GuildID != 0
-}
-
-func shouldDeleteTelegram(cfg *model.Config, moment *model.Moment) bool {
-	if cfg == nil || moment == nil {
-		return false
-	}
-	tgCfg := cfg.MomentsIntegrated.Integrated.Telegram
-	if !cfg.MomentsIntegrated.Enable || !tgCfg.Enable || !tgCfg.SyncDelete || tgCfg.BotToken == "" {
-		return false
-	}
-	if moment.ChannelID == 0 || moment.MessageID == 0 {
-		return false
-	}
-	link := strings.ToLower(moment.MessageLink)
-	if strings.Contains(link, "discord.com") {
-		return false
-	}
-	if strings.Contains(link, "t.me") {
-		return true
-	}
-	if moment.ChannelID < 0 {
-		return true
-	}
-	return moment.GuildID == 0 && link == ""
-}
-
-func deleteDiscordMessage(moment *model.Moment) error {
-	channelID := strconv.FormatInt(moment.ChannelID, 10)
-	messageID := strconv.FormatInt(moment.MessageID, 10)
-	session := GetDiscordSession()
-	if session == nil {
-		return fmt.Errorf("discord session not initialized")
-	}
-	return session.ChannelMessageDelete(channelID, messageID)
-}
-
-func deleteTelegramMessage(moment *model.Moment) error {
-	tgBot := GetTelegramBot()
-	if tgBot == nil {
-		return fmt.Errorf("telegram bot not initialized")
-	}
-	messageID, err := safeIntFromInt64(moment.MessageID)
 	if err != nil {
-		return err
+		log.Printf("[moment][WARN] %s sync delete failed for moment %d: %v", platform, id, err)
 	}
-	_, err = tgBot.Request(tgbotapi.DeleteMessageConfig{
-		ChatID:    moment.ChannelID,
-		MessageID: messageID,
-	})
-	return err
+	return db.Delete(&model.Moment{}, id).Error
 }
 
-func safeIntFromInt64(val int64) (int, error) {
-	maxInt := int64(^uint(0) >> 1)
-	if val > maxInt || val < -maxInt-1 {
-		return 0, fmt.Errorf("value out of int range: %d", val)
+// Local moments have no remote IDs; older bot records may have no message link.
+func momentPlatform(moment *model.Moment) string {
+	if moment.ChannelID == 0 || moment.MessageID == 0 {
+		return ""
 	}
-	return int(val), nil
+	link := strings.ToLower(moment.MessageLink)
+	discordLink := strings.Contains(link, "discord.com")
+	telegramLink := strings.Contains(link, "t.me")
+	switch {
+	case discordLink && telegramLink:
+		return ""
+	case discordLink:
+		return "discord"
+	case telegramLink:
+		return "telegram"
+	case moment.GuildID != 0:
+		return "discord"
+	case moment.ChannelID < 0 || link == "":
+		return "telegram"
+	default:
+		return ""
+	}
 }

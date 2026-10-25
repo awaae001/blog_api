@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -20,10 +19,6 @@ import (
 // InitDB initializes the database and runs migrations.
 func InitDB(cfg *model.Config) (*gorm.DB, error) {
 	dbPath := cfg.Data.Database.Path
-	if dbPath == "" {
-		return nil, fmt.Errorf("database path is not configured")
-	}
-
 	log.Printf("初始化数据库于: %s", dbPath)
 
 	newLogger := logger.New(
@@ -41,24 +36,11 @@ func InitDB(cfg *model.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("could not open database: %w", err)
 	}
 
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, fmt.Errorf("could not get sql.DB from gorm: %w", err)
-	}
-
-	if err := sqlDB.Ping(); err != nil {
-		return nil, fmt.Errorf("could not connect to database via gorm: %w", err)
-	}
-
 	migrationsDir := cfg.Data.Database.MigrationsPath
-	if migrationsDir == "" {
-		migrationsDir = "migrations"
-	}
 	migrationFiles, err := filepath.Glob(filepath.Join(migrationsDir, "*.sql"))
 	if err != nil {
 		return nil, fmt.Errorf("could not find migration files in %s: %w", migrationsDir, err)
 	}
-	sort.Strings(migrationFiles)
 	log.Printf("迁移文件目录: %s (共 %d 个迁移文件)", migrationsDir, len(migrationFiles))
 
 	if err := db.Exec(`

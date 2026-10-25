@@ -4,6 +4,7 @@ import (
 	"blog_api/src/config"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
+	"blog_api/src/service/oss"
 	"net/http"
 	"os"
 	"strings"
@@ -20,7 +21,7 @@ var corsMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 var corsHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Antibot-Token", "CF-Turnstile-Token", "X-Turnstile-Token", "X-fingerprint-token"}
 
 // SetupRouter 初始化并配置 Gin 路由器
-func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engine {
+func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time, ossService oss.OSSService) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.MaxMultipartMemory = 8 << 20
@@ -33,7 +34,7 @@ func SetupRouter(db *gorm.DB, cfg *model.Config, startTime time.Time) *gin.Engin
 	})
 	router.Use(dynamicCORSMiddleware())
 
-	registerRoutes(router, db, cfg, startTime)
+	registerRoutes(router, db, cfg, startTime, ossService)
 	if os.Getenv("PPROF_ENABLED") == "true" {
 		pprof.Register(router)
 	}

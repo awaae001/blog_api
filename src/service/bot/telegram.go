@@ -35,9 +35,9 @@ type telegramMediaGroup struct {
 	LastSeen time.Time
 }
 
-func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
+func StartTelegramListener(db *gorm.DB, cfg *model.Config, ossService oss.OSSService) {
 	tgCfg := cfg.MomentsIntegrated.Integrated.Telegram
-	if !cfg.MomentsIntegrated.Enable || !tgCfg.Enable || tgCfg.BotToken == "" {
+	if !cfg.MomentsIntegrated.Enable || !tgCfg.Enable {
 		return
 	}
 
@@ -46,11 +46,11 @@ func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 		log.Printf("[telegram] init bot failed: %v", err)
 		return
 	}
-	SetTelegramBot(bot)
 
 	listener := &telegramListener{
 		db:            db,
 		bot:           bot,
+		ossService:    ossService,
 		filterUserIDs: make(map[int64]bool),
 		pendingGroups: make(map[string]*telegramMediaGroup),
 		startTime:     tgCfg.StartTime,
@@ -75,14 +75,8 @@ func StartTelegramListener(db *gorm.DB, cfg *model.Config) {
 		return
 	}
 
-	if cfg.OSS.Enable {
-		if ossService, err := oss.NewOSSService(); err == nil {
-			listener.ossService = ossService
-		} else {
-			log.Printf("[telegram] oss init failed: %v", err)
-		}
-	}
-
+	telegramSession = bot
+	telegramSyncDelete = tgCfg.SyncDelete
 	go listener.run()
 }
 

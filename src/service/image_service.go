@@ -40,7 +40,7 @@ func ScanAndSaveImages(db *gorm.DB) error {
 		images = images[:0]
 		return nil
 	}
-	targetFormat := strings.ToLower(cfg.Data.Image.ConvTo)
+	targetFormat := cfg.Data.Image.ConvTo
 	walkErr := filepath.Walk(imagePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("[service][image][WARN] Error accessing path %s: %v. Skipping.", path, err)
@@ -57,19 +57,17 @@ func ScanAndSaveImages(db *gorm.DB) error {
 			return nil
 		}
 
-		if processed != nil {
-			if processed.converted {
-				updated, err := updateImageAfterConvert(db, processed.originalURL, processed.originalPath, processed.image)
-				if err != nil {
-					log.Printf("[service][image][WARN] Failed to update image record after conversion: %v", err)
-				} else if updated {
-					return nil
-				}
+		if processed.converted {
+			updated, err := updateImageAfterConvert(db, processed.originalURL, processed.originalPath, processed.image)
+			if err != nil {
+				log.Printf("[service][image][WARN] Failed to update image record after conversion: %v", err)
+			} else if updated {
+				return nil
 			}
-			images = append(images, *processed.image)
-			if len(images) == cap(images) {
-				return flush()
-			}
+		}
+		images = append(images, *processed.image)
+		if len(images) == cap(images) {
+			return flush()
 		}
 		return nil
 	})
@@ -227,9 +225,6 @@ func encodeImage(w io.Writer, img image.Image, targetFormat string) error {
 }
 
 func updateImageAfterConvert(db *gorm.DB, originalURL, originalPath string, img *model.Image) (bool, error) {
-	if img == nil || (originalURL == "" && originalPath == "") {
-		return false, nil
-	}
 	updates := map[string]interface{}{
 		"name":       img.Name,
 		"url":        img.URL,

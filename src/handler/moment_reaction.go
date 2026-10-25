@@ -26,7 +26,7 @@ func (h *MomentReactionHandler) AddReaction(c *gin.Context) {
 		return
 	}
 	reaction.CreatedAt = time.Now().Unix()
-	if err := momentRepositories.CreateMomentReaction(h.DB.WithContext(c.Request.Context()), reaction); err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Create(reaction).Error; err != nil {
 		if middleware.AbortIfCanceled(c, err) {
 			return
 		}

@@ -26,6 +26,6 @@ func (h *VerifyHandler) IssueVerifyToken(c *gin.Context) {
 	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]interface{}{
 		"antibot_token": token,
 		"expires_at":    expiresAt,
-		"expires_in":    service.AntiBotTTLSeconds(),
+		"expires_in":    service.AntiBotTTLSeconds,
 	}})
 }

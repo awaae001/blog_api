@@ -7,7 +7,6 @@ import (
 	"blog_api/src/service"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -38,8 +37,9 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 		pageSize = 100
 	}
 
+	tokenService := service.NewFingerprintTokenService(config.GetConfig().Verify.Fingerprint.Secret)
 	var fingerprintID *int
-	if id, ok := parseFingerprintID(c); ok {
+	if id, ok := tokenService.Verify(middleware.ExtractFingerprintToken(c)); ok {
 		fingerprintID = &id
 	}
 
@@ -75,40 +75,4 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: paginatedData})
-}
-
-func parseFingerprintID(c *gin.Context) (int, bool) {
-	secret := config.GetConfig().Verify.Fingerprint.Secret
-	if secret == "" {
-		return 0, false
-	}
-
-	token := extractFingerprintToken(c)
-	if token == "" {
-		return 0, false
-	}
-
-	tokenService := service.NewFingerprintTokenService(secret)
-	id, ok := tokenService.Verify(token)
-	if !ok || id <= 0 {
-		return 0, false
-	}
-
-	return id, true
-}
-
-func extractFingerprintToken(c *gin.Context) string {
-	if token := c.GetHeader("X-Fingerprint-Token"); token != "" {
-		return token
-	}
-
-	authHeader := c.GetHeader("Authorization")
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && strings.EqualFold(parts[0], "Fingerprint") {
-			return parts[1]
-		}
-	}
-
-	return ""
 }

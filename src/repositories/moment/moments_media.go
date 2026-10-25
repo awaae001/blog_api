@@ -6,11 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateMomentMedia creates a new media record for a moment.
-func CreateMomentMedia(db *gorm.DB, media *model.MomentMedia) error {
-	return db.Create(media).Error
-}
-
 // DeleteMomentMedia deletes a media record by its ID.
 func DeleteMomentMedia(db *gorm.DB, id int) error {
 	result := db.Where("id = ?", id).Delete(&model.MomentMedia{})

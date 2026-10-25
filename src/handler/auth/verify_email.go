@@ -38,24 +38,22 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 			return
 		}
 
-		friendLinks := make([]model.FriendLinkDTO, 0)
-		if h.DB != nil {
-			result, err := friendsRepositories.QueryFriendLinks(h.DB, model.FriendLinkQueryOptions{
-				Email: req.Email,
-			})
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
-				return
-			}
-			for _, link := range result.Links {
-				friendLinks = append(friendLinks, link.ToDTO(false))
-			}
+		result, err := friendsRepositories.QueryFriendLinks(h.DB, model.FriendLinkQueryOptions{
+			Email: req.Email,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
+			return
+		}
+		friendLinks := make([]model.FriendLinkDTO, 0, len(result.Links))
+		for _, link := range result.Links {
+			friendLinks = append(friendLinks, link.ToDTO(false))
 		}
 
 		c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]interface{}{
 			"token":        token,
 			"expires_at":   expiresAt,
-			"expires_in":   service.EmailTokenTTLSeconds(),
+			"expires_in":   service.EmailTokenTTLSeconds,
 			"friend_links": friendLinks,
 		}})
 		return
@@ -74,7 +72,7 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 
 	content := service.EmailContent{
 		Subject: "blog api 登录验证",
-		Body:    fmt.Sprintf("你的验证码是： %s 。 它将在 %d 后过期。", code, service.EmailCodeTTLSeconds()/60),
+		Body:    fmt.Sprintf("你的验证码是： %s 。 它将在 %d 后过期。", code, service.EmailCodeTTLSeconds/60),
 		IsHTML:  false,
 	}
 	if !cfg.Email.Enable {
@@ -90,6 +88,6 @@ func (h *VerifyHandler) SendEmailCode(c *gin.Context) {
 
 	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]interface{}{
 		"expires_at": expiresAt,
-		"expires_in": service.EmailCodeTTLSeconds(),
+		"expires_in": service.EmailCodeTTLSeconds,
 	}})
 }

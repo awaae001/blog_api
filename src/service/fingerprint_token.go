@@ -34,7 +34,7 @@ func (s *FingerprintTokenService) Verify(token string) (int, bool) {
 		return 0, false
 	}
 	id, err := strconv.Atoi(parts[0])
-	if err != nil {
+	if err != nil || id <= 0 {
 		return 0, false
 	}
 	return id, true

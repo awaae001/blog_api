@@ -66,12 +66,6 @@ func FriendLinkHasRssFeeds(db *gorm.DB, friendLinkID int) (bool, error) {
 	return count > 0, err
 }
 
-// CreateRssFeed inserts a new feed. feed_url is unique; callers check
-// RssFeedURLTaken first for a friendly error.
-func CreateRssFeed(db *gorm.DB, feed *model.RssFeed) error {
-	return db.Create(feed).Error
-}
-
 // UpdateRssFeed applies column updates to one feed and reports whether it exists.
 func UpdateRssFeed(db *gorm.DB, id int, updates map[string]any) (bool, error) {
 	result := db.Model(&model.RssFeed{ID: id}).Updates(updates)

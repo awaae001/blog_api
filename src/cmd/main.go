@@ -36,10 +36,14 @@ func Run() {
 	if err := service.ScanAndSaveImages(db); err != nil {
 		log.Printf("[main]无法扫描和保存图片: %v", err)
 	}
-	if err := oss.ValidateOSSConfig(); err != nil {
-		log.Printf("[main][OSS]配置校验失败: %v", err)
+	ossService, err := oss.NewOSSService(&cfg.OSS)
+	if err != nil {
+		log.Fatalf("[main][OSS]初始化失败: %v", err)
 	}
-	router := cmd.SetupRouter(db, cfg, startTime)
+	service.InitAuth(cfg)
+	botService.StartTelegramListener(db, cfg, ossService)
+	botService.StartDiscordListener(db, cfg, ossService)
+	router := cmd.SetupRouter(db, cfg, startTime, ossService)
 
 	addr := fmt.Sprintf("%s:%s", cfg.ListenAddress, cfg.Port)
 	server := &http.Server{
@@ -57,7 +61,6 @@ func Run() {
 		}
 	}()
 
-	botService.StartListeners(db, cfg)
 	StartCronJobs(db)
 	log.Println("[main][App]应用程序启动成功。HTTP 服务器和 cron 任务正在运行。")
 

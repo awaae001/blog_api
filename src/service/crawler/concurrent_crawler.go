@@ -139,12 +139,5 @@ func imageCheckWorker(id int, jobs <-chan ImageCheckJob, checkFunc func(image mo
 }
 
 func effectiveConcurrency(total int) int {
-	concurrency := config.GetConfig().Crawler.Concurrency
-	if concurrency <= 0 {
-		concurrency = 5 // 默认并发数
-	}
-	if total < concurrency {
-		return total
-	}
-	return concurrency
+	return min(total, config.GetConfig().Crawler.Concurrency)
 }
