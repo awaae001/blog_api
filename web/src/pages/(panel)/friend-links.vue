@@ -40,8 +40,16 @@
 
     <!-- Friend Link Table -->
     <el-scrollbar class="table-scroll">
-      <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
-        <el-table-column prop="name" label="网站名称" width="180" />
+      <el-table :data="friendLinks" v-loading="loading" style="width: 100%" :row-class-name="rowClassName">
+        <!-- @vue-generic {FriendLink} -->
+        <el-table-column prop="name" label="网站名称" width="200">
+          <template #default="{ row }">
+            <div class="link-cell">
+              <el-avatar :size="20" :src="row.avatar" class="link-avatar">{{ row.name.slice(0, 1) }}</el-avatar>
+              <span class="link-name" :class="nameClass(row)" :title="statusLabel(row)">{{ row.name }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="link" label="链接">
           <template #default="{ row }">
             <a :href="row.link" target="_blank">{{ row.link }}</a>
@@ -49,16 +57,6 @@
         </el-table-column>
         <el-table-column prop="email" label="邮箱" width="200" />
         <el-table-column prop="times" label="失败次数" width="100" />
-        <el-table-column label="是否失效" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
-          </template>
-        </el-table-column>
         <el-table-column prop="updated_at" label="更新时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.updated_at) }}
@@ -95,13 +93,8 @@
       </el-table>
     </el-scrollbar>
 
-    <TablePagination
-      :total="total"
-      :page-size="pageSize"
-      :current-page="currentPage"
-      @size-change="handleSizeChange"
-      @current-change="handlePageChange"
-    />
+    <TablePagination :total="total" :page-size="pageSize" :current-page="currentPage" @size-change="handleSizeChange"
+      @current-change="handlePageChange" />
 
     <!-- Form Dialog for Add/Edit -->
     <el-dialog :title="isEditMode ? '编辑友链' : '新增友链'" v-model="dialogVisible" width="500px" @close="resetForm">
@@ -401,20 +394,23 @@ const handleRecheckAll = async () => {
   }
 }
 
-const statusTagType = (status: string) => {
-  switch (status) {
-    case 'survival':
-      return 'success'
-    case 'pending':
-      return 'info'
-    case 'timeout':
-      return 'warning'
-    case 'error':
-      return 'danger'
-    default:
-      return 'info'
-  }
+// 状态合进名称列：文字颜色即状态，失效的整行置灰。
+const statusLabels: Record<string, string> = {
+  survival: '正常',
+  pending: '待定',
+  timeout: '超时',
+  error: '错误'
 }
+
+const statusLabel = (row: FriendLink) => {
+  const status = statusLabels[row.status] ?? row.status
+  return row.is_died ? `已失效 · ${status}` : status
+}
+
+const nameClass = (row: FriendLink) => `link-name--${row.status}`
+
+const rowClassName = ({ row }: { row: FriendLink }) => (row.is_died ? 'friend-link-died' : '')
+
 const handleHealthCheckToggle = async (link: FriendLink) => {
   const originalValue = link.skip_health_check
   const newValue = !originalValue
@@ -477,8 +473,65 @@ const handleRssToggle = async (link: FriendLink) => {
   margin-bottom: 16px;
 }
 
+.link-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.link-avatar {
+  flex: none;
+  font-size: 11px;
+}
+
+.link-name {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-name--survival {
+  color: var(--el-color-success);
+}
+
+.link-name--pending {
+  color: var(--el-color-info);
+}
+
+.link-name--timeout {
+  color: var(--el-color-warning);
+}
+
+.link-name--error {
+  color: var(--el-color-danger);
+}
+
+:deep(.friend-link-died .el-table__cell) {
+  background-color: var(--el-fill-color-lighter);
+}
+
+:deep(.friend-link-died .el-table__cell:not(:first-child)) {
+  color: var(--el-text-color-disabled);
+}
+
+:deep(.friend-link-died a),
+:deep(.friend-link-died .el-button) {
+  color: var(--el-text-color-disabled);
+}
+
+:deep(.friend-link-died .link-avatar) {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+/* 失效的友链只在名称上划一杠，颜色仍然表明真实巡查结果。 */
+:deep(.friend-link-died .link-name) {
+  text-decoration: line-through;
+}
+
 .table-actions {
   margin-bottom: 16px;
 }
-
 </style>

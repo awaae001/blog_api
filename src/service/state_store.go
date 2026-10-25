@@ -12,13 +12,9 @@ import (
 )
 
 var (
-	// ErrInvalidStatePayload indicates that a payload is not a JSON object.
-	ErrInvalidStatePayload = errors.New("state payload must be a JSON object")
-	// ErrStatePayloadTooLarge indicates that a payload exceeds the configured limit.
-	ErrStatePayloadTooLarge = errors.New("state payload is too large")
-	// ErrStateCapacityReached indicates that no more distinct states can be stored.
-	ErrStateCapacityReached = errors.New("state capacity reached")
-	// ErrStateMemoryLimitReached indicates that stored payloads reached their global byte budget.
+	ErrInvalidStatePayload     = errors.New("state payload must be a JSON object")
+	ErrStatePayloadTooLarge    = errors.New("state payload is too large")
+	ErrStateCapacityReached    = errors.New("state capacity reached")
 	ErrStateMemoryLimitReached = errors.New("state memory limit reached")
 )
 
@@ -53,8 +49,6 @@ func NewStateStore(maxEntries int, maxPayloadBytes, maxTotalBytes int64) *StateS
 	}
 }
 
-// RunCleanup removes expired entries at interval until ctx is canceled.
-// The method blocks and is intended to run in one application-owned goroutine.
 func (s *StateStore) RunCleanup(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -70,9 +64,6 @@ func (s *StateStore) RunCleanup(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// Put stores a JSON object until the supplied expiration time.
-//
-// The payload is copied before Put returns. created reports whether key was new.
 func (s *StateStore) Put(key string, payload []byte, expiresAt time.Time) (state StoredState, created bool, err error) {
 	if int64(len(payload)) > s.maxPayloadBytes {
 		return StoredState{}, false, ErrStatePayloadTooLarge
