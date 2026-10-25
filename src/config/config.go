@@ -2,18 +2,21 @@ package config
 
 import (
 	"blog_api/src/model"
+	"bytes"
 	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 )
@@ -23,183 +26,101 @@ var defaultConfigFiles embed.FS
 
 var (
 	currentConfig   atomic.Pointer[model.Config]
-	loadErr         error
-	once            sync.Once
-	reloadMu        sync.Mutex
-	updateMu        sync.Mutex
+	configMu        sync.Mutex
 	configValidator = validator.New(validator.WithRequiredStructEnabled())
 )
 
 type UpdateResult struct {
+	Message             string   `json:"message"`
 	Reloaded            bool     `json:"reloaded"`
 	RestartRequiredKeys []string `json:"restart_required_keys"`
 }
 
+// Load 初始化配置；失败后可以重试。
 func Load() (*model.Config, error) {
-	once.Do(func() {
-		reloadMu.Lock()
-		defer reloadMu.Unlock()
-
-		var cfg *model.Config
-		cfg, loadErr = loadConfig()
-		if loadErr == nil {
-			currentConfig.Store(cfg)
-		}
-	})
-	reloadMu.Lock()
-	defer reloadMu.Unlock()
-	return currentConfig.Load(), loadErr
-}
-
-// GetConfig returns the currently published configuration snapshot.
-//
-// Callers must treat the returned Config as read-only. A later Reload can
-// atomically publish a different snapshot, but the returned pointer remains
-// valid for the caller that already acquired it.
-func GetConfig() *model.Config {
-	cfg := currentConfig.Load()
-	if cfg == nil {
-		log.Fatal("配置未初始化,请先调用 Load()")
+	configMu.Lock()
+	defer configMu.Unlock()
+	if cfg := currentConfig.Load(); cfg != nil {
+		return cfg, nil
 	}
-	return cfg
+	return reload()
 }
 
-// Reload reads config files again and atomically publishes the new snapshot.
-//
-// If loading fails, the previous snapshot remains active and the error is
-// returned to the caller.
-func Reload() (*model.Config, error) {
-	reloadMu.Lock()
-	defer reloadMu.Unlock()
+// GetConfig 在 Load 后返回只读快照，已取得的快照不会随 Reload 改变。
+func GetConfig() *model.Config {
+	return currentConfig.Load()
+}
 
-	cfg, err := loadConfig()
+// Reload 重新加载配置；失败时保留上一份运行时快照。
+func Reload() (*model.Config, error) {
+	configMu.Lock()
+	defer configMu.Unlock()
+	return reload()
+}
+
+func reload() (*model.Config, error) {
+	cfg, err := loadConfig(nil)
 	if err != nil {
 		return nil, err
 	}
-	currentConfig.Store(cfg)
-	loadErr = nil
+	publish(cfg)
 	return cfg, nil
 }
 
-func loadConfig() (*model.Config, error) {
-	v := newConfigReader()
-
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok || errors.Is(err, os.ErrNotExist) {
-			log.Printf("未找到 .env 文件，将跳过加载")
-		} else {
-			return nil, fmt.Errorf("解析 .env 文件时发生错误: %w", err)
-		}
-	}
-
-	configPath := v.GetString("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "data/config"
-	}
-	if err := ensureDefaultConfigFiles(configPath); err != nil {
-		return nil, err
-	}
-	if err := mergeJSONConfig(v, "system_config", configPath); err != nil {
-		return nil, err
-	}
-	if err := mergeJSONConfig(v, "friend_list", configPath); err != nil {
-		return nil, err
-	}
-	cfg := &model.Config{}
-	if err := unmarshalConfig(v, cfg); err != nil {
-		return nil, fmt.Errorf("解析配置到结构体失败: %w", err)
-	}
-
-	return cfg, nil
-}
-
-func newConfigReader() *viper.Viper {
-	v := viper.New()
-	v.SetDefault("CRON_SCAN_ON_STARTUP", true)
+// loadConfig 只构建、校验候选配置，不发布。data 为 nil 时读取磁盘文件。
+func loadConfig(data []byte) (*model.Config, error) {
+	v := viper.NewWithOptions(viper.ExperimentalBindStruct())
 	v.SetConfigFile(".env")
 	v.SetConfigType("env")
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	return v
-}
-
-func ensureDefaultConfigFiles(configPath string) error {
-	if err := os.MkdirAll(configPath, 0o755); err != nil {
-		return fmt.Errorf("创建配置目录失败: %w", err)
+	for key, value := range map[string]any{
+		"PORT": "10024", "LISTEN_ADDRESS": "0.0.0.0",
+		"CONFIG_PATH": "data/config", "CRON_SCAN_ON_STARTUP": true,
+	} {
+		v.SetDefault(key, value)
 	}
-
-	defaults := []string{"system_config.json", "friend_list.json"}
-	for _, name := range defaults {
-		content, err := fs.ReadFile(defaultConfigFiles, "defaults/"+name)
-		if err != nil {
-			return fmt.Errorf("读取内嵌配置 %s 失败: %w", name, err)
-		}
-
-		path := filepath.Join(configPath, name)
-		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if errors.Is(err, os.ErrExist) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("创建默认配置 %s 失败: %w", path, err)
-		}
-
-		if _, err := file.Write(content); err != nil {
-			_ = file.Close()
-			_ = os.Remove(path)
-			return fmt.Errorf("写入默认配置 %s 失败: %w", path, err)
-		}
-		if err := file.Close(); err != nil {
-			_ = os.Remove(path)
-			return fmt.Errorf("关闭默认配置 %s 失败: %w", path, err)
-		}
-		log.Printf("[config]已释放默认配置: %s", path)
+	if err := v.ReadInConfig(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("读取 .env 失败: %w", err)
 	}
-	return nil
-}
-
-// mergeJSONConfig 合并指定的 JSON 配置文件
-func mergeJSONConfig(v *viper.Viper, configName, configPath string) error {
-	v.SetConfigName(configName)
+	active := currentConfig.Load()
+	if active != nil {
+		v.Set("CONFIG_PATH", active.ConfigPath)
+	}
+	configPath := v.GetString("CONFIG_PATH")
+	if active == nil {
+		if err := ensureDefaultConfigFiles(configPath); err != nil {
+			return nil, err
+		}
+	}
+	if data == nil {
+		var err error
+		data, err = os.ReadFile(filepath.Join(configPath, "system_config.json"))
+		if err != nil {
+			return nil, err
+		}
+	}
 	v.SetConfigType("json")
-	v.AddConfigPath(configPath)
-
-	if err := v.MergeInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Printf("未找到配置文件 (%s/%s.json)，将跳过合并", configPath, configName)
-			return nil
+	if err := v.MergeConfig(bytes.NewReader(data)); err != nil {
+		return nil, fmt.Errorf("解析 system_config.json 失败: %w", err)
+	}
+	for env, key := range map[string]string{
+		"TELEGRAM_BOT_TOKEN":    "moments_integrated_conf.integrated.telegram.bot_token",
+		"DISCORD_BOT_TOKEN":     "moments_integrated_conf.integrated.discord.bot_token",
+		"OSS_ACCESS_KEY_ID":     "oss_conf.accessKeyId",
+		"OSS_ACCESS_KEY_SECRET": "oss_conf.accessKeySecret",
+		"TURNSTILE_SECRET":      "verify_conf.turnstile.secret",
+		"FINGERPRINT_SECRET":    "verify_conf.fingerprint.secret",
+		"EMAIL_PASSWORD":        "email_conf.password",
+	} {
+		if value := v.GetString(env); value != "" {
+			v.Set("system_conf."+key, value)
 		}
-		return fmt.Errorf("合并配置文件 %s 时发生错误: %w", configName, err)
 	}
-	return nil
-}
-
-// unmarshalConfig 将 viper 配置解析到 Config 结构体
-func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
-	cfg.Port = v.GetString("PORT")
-	cfg.ListenAddress = v.GetString("LISTEN_ADDRESS")
-	cfg.WebPanelUser = v.GetString("WEB_PANEL_USER")
-	cfg.WebPanelPwd = v.GetString("WEB_PANEL_PWD")
-	cfg.StateAPIMasterPassword = v.GetString("STATE_API_MASTER_PASSWORD")
-	cfg.ConfigPath = v.GetString("CONFIG_PATH")
-	cfg.CronScanOnStartup = v.GetBool("CRON_SCAN_ON_STARTUP")
-	cfg.IsDev = parseEnvBool(v.GetString("IS_DEV"))
-
-	if cfg.Port == "" {
-		cfg.Port = "10024"
+	cfg := new(model.Config)
+	if err := v.Unmarshal(cfg); err != nil {
+		return nil, fmt.Errorf("解析配置失败: %w", err)
 	}
-	if cfg.ListenAddress == "" {
-		cfg.ListenAddress = "0.0.0.0"
-	}
-	if cfg.ConfigPath == "" {
-		cfg.ConfigPath = "data/config"
-	}
-
-	if err := v.UnmarshalKey("system_conf", cfg); err != nil {
-		return fmt.Errorf("解析系统配置失败: %w", err)
-	}
-
-	cfg.Safe.ExcludePaths = append(cfg.Safe.ExcludePaths, cfg.Data.Database.Path)
 	if cfg.Data.Database.MigrationsPath == "" {
 		cfg.Data.Database.MigrationsPath = "migrations"
 	}
@@ -209,7 +130,6 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 	}
 	cfg.Data.Resource.Path = filepath.Clean(cfg.Data.Resource.Path)
 	cfg.Data.Image.ConvTo = strings.ToLower(strings.TrimSpace(cfg.Data.Image.ConvTo))
-
 	if cfg.Crawler.Concurrency <= 0 {
 		cfg.Crawler.Concurrency = 5
 	}
@@ -217,217 +137,155 @@ func unmarshalConfig(v *viper.Viper, cfg *model.Config) error {
 		cfg.Crawler.RssTimeoutSeconds = 15
 	}
 	cfg.Safe.EnabledPublicAPIs = normalizeEnabledPublicAPIs(cfg.Safe.EnabledPublicAPIs)
-
-	if telegramBotToken := v.GetString("TELEGRAM_BOT_TOKEN"); telegramBotToken != "" {
-		cfg.MomentsIntegrated.Integrated.Telegram.BotToken = telegramBotToken
-	}
-	if discordBotToken := v.GetString("DISCORD_BOT_TOKEN"); discordBotToken != "" {
-		cfg.MomentsIntegrated.Integrated.Discord.BotToken = discordBotToken
-	}
 	targets := &cfg.MomentsIntegrated.Integrated
 	targets.Telegram.BotToken = strings.TrimSpace(targets.Telegram.BotToken)
 	targets.Discord.BotToken = strings.TrimSpace(targets.Discord.BotToken)
-	if ossAccessKeyId := v.GetString("OSS_ACCESS_KEY_ID"); ossAccessKeyId != "" {
-		cfg.OSS.AccessKeyID = ossAccessKeyId
-	}
-	if ossAccessKeySecret := v.GetString("OSS_ACCESS_KEY_SECRET"); ossAccessKeySecret != "" {
-		cfg.OSS.AccessKeySecret = ossAccessKeySecret
-	}
-	if turnstileSecret := v.GetString("TURNSTILE_SECRET"); turnstileSecret != "" {
-		cfg.Verify.Turnstile.Secret = turnstileSecret
-	}
-	if fingerprintSecret := v.GetString("FINGERPRINT_SECRET"); fingerprintSecret != "" {
-		cfg.Verify.Fingerprint.Secret = fingerprintSecret
-	}
-	if emailPassword := v.GetString("EMAIL_PASSWORD"); emailPassword != "" {
-		cfg.Email.Password = emailPassword
-	}
 	cfg.Verify.Turnstile.Secret = strings.TrimSpace(cfg.Verify.Turnstile.Secret)
 	cfg.Verify.Fingerprint.Secret = strings.TrimSpace(cfg.Verify.Fingerprint.Secret)
 	if cfg.Email.Sender == "" {
 		cfg.Email.Sender = cfg.Email.UserName
 	}
 	if err := configValidator.Struct(cfg); err != nil {
-		return fmt.Errorf("配置校验失败: %w", err)
+		return nil, fmt.Errorf("配置校验失败: %w", err)
 	}
-	// Only validate bot targets when the integration's master switch is on.
-	if cfg.MomentsIntegrated.Enable {
-		if err := configValidator.Struct(targets); err != nil {
-			return fmt.Errorf("机器人配置校验失败: %w", err)
-		}
+	if active != nil {
+		return cfg, nil
 	}
-
-	friendListPath := filepath.Join(cfg.ConfigPath, "friend_list.json")
-	friendListData, err := os.ReadFile(friendListPath)
+	friendData, err := os.ReadFile(filepath.Join(configPath, "friend_list.json"))
 	if err != nil {
-		log.Printf("[config]无法读取 friend_list.json 文件: %v, 将跳过加载友链", err)
-	} else {
-		var friendLinksConf model.FriendLinksConf
-		if err := json.Unmarshal(friendListData, &friendLinksConf); err != nil {
-			return fmt.Errorf("解析 friend_list.json 文件失败: %w", err)
-		}
-		cfg.FriendLinks = friendLinksConf.FriendLinksData.Website
+		return nil, err
 	}
+	var friends model.FriendLinksConf
+	if err := json.Unmarshal(friendData, &friends); err != nil {
+		return nil, fmt.Errorf("解析 friend_list.json 失败: %w", err)
+	}
+	cfg.FriendLinks = friends.FriendLinksData.Website
+	return cfg, nil
+}
 
+// publish 保留启动型配置，避免快照与现有数据库、客户端使用不同的参数。
+func publish(cfg *model.Config) {
+	if active := currentConfig.Load(); active != nil {
+		cfg.EnvironmentConfig = active.EnvironmentConfig
+		cfg.Data.Database = active.Data.Database
+		cfg.Data.Image = active.Data.Image
+		cfg.MomentsIntegrated = active.MomentsIntegrated
+		cfg.OSS = active.OSS
+		cfg.FriendLinks = active.FriendLinks
+	}
+	cfg.Safe.ExcludePaths = append(cfg.Safe.ExcludePaths, cfg.Data.Database.Path)
+	currentConfig.Store(cfg)
+}
+
+func ensureDefaultConfigFiles(configPath string) error {
+	if err := os.MkdirAll(configPath, 0o755); err != nil {
+		return err
+	}
+	for _, name := range []string{"system_config.json", "friend_list.json"} {
+		content, err := defaultConfigFiles.ReadFile("defaults/" + name)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(configPath, name)
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if errors.Is(err, os.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		_, writeErr := file.Write(content)
+		if err := errors.Join(writeErr, file.Close()); err != nil {
+			_ = os.Remove(path)
+			return fmt.Errorf("写入默认配置 %s 失败: %w", path, err)
+		}
+	}
 	return nil
 }
 
 func normalizeEnabledPublicAPIs(values []string) []string {
-	allowed := map[string]bool{
-		model.PublicAPIMoments: true,
-		model.PublicAPIImage:   true,
-		model.PublicAPIFriend:  true,
-		model.PublicAPIRSS:     true,
-		model.PublicAPIEmail:   true,
-	}
-	seen := make(map[string]bool, len(values))
-	normalized := make([]string, 0, len(values))
+	allowed := []string{model.PublicAPIMoments, model.PublicAPIImage, model.PublicAPIFriend, model.PublicAPIRSS, model.PublicAPIEmail}
+	result := make([]string, 0, len(values))
 	for _, value := range values {
 		value = strings.TrimSpace(value)
-		if !allowed[value] {
+		if !slices.Contains(allowed, value) {
 			log.Printf("[config][WARN]忽略未知的公开 API 功能键: %q", value)
-			continue
+		} else if !slices.Contains(result, value) {
+			result = append(result, value)
 		}
-		if seen[value] {
-			continue
-		}
-		seen[value] = true
-		normalized = append(normalized, value)
 	}
-	return normalized
+	return result
 }
 
-func parseEnvBool(val string) bool {
-	switch strings.ToLower(strings.TrimSpace(val)) {
-	case "1", "true", "yes", "y", "on", "ture":
-		return true
-	default:
-		return false
-	}
-}
+// UpdateAndSaveConfig 按 RFC 7396 合并局部配置，校验后原子落盘并发布。
+func UpdateAndSaveConfig(patch model.UpdateConfigReq) (*UpdateResult, error) {
+	configMu.Lock()
+	defer configMu.Unlock()
 
-// UpdateAndSaveConfigs persists supported config updates and reloads config.
-//
-// Only keys under system_conf are accepted. Unsupported or invalid keys are
-// skipped for backward compatibility. On write success, the function reloads
-// the global snapshot. If reload fails, the previous snapshot remains active and
-// the previous file content is restored when possible.
-func UpdateAndSaveConfigs(updates []model.UpdateConfigReq) (*UpdateResult, error) {
-	updateMu.Lock()
-	defer updateMu.Unlock()
-
-	configPath := GetConfig().ConfigPath
-	filePath := filepath.Join(configPath, "system_config.json")
-
-	existingData, err := os.ReadFile(filePath)
+	active := GetConfig()
+	filePath := filepath.Join(active.ConfigPath, "system_config.json")
+	data, err := os.ReadFile(filePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			existingData = []byte("{}")
-		} else {
-			return nil, fmt.Errorf("读取现有配置文件失败: %w", err)
-		}
+		return nil, err
 	}
-	var existingConfig map[string]interface{}
-	if err := json.Unmarshal(existingData, &existingConfig); err != nil {
-		return nil, fmt.Errorf("解析现有配置失败: %w", err)
-	}
-	for _, update := range updates {
-		if !strings.HasPrefix(update.Key, "system_conf.") {
-			log.Printf("跳过不支持的配置键: %s", update.Key)
-			continue
-		}
-		keys := strings.Split(update.Key, ".")
-		if len(keys) < 2 {
-			log.Printf("跳过无效的配置键: %s", update.Key)
-			continue
-		}
-		current := existingConfig
-		for i := 0; i < len(keys)-1; i++ {
-			if _, ok := current[keys[i]]; !ok {
-				current[keys[i]] = make(map[string]interface{})
-			}
-			if next, ok := current[keys[i]].(map[string]interface{}); ok {
-				current = next
-			} else {
-				newMap := make(map[string]interface{})
-				current[keys[i]] = newMap
-				current = newMap
-			}
-		}
-		current[keys[len(keys)-1]] = update.Value
-	}
-	jsonData, err := json.MarshalIndent(existingConfig, "", "  ")
+	patchData, err := json.Marshal(patch)
 	if err != nil {
-		return nil, fmt.Errorf("序列化配置失败: %w", err)
+		return nil, err
 	}
-	if err := writeFileAtomic(filePath, jsonData, 0o644); err != nil {
+	data, err = jsonpatch.MergePatch(data, patchData)
+	if err != nil {
+		return nil, err
+	}
+	data, err = json.MarshalIndent(json.RawMessage(data), "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := loadConfig(data)
+	if err != nil {
+		return nil, err
+	}
+	result := &UpdateResult{
+		Message:             "配置更新成功，已刷新运行时配置",
+		Reloaded:            true,
+		RestartRequiredKeys: restartRequiredKeys(active, cfg),
+	}
+	if err := writeFileAtomic(filePath, data); err != nil {
 		return nil, fmt.Errorf("写入 system_config.json 失败: %w", err)
 	}
-
-	if _, err := Reload(); err != nil {
-		if restoreErr := writeFileAtomic(filePath, existingData, 0o644); restoreErr != nil {
-			return nil, fmt.Errorf("刷新配置失败: %w; 恢复旧配置失败: %v", err, restoreErr)
-		}
-		return nil, fmt.Errorf("刷新配置失败: %w", err)
-	}
-
-	return &UpdateResult{
-		Reloaded:            true,
-		RestartRequiredKeys: restartRequiredKeys(updates),
-	}, nil
+	publish(cfg)
+	return result, nil
 }
 
-func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".system_config-*.tmp")
+func writeFileAtomic(path string, data []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".system_config-*.tmp")
 	if err != nil {
 		return err
 	}
-	tmpPath := tmp.Name()
-	committed := false
-	defer func() {
-		if !committed {
-			_ = os.Remove(tmpPath)
-		}
-	}()
-
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
+	defer file.Close()
+	defer os.Remove(file.Name())
+	if _, err := file.Write(data); err != nil {
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	if err := file.Close(); err != nil {
 		return err
 	}
-	if err := os.Chmod(tmpPath, perm); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		return err
-	}
-	committed = true
-	return nil
+	return os.Rename(file.Name(), path)
 }
 
-func restartRequiredKeys(updates []model.UpdateConfigReq) []string {
-	restartPrefixes := []string{
-		"system_conf.data_conf.database",
-		"system_conf.data_conf.image.path",
-		"system_conf.data_conf.image.conv_to",
-		"system_conf.moments_integrated_conf",
-		"system_conf.oss_conf",
-	}
-
-	seen := make(map[string]bool, len(updates))
+func restartRequiredKeys(active, next *model.Config) []string {
 	keys := make([]string, 0)
-	for _, update := range updates {
-		for _, prefix := range restartPrefixes {
-			if update.Key == prefix || strings.HasPrefix(update.Key, prefix+".") {
-				if !seen[update.Key] {
-					seen[update.Key] = true
-					keys = append(keys, update.Key)
-				}
-				break
-			}
+	for _, field := range []struct {
+		key     string
+		changed bool
+	}{
+		{"data_conf.database", active.Data.Database != next.Data.Database},
+		{"data_conf.image.path", active.Data.Image.Path != next.Data.Image.Path},
+		{"data_conf.image.conv_to", active.Data.Image.ConvTo != next.Data.Image.ConvTo},
+		{"moments_integrated_conf", !reflect.DeepEqual(active.MomentsIntegrated, next.MomentsIntegrated)},
+		{"oss_conf", active.OSS != next.OSS},
+	} {
+		if field.changed {
+			keys = append(keys, "system_conf."+field.key)
 		}
 	}
 	return keys

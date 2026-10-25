@@ -318,6 +318,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { generate } from 'json-merge-patch'
 import { getSystemConfig, restartSystem, updateSystemConfig } from '@/api/config'
 import type { PublicAPIKey, SystemConfig } from '@/model/config'
 
@@ -529,101 +530,21 @@ const saveConfig = async () => {
       return
     }
 
-    // 定义所有可能的配置项及其路径
-    const configItems = [
-      {
-        key: 'system_conf.safe_conf.cors_allow_hostlist',
-        currentValue: config.value.system_conf.safe_conf.cors_allow_hostlist,
-        originalValue: originalConfig.value.system_conf.safe_conf.cors_allow_hostlist
-      },
-      {
-        key: 'system_conf.safe_conf.exclude_paths',
-        currentValue: config.value.system_conf.safe_conf.exclude_paths,
-        originalValue: originalConfig.value.system_conf.safe_conf.exclude_paths
-      },
-      {
-        key: 'system_conf.safe_conf.allow_extension',
-        currentValue: config.value.system_conf.safe_conf.allow_extension,
-        originalValue: originalConfig.value.system_conf.safe_conf.allow_extension
-      },
-      {
-        key: 'system_conf.safe_conf.enabled_public_apis',
-        currentValue: config.value.system_conf.safe_conf.enabled_public_apis,
-        originalValue: originalConfig.value.system_conf.safe_conf.enabled_public_apis
-      },
-      {
-        key: 'system_conf.data_conf.database.path',
-        currentValue: config.value.system_conf.data_conf.database.path,
-        originalValue: originalConfig.value.system_conf.data_conf.database.path
-      },
-      {
-        key: 'system_conf.data_conf.image.path',
-        currentValue: config.value.system_conf.data_conf.image.path,
-        originalValue: originalConfig.value.system_conf.data_conf.image.path
-      },
-      {
-        key: 'system_conf.data_conf.image.conv_to',
-        currentValue: config.value.system_conf.data_conf.image.conv_to,
-        originalValue: originalConfig.value.system_conf.data_conf.image.conv_to
-      },
-      {
-        key: 'system_conf.data_conf.resource.path',
-        currentValue: config.value.system_conf.data_conf.resource.path,
-        originalValue: originalConfig.value.system_conf.data_conf.resource.path
-      },
-      {
-        key: 'system_conf.crawler_conf.concurrency',
-        currentValue: config.value.system_conf.crawler_conf.concurrency,
-        originalValue: originalConfig.value.system_conf.crawler_conf.concurrency
-      },
-      {
-        key: 'system_conf.crawler_conf.rss_timeout_seconds',
-        currentValue: config.value.system_conf.crawler_conf.rss_timeout_seconds,
-        originalValue: originalConfig.value.system_conf.crawler_conf.rss_timeout_seconds
-      },
-      {
-        key: 'system_conf.moments_integrated_conf',
-        currentValue: config.value.system_conf.moments_integrated_conf,
-        originalValue: originalConfig.value.system_conf.moments_integrated_conf
-      },
-      {
-        key: 'system_conf.oss_conf',
-        currentValue: config.value.system_conf.oss_conf,
-        originalValue: originalConfig.value.system_conf.oss_conf
-      },
-      {
-        key: 'system_conf.verify_conf',
-        currentValue: config.value.system_conf.verify_conf,
-        originalValue: originalConfig.value.system_conf.verify_conf
-      },
-      {
-        key: 'system_conf.email_conf',
-        currentValue: config.value.system_conf.email_conf,
-        originalValue: originalConfig.value.system_conf.email_conf
-      }
-    ]
-
-    // 过滤出被修改过的配置项
-    const updates = configItems
-      .filter((item) => JSON.stringify(item.currentValue) !== JSON.stringify(item.originalValue))
-      .map((item) => ({ key: item.key, value: item.currentValue }))
-
-    if (updates.length === 0) {
+    const saved: SystemConfig = JSON.parse(JSON.stringify(config.value))
+    const patch = generate(originalConfig.value, saved)
+    if (!patch) {
       ElMessage.info('配置未发生更改')
       return
     }
 
-    // 一次性发送所有更新
-    const res = await updateSystemConfig(updates)
-
-    // 保存成功后，更新原始配置
-    originalConfig.value = JSON.parse(JSON.stringify(config.value))
+    const res = await updateSystemConfig(patch)
+    originalConfig.value = saved
 
     const restartRequiredKeys = res.data?.restart_required_keys || []
     if (restartRequiredKeys.length > 0) {
-      ElMessage.warning(`成功保存 ${updates.length} 项配置；${restartRequiredKeys.length} 项需重启后完全生效`)
+      ElMessage.warning(`配置已保存；${restartRequiredKeys.length} 项需重启后完全生效`)
     } else {
-      ElMessage.success(`成功保存 ${updates.length} 项配置，已刷新运行时配置`)
+      ElMessage.success('配置已保存，已刷新运行时配置')
     }
   } catch {
     // Preserve unsaved changes; request errors are reported by the interceptor.

@@ -117,7 +117,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 				resourceActionGroup.DELETE("/local/*file_path", resourceHandler.DeleteResourceLocal)
 				resourceActionGroup.DELETE("/oss/*file_path", resourceHandler.DeleteResourceOSS)
 			}
-			actionGroup.PUT("/config", configHandler.UpdateConfig)
+			actionGroup.PATCH("/config", configHandler.UpdateConfig)
 			systemActionGroup := actionGroup.Group("/system")
 			{
 				systemActionGroup.POST("/restart", systemHandler.Restart)

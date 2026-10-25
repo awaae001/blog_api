@@ -17,7 +17,7 @@ import (
 
 const maxRequestBodyBytes = int64(65 << 20)
 
-var corsMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+var corsMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 var corsHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Antibot-Token", "CF-Turnstile-Token", "X-Turnstile-Token", "X-fingerprint-token"}
 
 // SetupRouter 初始化并配置 Gin 路由器

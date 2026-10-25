@@ -19,13 +19,9 @@
 
 ## 快速启动
 
-### 1. 准备配置
-
 - 复制 `.env.example` 到 `.env` 并按需修改。
 - 首次启动会自动在 `data/config/` 生成 `system_config.json` 和 `friend_list.json`，不会覆盖已有文件。
 - 按需编辑 `friend_list.json`，用于空数据库的友链初始化。
-
-### 2. 启动后端
 
 需要 Go 1.26+ 和 C 编译器（SQLite / WebP 使用 CGO）。
 
@@ -37,7 +33,7 @@ go run main.go
 
 > 通过管理面板保存公开 API 功能开关后会立即热生效。监听地址、数据库路径、机器人集成、OSS 等启动型配置仍可能需要重启；保存接口会返回 `restart_required_keys` 提示。
 
-### 3. 启动前端管理面板（可选）
+然后启动可选的管理面板
 
 ```bash
 cd web
@@ -79,40 +75,3 @@ pnpm build
 - `email`：发送/验证邮箱验证码及签发邮箱 token 的接口。
 
 未启用的接口统一返回 HTTP 404。未知 key（包括错误拼写）会被忽略；管理接口、管理员登录、Turnstile、指纹和公开验证配置不受此列表影响。通过管理面板保存该列表可立即生效，无需重启。
-
-## 关键接口（示例）
-
-- 公共接口（需在 `enabled_public_apis` 中启用对应 key）：
-  - `GET /api/public/moments/`
-  - `GET /api/public/rss/`
-  - `GET /api/public/friend/`
-  - `GET /api/public/image/*id`
-
-- 管理接口（JWT）：
-  - `GET /api/action/moments`
-  - `POST /api/action/rss`
-  - `POST /api/action/image`
-  - `POST /api/action/resource/local`
-
-- 认证相关：
-  - `POST /api/verify/passwd`
-  - `POST /api/verify/email`（需启用 `email`）
-  - `POST /api/verify/turnstile`
-  - `POST /api/verify/fingerprint`
-
-- 邮箱友链自助管理（邮箱 token）：
-  - `GET /api/public/friend/self`：分页查询当前邮箱名下的友链
-  - `POST /api/public/friend`：新增友链
-  - `PUT /api/public/friend/:id`：修改自己的友链资料
-  - `DELETE /api/public/friend/:id`：删除自己的友链
-
-## 目录结构（简版）
-
-```text
-.
-├── main.go                # 程序入口
-├── src/                   # 后端源码
-├── migrations/            # SQLite SQL 迁移文件
-├── data/config/           # JSON 配置
-└── web/                   # 管理后台（Vue3）
-```

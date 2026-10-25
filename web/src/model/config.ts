@@ -10,6 +10,14 @@ export interface SystemConfig {
   };
 }
 
+type MergePatch<T> = {
+  [K in keyof T]?: (T[K] extends unknown[] ? T[K] : T[K] extends object ? MergePatch<T[K]> : T[K]) | null;
+};
+
+export interface SystemConfigPatch {
+  system_conf: MergePatch<SystemConfig['system_conf']>;
+}
+
 export interface SafeConfig {
   cors_allow_hostlist: string[];
   exclude_paths: string[];

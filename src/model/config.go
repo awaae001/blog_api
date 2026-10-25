@@ -1,18 +1,26 @@
 package model
 
-// Config 全局配置结构 - 支持点号访问
+// Config 是只读的运行时配置快照。
 type Config struct {
-	// 环境变量配置
-	Port                   string
-	ListenAddress          string
-	WebPanelUser           string
-	WebPanelPwd            string
-	StateAPIMasterPassword string
-	ConfigPath             string
-	CronScanOnStartup      bool
-	IsDev                  bool
+	EnvironmentConfig `mapstructure:",squash"`
+	SystemConfig      `mapstructure:"system_conf"`
+	FriendLinks       []FriendWebsite `mapstructure:"-"`
+}
 
-	// 系统配置 - 使用小写字段名，通过 Safe 和 Data 访问
+// EnvironmentConfig 在启动时生效，重载不会切换应用的启动参数。
+type EnvironmentConfig struct {
+	Port                   string `mapstructure:"PORT"`
+	ListenAddress          string `mapstructure:"LISTEN_ADDRESS"`
+	WebPanelUser           string `mapstructure:"WEB_PANEL_USER"`
+	WebPanelPwd            string `mapstructure:"WEB_PANEL_PWD"`
+	StateAPIMasterPassword string `mapstructure:"STATE_API_MASTER_PASSWORD"`
+	ConfigPath             string `mapstructure:"CONFIG_PATH"`
+	CronScanOnStartup      bool   `mapstructure:"CRON_SCAN_ON_STARTUP"`
+	IsDev                  bool   `mapstructure:"IS_DEV"`
+}
+
+// SystemConfig 对应 system_config.json 的 system_conf。
+type SystemConfig struct {
 	Safe              SafeConfig              `mapstructure:"safe_conf"`
 	Data              DataConfig              `mapstructure:"data_conf"`
 	Crawler           CrawlerConfig           `mapstructure:"crawler_conf"`
@@ -20,9 +28,6 @@ type Config struct {
 	OSS               OSSConfig               `mapstructure:"oss_conf"`
 	Verify            VerifyConfig            `mapstructure:"verify_conf"`
 	Email             EmailConf               `mapstructure:"email_conf"`
-
-	// 友链配置
-	FriendLinks []FriendWebsite
 }
 
 const (
@@ -35,8 +40,8 @@ const (
 
 // CrawlerConfig 爬虫配置
 type CrawlerConfig struct {
-	Concurrency       int `mapstructure:"concurrency" validate:"gte=1"`         // 并发数量，默认 5
-	RssTimeoutSeconds int `mapstructure:"rss_timeout_seconds" validate:"gte=1"` // RSS 解析超时（秒）
+	Concurrency       int `mapstructure:"concurrency"`         // 并发数量，默认 5
+	RssTimeoutSeconds int `mapstructure:"rss_timeout_seconds"` // RSS 解析超时（秒）
 }
 
 // FriendLinksConf 对应 friend_list.json 的结构
@@ -73,9 +78,7 @@ type DataConfig struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Path string `mapstructure:"path" validate:"required"`
-	// MigrationsPath SQL 迁移文件目录，默认 "migrations"（相对 CWD）。
-	// 显式配置为绝对路径可避免二进制在不同目录启动时找错迁移文件。
+	Path           string `mapstructure:"path" validate:"required"`
 	MigrationsPath string `mapstructure:"migrations_path"`
 }
 
@@ -87,14 +90,14 @@ type ImageConfig struct {
 
 // ResourceConfig 资源配置
 type ResourceConfig struct {
-	Path string `mapstructure:"path" validate:"required"`
+	Path string `mapstructure:"path"`
 }
 
 // MomentsIntegratedConfig 动态集成配置
 type MomentsIntegratedConfig struct {
 	Enable                 bool              `mapstructure:"enable"`
 	ApiSingleReturnEntries int               `mapstructure:"api_single_return_entries"`
-	Integrated             IntegratedTargets `mapstructure:"integrated" validate:"-"`
+	Integrated             IntegratedTargets `mapstructure:"integrated"`
 }
 
 // OSSConfig OSS 配置
@@ -140,7 +143,7 @@ type IntegratedTargets struct {
 type TelegramConfig struct {
 	Enable       bool     `mapstructure:"enable"`
 	SyncDelete   bool     `mapstructure:"sync_delete"`
-	BotToken     string   `mapstructure:"bot_token" validate:"required_if=Enable true"`
+	BotToken     string   `mapstructure:"bot_token"`
 	ChannelID    string   `mapstructure:"channel_id"`
 	FilterUserid []string `mapstructure:"filter_userid"`
 	StartTime    int64    `mapstructure:"start_time"` // Unix timestamp, 只接受此时间之后的消息（0 表示使用 bot 启动时间）
@@ -160,7 +163,7 @@ type EmailConf struct {
 type DiscordConfig struct {
 	Enable       bool     `mapstructure:"enable"`
 	SyncDelete   bool     `mapstructure:"sync_delete"`
-	BotToken     string   `mapstructure:"bot_token" validate:"required_if=Enable true"`
+	BotToken     string   `mapstructure:"bot_token"`
 	GuildID      string   `mapstructure:"guild_id"`
 	ChannelID    string   `mapstructure:"channel_id"`
 	FilterUserid []string `mapstructure:"filter_userid"`

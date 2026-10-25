@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type { SystemConfig } from '@/model/config';
+import type { SystemConfig, SystemConfigPatch } from '@/model/config';
 import type { ApiResponse } from '@/model/response';
 
 const CONFIG_FILE_PATH = '/config/system_config.json';
@@ -24,13 +24,11 @@ export const getSystemConfig = () => {
   });
 };
 
-/**
- * 批量更新系统配置项
- * @param updates 配置更新数组
- * @returns
- */
-export const updateSystemConfig = (updates: { key: string; value: any }[]) => {
-  return request.put<any, ApiResponse<UpdateConfigResult>>('/action/config', updates);
+/** 只提交变化的字段，按 JSON Merge Patch 合并。 */
+export const updateSystemConfig = (patch: SystemConfigPatch) => {
+  return request.patch<any, ApiResponse<UpdateConfigResult>>('/action/config', patch, {
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+  });
 };
 
 /**

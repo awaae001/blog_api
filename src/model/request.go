@@ -1,5 +1,7 @@
 package model
 
+import "encoding/json"
+
 // EditFriendLinkReq defines the request body for editing a friend link.
 type EditFriendLinkReq struct {
 	Data map[string]interface{} `json:"data" binding:"required"`
@@ -62,10 +64,9 @@ type UpdateImageReq struct {
 	Status    *string `json:"status"`
 }
 
-// UpdateConfigReq 定义了更新配置的请求体
+// UpdateConfigReq 只携带 system_conf 的 JSON Merge Patch，不包含启动环境配置。
 type UpdateConfigReq struct {
-	Key   string      `json:"key" binding:"required"`
-	Value interface{} `json:"value"`
+	SystemConf json.RawMessage `json:"system_conf" binding:"required"`
 }
 
 // MediaRequest represents the media data in the create moment request.

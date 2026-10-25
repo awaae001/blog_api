@@ -13,6 +13,7 @@ require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/chai2010/webp v1.4.0
 	github.com/disintegration/imaging v1.6.2
+	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/gin-contrib/pprof v1.5.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.5

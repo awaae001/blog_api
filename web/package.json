@@ -16,10 +16,12 @@
     "dayjs": "^1.11.23",
     "echarts": "^6.1.0",
     "element-plus": "^2.14.7",
+    "json-merge-patch": "^1.0.2",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
+    "@types/json-merge-patch": "^1.0.0",
     "@types/node": "^26.6.5",
     "@vitejs/plugin-vue": "^6.0.10",
     "typescript": "npm:typescript-native-bridge@6.0.3-bridge.13.tsgo.7.0.2",
