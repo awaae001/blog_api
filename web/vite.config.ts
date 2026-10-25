@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import VueRouter from 'vue-router/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import path from 'path'
@@ -7,6 +8,9 @@ import path from 'path'
 export default defineConfig({
   base: '/panel/',
   plugins: [
+    VueRouter({
+      dts: 'src/route-map.d.ts'
+    }),
     vue(),
     Components({
       dts: 'src/components.d.ts',

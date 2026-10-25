@@ -291,7 +291,7 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
 import { ElMessage, ElMessageBox, type CollapseModelValue } from 'element-plus'
-import { Edit, Delete, Link, Refresh, Plus, Back, Search, VideoPause, VideoPlay } from '@element-plus/icons-vue'
+import { Edit, Delete, Link, Refresh, Plus, Back, Search, VideoPause, VideoPlay, Document } from '@element-plus/icons-vue'
 import {
   getRssFeeds,
   getPostsByFeed,
@@ -306,6 +306,8 @@ import {
 import { getFriendLinks } from '@/api/friendLink'
 import type { FeedCandidate, RssFeed, RssFeedStatus, RssPost, UpdateRssFeedPayload } from '@/model/rss'
 import type { FriendLink } from '@/model/friendLink'
+
+definePage({ meta: { title: 'RSS', icon: Document, order: 4 } })
 
 type TagType = 'success' | 'info' | 'warning' | 'danger'
 

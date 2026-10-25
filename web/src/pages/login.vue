@@ -42,6 +42,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { authApi } from '@/api/auth'
 
+definePage({ meta: { public: true } })
+
 type TurnstileConfig = {
   enable?: boolean
   site_key?: string

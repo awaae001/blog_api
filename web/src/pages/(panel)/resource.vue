@@ -193,6 +193,8 @@ import type { ResourceEntry } from '@/model/resource'
 import { formatDate } from '@/utils/date'
 import { EditorView, basicSetup } from 'codemirror'
 
+definePage({ meta: { title: '资源', icon: FolderOpened, order: 6 } })
+
 const entries = ref<ResourceEntry[]>([])
 const loading = ref(false)
 const currentPath = ref('')

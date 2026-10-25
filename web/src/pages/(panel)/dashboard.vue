@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { HomeFilled } from '@element-plus/icons-vue'
 import { ref, onMounted } from 'vue'
 import { statsApi } from '@/api/stats'
 import type { SystemStatus } from '@/model/stats'
@@ -50,6 +51,8 @@ import {
   TooltipComponent
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+
+definePage({ meta: { title: '仪表板', icon: HomeFilled, order: 1 } })
 
 echarts.use([
   LineChart,

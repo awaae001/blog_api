@@ -266,7 +266,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Delete, Edit, VideoCamera, Link as LinkIcon } from '@element-plus/icons-vue'
+import { Delete, Edit, VideoCamera, Link as LinkIcon, ChatLineRound } from '@element-plus/icons-vue'
 import { usePagination } from '@/utils/pagination'
 import { uploadFile } from '@/api/resource'
 import {
@@ -279,6 +279,8 @@ import {
 } from '@/api/moment'
 import type { MomentWithMedia, MomentMedia, CreateMomentPayload } from '@/model/moment'
 import type { UploadFile } from 'element-plus'
+
+definePage({ meta: { title: '动态', icon: ChatLineRound, order: 2 } })
 
 type UploadTarget = 'local' | 'oss'
 

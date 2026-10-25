@@ -154,7 +154,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Edit, Refresh } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Refresh, Link } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
   getFriendLinks,
@@ -168,6 +168,8 @@ import {
 import type { FriendLink, FriendLinkInspectionProgress } from '@/model/friendLink'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
+
+definePage({ meta: { title: '友链', icon: Link, order: 3 } })
 
 // Reactive State
 const friendLinks = ref<FriendLink[]>([])

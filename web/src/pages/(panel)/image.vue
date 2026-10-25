@@ -148,12 +148,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete, Edit } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Picture } from '@element-plus/icons-vue'
 import { getImages, createImage, updateImage, deleteImage } from '@/api/image'
 import { uploadFile, deleteFile } from '@/api/resource'
 import type { Image, CreateImagePayload, UpdateImagePayload } from '@/model/image'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import { usePagination } from '@/utils/pagination'
+
+definePage({ meta: { title: '图片', icon: Picture, order: 5 } })
 
 const images = ref<Image[]>([])
 const loading = ref(false)
