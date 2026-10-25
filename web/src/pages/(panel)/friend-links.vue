@@ -1,111 +1,107 @@
 <template>
-  <div class="friend-link-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>友链管理</span>
-          <div class="header-actions">
-            <el-button type="success" plain :icon="Refresh" :loading="inspectionRunning" @click="handleRecheckAll">
-              {{ inspectionRunning ? `全量巡查中 ${progress?.processed ?? 0}/${progress?.total ?? 0}` : '全量巡查' }}
-            </el-button>
-            <el-button type="primary" :icon="Plus" @click="openFormDialog()">
-              新增友链
-            </el-button>
-          </div>
-        </div>
+  <PageShell title="友链管理">
+    <template #actions>
+      <el-button type="success" plain :icon="Refresh" :loading="inspectionRunning" @click="handleRecheckAll">
+        {{ inspectionRunning ? `全量巡查中 ${progress?.processed ?? 0}/${progress?.total ?? 0}` : '全量巡查' }}
+      </el-button>
+      <el-button type="primary" :icon="Plus" @click="openFormDialog()">
+        新增友链
+      </el-button>
+    </template>
+
+    <!-- Inspection progress -->
+    <el-alert v-if="progress && progress.total > 0" class="inspection-alert" :type="inspectionAlertType"
+      :closable="!inspectionRunning" show-icon>
+      <template #title>
+        {{ progress.label || '巡查' }}{{ inspectionRunning ? '进行中' : '已结束' }}：
+        {{ progress.processed }}/{{ progress.total }}
+        （存活 {{ progress.survival }}，失败 {{ progress.failed }}，新增 RSS {{ progress.rss_discovered }}）
+        {{ progress.error ? `，异常：${progress.error}` : '' }}
       </template>
+    </el-alert>
 
-      <!-- Inspection progress -->
-      <el-alert v-if="progress && progress.total > 0" class="inspection-alert" :type="inspectionAlertType"
-        :closable="!inspectionRunning" show-icon>
-        <template #title>
-          {{ progress.label || '巡查' }}{{ inspectionRunning ? '进行中' : '已结束' }}：
-          {{ progress.processed }}/{{ progress.total }}
-          （存活 {{ progress.survival }}，失败 {{ progress.failed }}，新增 RSS {{ progress.rss_discovered }}）
-          {{ progress.error ? `，异常：${progress.error}` : '' }}
-        </template>
-      </el-alert>
+    <!-- Filter and Actions -->
+    <div class="table-actions">
+      <el-select v-model="filterIsDied" placeholder="按失效状态筛选" clearable @change="handleFilter"
+        style="width: 150px; margin-right: 10px">
+        <el-option label="已失效" :value="true"></el-option>
+        <el-option label="未失效" :value="false"></el-option>
+      </el-select>
+      <el-select v-model="filterStatus" placeholder="按状态筛选" clearable @change="handleFilter"
+        style="width: 150px; margin-right: 10px">
+        <el-option label="正常" value="survival"></el-option>
+        <el-option label="待定" value="pending"></el-option>
+        <el-option label="超时" value="timeout"></el-option>
+        <el-option label="错误" value="error"></el-option>
+      </el-select>
+      <el-input v-model="searchQuery" placeholder="搜索友链" clearable @input="handleFilter"
+        style="width: 200px; margin-right: 10px" />
+    </div>
 
-      <!-- Filter and Actions -->
-      <div class="table-actions">
-        <el-select v-model="filterIsDied" placeholder="按失效状态筛选" clearable @change="handleFilter"
-          style="width: 150px; margin-right: 10px">
-          <el-option label="已失效" :value="true"></el-option>
-          <el-option label="未失效" :value="false"></el-option>
-        </el-select>
-        <el-select v-model="filterStatus" placeholder="按状态筛选" clearable @change="handleFilter"
-          style="width: 150px; margin-right: 10px">
-          <el-option label="正常" value="survival"></el-option>
-          <el-option label="待定" value="pending"></el-option>
-          <el-option label="超时" value="timeout"></el-option>
-          <el-option label="错误" value="error"></el-option>
-        </el-select>
-        <el-input v-model="searchQuery" placeholder="搜索友链" clearable @input="handleSearch"
-          style="width: 200px; margin-right: 10px" />
-      </div>
+    <!-- Friend Link Table -->
+    <el-scrollbar class="table-scroll">
+      <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
+        <el-table-column prop="name" label="网站名称" width="180" />
+        <el-table-column prop="link" label="链接">
+          <template #default="{ row }">
+            <a :href="row.link" target="_blank">{{ row.link }}</a>
+          </template>
+        </el-table-column>
+        <el-table-column prop="email" label="邮箱" width="200" />
+        <el-table-column prop="times" label="失败次数" width="100" />
+        <el-table-column label="是否失效" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="updated_at" label="更新时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.updated_at) }}
+          </template>
+        </el-table-column>
+        <!-- @vue-generic {FriendLink} -->
+        <el-table-column label="不巡查" width="100">
+          <template #default="{ row }">
+            <el-switch :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
+          </template>
+        </el-table-column>
+        <!-- @vue-generic {FriendLink} -->
+        <el-table-column label="订阅 RSS" width="100">
+          <template #default="{ row }">
+            <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
+          </template>
+        </el-table-column>
+        <!-- @vue-generic {FriendLink} -->
+        <el-table-column label="操作" width="260" fixed="right">
+          <template #default="{ row }">
+            <el-button type="success" link :icon="Refresh" :loading="recheckingId === row.id"
+              :disabled="inspectionRunning || (recheckingId !== null && recheckingId !== row.id)"
+              @click="handleRecheck(row.id)">
+              重新巡查
+            </el-button>
+            <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
+              编辑
+            </el-button>
+            <el-button type="danger" link :icon="Delete" @click="handleDelete(row.id)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-scrollbar>
 
-      <!-- Friend Link Table -->
-      <el-scrollbar class="table-scroll">
-        <el-table :data="friendLinks" v-loading="loading" style="width: 100%">
-          <el-table-column prop="name" label="网站名称" width="180" />
-          <el-table-column prop="link" label="链接">
-            <template #default="{ row }">
-              <a :href="row.link" target="_blank">{{ row.link }}</a>
-            </template>
-          </el-table-column>
-          <el-table-column prop="email" label="邮箱" width="200" />
-          <el-table-column prop="times" label="失败次数" width="100" />
-          <el-table-column label="是否失效" width="100">
-            <template #default="{ row }">
-              <el-tag :type="row.is_died ? 'danger' : 'success'">{{ row.is_died ? '是' : '否' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="updated_at" label="更新时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.updated_at) }}
-            </template>
-          </el-table-column>
-          <!-- @vue-generic {FriendLink} -->
-          <el-table-column label="不巡查" width="100">
-            <template #default="{ row }">
-              <el-switch :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
-            </template>
-          </el-table-column>
-          <!-- @vue-generic {FriendLink} -->
-          <el-table-column label="订阅 RSS" width="100">
-            <template #default="{ row }">
-              <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
-            </template>
-          </el-table-column>
-          <!-- @vue-generic {FriendLink} -->
-          <el-table-column label="操作" width="260" fixed="right">
-            <template #default="{ row }">
-              <el-button type="success" link :icon="Refresh" :loading="recheckingId === row.id"
-                :disabled="inspectionRunning || (recheckingId !== null && recheckingId !== row.id)"
-                @click="handleRecheck(row.id)">
-                重新巡查
-              </el-button>
-              <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
-                编辑
-              </el-button>
-              <el-button type="danger" link :icon="Delete" @click="handleDelete(row.id)">
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-scrollbar>
-
-      <!-- Pagination -->
-      <el-pagination background layout="total, sizes, prev, pager, next, jumper" :total="totalLinks"
-        :page-sizes="[10, 20, 50, 100]" :page-size="pageSize" :current-page="currentPage"
-        @size-change="handleSizeChange" @current-change="handlePageChange" class="pagination-container" />
-    </el-card>
+    <TablePagination
+      :total="total"
+      :page-size="pageSize"
+      :current-page="currentPage"
+      @size-change="handleSizeChange"
+      @current-change="handlePageChange"
+    />
 
     <!-- Form Dialog for Add/Edit -->
     <el-dialog :title="isEditMode ? '编辑友链' : '新增友链'" v-model="dialogVisible" width="500px" @close="resetForm">
@@ -148,10 +144,12 @@
         <el-button type="primary" @click="submitForm">确定</el-button>
       </template>
     </el-dialog>
-  </div>
+  </PageShell>
 </template>
 
 <script setup lang="ts">
+import PageShell from '@/components/PageShell.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Edit, Refresh, Link } from '@element-plus/icons-vue'
@@ -163,13 +161,14 @@ import {
   deleteFriendLink,
   recheckFriendLink,
   recheckAllFriendLinks,
-  getRecheckProgress
-} from '@/api/friendLink'
-import type { FriendLink, FriendLinkInspectionProgress } from '@/model/friendLink'
+  getRecheckProgress,
+  type FriendLink,
+  type FriendLinkInspectionProgress
+} from '@/api/friend-links'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
 
-definePage({ meta: { title: '友链', icon: Link, order: 3 } })
+definePage({ path: '/friend', meta: { title: '友链', icon: Link, order: 3 } })
 
 // Reactive State
 const friendLinks = ref<FriendLink[]>([])
@@ -224,7 +223,6 @@ const { currentPage, pageSize, total, handlePageChange, handleSizeChange, reset 
   () => fetchFriendLinks(),
   10
 )
-const totalLinks = total // Alias for template
 
 // Fetch data
 const fetchFriendLinks = async () => {
@@ -238,7 +236,7 @@ const fetchFriendLinks = async () => {
       is_died: filterIsDied.value === null ? undefined : filterIsDied.value
     })
     friendLinks.value = res.data.items
-    totalLinks.value = res.data.total
+    total.value = res.data.total
   } catch {
     // Request errors are reported by the interceptor.
   } finally {
@@ -255,11 +253,6 @@ onUnmounted(stopProgressPolling)
 
 // Table and Actions
 const handleFilter = () => {
-  reset()
-  fetchFriendLinks()
-}
-
-const handleSearch = () => {
   reset()
   fetchFriendLinks()
 }
@@ -475,41 +468,9 @@ const handleRssToggle = async (link: FriendLink) => {
 </script>
 
 <style scoped>
-.friend-link-container {
-  /* 60px header + 12px el-main padding */
-  height: calc(100vh - 72px);
-  display: flex;
-  flex-direction: column;
-}
-
-.friend-link-container :deep(.el-card) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.friend-link-container :deep(.el-card__body) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .table-scroll {
   flex: 1;
   min-height: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .inspection-alert {
@@ -520,9 +481,4 @@ const handleRssToggle = async (link: FriendLink) => {
   margin-bottom: 16px;
 }
 
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-}
 </style>

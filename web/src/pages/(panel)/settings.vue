@@ -1,9 +1,8 @@
 <template>
-  <div class="settings-page">
-    <header class="settings-header">
-      <h2>系统设置</h2>
+  <PageShell title="系统设置" flush>
+    <template #actions>
       <el-button type="primary" @click="saveConfig" :loading="saving">保存配置</el-button>
-    </header>
+    </template>
 
     <el-tabs v-model="activeTab" class="settings-tabs">
       <!-- 安全配置 -->
@@ -308,16 +307,22 @@
         </div>
       </el-tab-pane>
     </el-tabs>
-  </div>
+  </PageShell>
 </template>
 
 <script setup lang="ts">
+import PageShell from '@/components/PageShell.vue'
 import { Setting } from '@element-plus/icons-vue'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { generate } from 'json-merge-patch'
-import { getSystemConfig, restartSystem, updateSystemConfig } from '@/api/config'
-import type { PublicAPIKey, SystemConfig } from '@/model/config'
+import {
+  getSystemConfig,
+  restartSystem,
+  updateSystemConfig,
+  type PublicAPIKey,
+  type SystemConfig
+} from '@/api/config'
 
 definePage({ meta: { title: '系统设置', icon: Setting, order: 99, bottom: true } })
 
@@ -583,27 +588,6 @@ const handleRestart = async () => {
 </script>
 
 <style scoped>
-.settings-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: #fff;
-  border-radius: 4px;
-}
-
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px 4px;
-}
-
-.settings-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-}
-
 /* tabs 头部固定，只滚动内容区 */
 .settings-tabs {
   flex: 1;

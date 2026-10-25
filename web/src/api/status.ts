@@ -1,6 +1,6 @@
-import type { ApiResponse } from '@/model/response'
+import request from '@/utils/request'
+import type { ApiResponse } from './response'
 
-// Corresponds to model.StatusData in the backend
 export interface FriendLinkStatusCount {
   status: string
   count: number
@@ -19,14 +19,21 @@ export interface StatusData {
   rss_post_count_monthly: RssPostCountMonthly[]
 }
 
-// Corresponds to model.SystemStatus in the backend
+export interface KVCacheStatus {
+  entry_count: number
+  payload_bytes: number
+}
+
+/** 对应后端 model.SystemStatus。 */
 export interface SystemStatus {
   uptime: string
   status_data: StatusData
   database_size_bytes: number
   data_folder_size_bytes: number
+  kv_cache: KVCacheStatus
   time: number
 }
 
-// The actual data structure within the main ApiResponse
-export type SystemStatusResponse = ApiResponse<SystemStatus>
+export const getSystemStatus = (): Promise<ApiResponse<SystemStatus>> => {
+  return request.get('/status')
+}

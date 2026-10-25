@@ -1,11 +1,38 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/model/response'
-import type {
-  ImageListParams,
-  PaginatedImages,
-  CreateImagePayload,
-  UpdateImagePayload
-} from '@/model/image'
+import type { ApiResponse, PaginatedResponse } from './response'
+
+export interface Image {
+  id: number
+  name: string
+  url: string
+  local_path: string
+  is_local: number
+  is_oss: number
+  status: string
+}
+
+export interface ImageListParams {
+  page?: number
+  page_size?: number
+  status?: string
+  search?: string
+}
+
+export type PaginatedImages = PaginatedResponse<Image>
+
+export interface CreateImagePayload {
+  name: string
+  url: string
+  local_path?: string
+  is_local?: number
+  is_oss?: number
+}
+
+export interface UpdateImagePayload {
+  name?: string
+  url?: string
+  status?: string
+}
 
 /**
  * 获取图片列表

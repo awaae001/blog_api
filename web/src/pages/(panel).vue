@@ -130,8 +130,8 @@ const handleCommand = async (command: string) => {
 }
 
 .panel-main {
-  background: #f0f2f5;
-  padding: 6px;
+  background: var(--el-bg-color-page);
+  padding: 0;
   overflow-y: auto;
 }
 </style>

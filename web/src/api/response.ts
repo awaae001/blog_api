@@ -6,3 +6,10 @@ export interface ApiResponse<T = any> {
   message: string // Response message
   data: T         // Response data
 }
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+}

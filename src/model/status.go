@@ -21,11 +21,19 @@ type RssPostCountMonthly struct {
 	Count int    `json:"count"`
 }
 
+// KVCacheStatus describes the in-memory state store. PayloadBytes counts only
+// stored JSON bytes, not keys, map overhead, or snapshots held by callers.
+type KVCacheStatus struct {
+	EntryCount   int   `json:"entry_count"`
+	PayloadBytes int64 `json:"payload_bytes"`
+}
+
 // SystemStatus represents the overall system status response.
 type SystemStatus struct {
-	Uptime              string     `json:"uptime"`
-	StatusData          StatusData `json:"status_data"`
-	DatabaseSizeBytes   int64      `json:"database_size_bytes"`
-	DataFolderSizeBytes int64      `json:"data_folder_size_bytes"`
-	Time                int64      `json:"time"`
+	Uptime              string        `json:"uptime"`
+	StatusData          StatusData    `json:"status_data"`
+	DatabaseSizeBytes   int64         `json:"database_size_bytes"`
+	DataFolderSizeBytes int64         `json:"data_folder_size_bytes"`
+	Time                int64         `json:"time"`
+	KVCache             KVCacheStatus `json:"kv_cache"`
 }

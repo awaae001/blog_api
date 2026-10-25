@@ -1,6 +1,13 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/model/response'
-import type { ResourceEntry } from '@/model/resource'
+import type { ApiResponse } from './response'
+
+export interface ResourceEntry {
+  name: string
+  path: string
+  is_dir: boolean
+  size: number
+  mod_time: string
+}
 
 export interface UploadFileResponse {
   message: string

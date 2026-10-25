@@ -1,97 +1,88 @@
 <template>
-  <div class="image-management" v-loading="actionLoading" element-loading-text="处理中...">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>图片管理</span>
-          <el-button type="primary" :icon="Plus" @click="handleShowAddDialog">
-            新增图片
-          </el-button>
-        </div>
-      </template>
+  <PageShell title="图片管理" v-loading="actionLoading" element-loading-text="处理中...">
+    <template #actions>
+      <el-button type="primary" :icon="Plus" @click="handleShowAddDialog">
+        新增图片
+      </el-button>
+    </template>
 
-      <div class="table-actions">
-        <el-select
-          v-model="searchParams.status"
-          placeholder="按状态筛选"
-          clearable
-          @change="handleFilter"
-          style="width: 150px; margin-right: 10px"
-        >
-          <el-option label="正常" value="normal"></el-option>
-          <el-option label="暂停" value="pause"></el-option>
-          <el-option label="损坏" value="broken"></el-option>
-          <el-option label="待定" value="pending"></el-option>
-        </el-select>
-        <el-input
-          v-model="searchParams.search"
-          placeholder="搜索图片名称"
-          clearable
-          @input="handleSearch"
-          style="width: 200px; margin-right: 10px"
-        />
-      </div>
+    <div class="table-actions">
+      <el-select
+        v-model="searchParams.status"
+        placeholder="按状态筛选"
+        clearable
+        @change="handleFilter"
+        style="width: 150px; margin-right: 10px"
+      >
+        <el-option label="正常" value="normal"></el-option>
+        <el-option label="暂停" value="pause"></el-option>
+        <el-option label="损坏" value="broken"></el-option>
+        <el-option label="待定" value="pending"></el-option>
+      </el-select>
+      <el-input
+        v-model="searchParams.search"
+        placeholder="搜索图片名称"
+        clearable
+        @input="handleFilter"
+        style="width: 200px; margin-right: 10px"
+      />
+    </div>
 
-      <el-scrollbar class="table-scroll">
-        <el-table
-          :data="images"
-          v-loading="loading"
-          style="width: 100%"
-        >
-          <el-table-column prop="id" label="ID" width="80"></el-table-column>
-          <el-table-column prop="name" label="名称"></el-table-column>
-          <el-table-column label="预览" width="120">
-            <template #default="{ row }">
-              <el-image
-                style="width: 100px; height: 100px"
-                :src="row.url"
-                fit="cover"
-                :preview-src-list="[row.url]"
-                preview-teleported
-              />
-            </template>
-          </el-table-column>
-          <el-table-column prop="url" label="URL" show-overflow-tooltip></el-table-column>
-          <el-table-column label="存储" width="100">
-            <template #default="{ row }">
-              <el-tag v-if="row.is_oss" type="success">OSS</el-tag>
-              <el-tag v-else-if="row.is_local" type="primary">本地</el-tag>
-              <el-tag v-else type="info">外链</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="{ row }">
-              <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <!-- @vue-generic {Image} -->
-          <el-table-column label="操作" width="150" fixed="right">
-            <template #default="{ row }">
-              <el-button type="primary" link :icon="Edit" @click="handleShowEditDialog(row)">
-                编辑
-              </el-button>
-              <el-popconfirm title="确定删除吗？" @confirm="handleDelete(row)">
-                <template #reference>
-                  <el-button type="danger" link :icon="Delete">删除</el-button>
-                </template>
-              </el-popconfirm>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-scrollbar>
+    <el-scrollbar class="table-scroll">
+      <el-table
+        :data="images"
+        v-loading="loading"
+        style="width: 100%"
+      >
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="name" label="名称"></el-table-column>
+        <el-table-column label="预览" width="120">
+          <template #default="{ row }">
+            <el-image
+              style="width: 100px; height: 100px"
+              :src="row.url"
+              fit="cover"
+              :preview-src-list="[row.url]"
+              preview-teleported
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="url" label="URL" show-overflow-tooltip></el-table-column>
+        <el-table-column label="存储" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_oss" type="success">OSS</el-tag>
+            <el-tag v-else-if="row.is_local" type="primary">本地</el-tag>
+            <el-tag v-else type="info">外链</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <!-- @vue-generic {Image} -->
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link :icon="Edit" @click="handleShowEditDialog(row)">
+              编辑
+            </el-button>
+            <el-popconfirm title="确定删除吗？" @confirm="handleDelete(row)">
+              <template #reference>
+                <el-button type="danger" link :icon="Delete">删除</el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-scrollbar>
 
-      <el-pagination
-        background
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="total"
-        :page-sizes="[10, 20, 50, 100]"
-        :page-size="pageSize"
-        :current-page="currentPage"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        class="pagination-container"
-      ></el-pagination>
-    </el-card>
+    <TablePagination
+      :total="total"
+      :page-size="pageSize"
+      :current-page="currentPage"
+      @size-change="handleSizeChange"
+      @current-change="handlePageChange"
+    />
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" @close="handleCloseDialog">
       <el-form :model="form" label-width="80px" ref="formRef" :rules="rules">
@@ -142,20 +133,29 @@
         <el-button type="primary" @click="handleSubmit">确 定</el-button>
       </template>
     </el-dialog>
-  </div>
+  </PageShell>
 </template>
 
 <script setup lang="ts">
+import PageShell from '@/components/PageShell.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, Edit, Picture } from '@element-plus/icons-vue'
-import { getImages, createImage, updateImage, deleteImage } from '@/api/image'
-import { uploadFile, deleteFile } from '@/api/resource'
-import type { Image, CreateImagePayload, UpdateImagePayload } from '@/model/image'
+import {
+  getImages,
+  createImage,
+  updateImage,
+  deleteImage,
+  type Image,
+  type CreateImagePayload,
+  type UpdateImagePayload
+} from '@/api/images'
+import { uploadFile, deleteFile } from '@/api/resources'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import { usePagination } from '@/utils/pagination'
 
-definePage({ meta: { title: '图片', icon: Picture, order: 5 } })
+definePage({ path: '/image', meta: { title: '图片', icon: Picture, order: 5 } })
 
 const images = ref<Image[]>([])
 const loading = ref(false)
@@ -218,11 +218,6 @@ const fetchImages = async () => {
 }
 
 const handleFilter = () => {
-  reset()
-  fetchImages()
-}
-
-const handleSearch = () => {
   reset()
   fetchImages()
 }
@@ -366,43 +361,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.image-management {
-  /* 60px header + 12px el-main padding */
-  height: calc(100vh - 72px);
-  display: flex;
-  flex-direction: column;
-}
-
-.image-management :deep(.el-card) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.image-management :deep(.el-card__body) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .table-scroll {
   flex: 1;
   min-height: 0;
 }
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 .table-actions {
   margin-bottom: 16px;
-}
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 .image-uploader {
   width: 178px;

@@ -37,12 +37,33 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       Record<never, never>,
       | '/(panel)/dashboard'
-      | '/(panel)/friend'
-      | '/(panel)/image'
+      | '/(panel)/friend-links'
+      | '/(panel)/images'
       | '/(panel)/moments'
-      | '/(panel)/resource'
+      | '/(panel)/resources'
       | '/(panel)/rss'
       | '/(panel)/settings'
+    >,
+    '/(panel)/friend-links': RouteRecordInfo<
+      '/(panel)/friend-links',
+      '/friend',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/(panel)/images': RouteRecordInfo<
+      '/(panel)/images',
+      '/image',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/(panel)/resources': RouteRecordInfo<
+      '/(panel)/resources',
+      '/resource',
+      Record<never, never>,
+      Record<never, never>,
+      | never
     >,
     '/(panel)/dashboard': RouteRecordInfo<
       '/(panel)/dashboard',
@@ -51,30 +72,9 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/(panel)/friend': RouteRecordInfo<
-      '/(panel)/friend',
-      '/friend',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/(panel)/image': RouteRecordInfo<
-      '/(panel)/image',
-      '/image',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/(panel)/moments': RouteRecordInfo<
       '/(panel)/moments',
       '/moments',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/(panel)/resource': RouteRecordInfo<
-      '/(panel)/resource',
-      '/resource',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -117,14 +117,38 @@ declare module 'vue-router/auto-routes' {
       routes:
         | '/(panel)'
         | '/(panel)/dashboard'
-        | '/(panel)/friend'
-        | '/(panel)/image'
+        | '/(panel)/friend-links'
+        | '/(panel)/images'
         | '/(panel)/moments'
-        | '/(panel)/resource'
+        | '/(panel)/resources'
         | '/(panel)/rss'
         | '/(panel)/settings'
       views:
         | 'default'
+      pathParamNames:
+        | never
+    }
+    'src/pages/(panel)/friend-links.vue': {
+      routes:
+        | '/(panel)/friend-links'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/(panel)/images.vue': {
+      routes:
+        | '/(panel)/images'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/(panel)/resources.vue': {
+      routes:
+        | '/(panel)/resources'
+      views:
+        | never
       pathParamNames:
         | never
     }
@@ -136,33 +160,9 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/pages/(panel)/friend.vue': {
-      routes:
-        | '/(panel)/friend'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/(panel)/image.vue': {
-      routes:
-        | '/(panel)/image'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
     'src/pages/(panel)/moments.vue': {
       routes:
         | '/(panel)/moments'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/(panel)/resource.vue': {
-      routes:
-        | '/(panel)/resource'
       views:
         | never
       pathParamNames:

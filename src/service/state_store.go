@@ -1,6 +1,7 @@
 package service
 
 import (
+	"blog_api/src/model"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -32,10 +33,6 @@ type StoredState struct {
 	ExpiresAt time.Time
 }
 
-// StateStore owns bounded, expiring JSON states in process memory.
-//
-// State values disappear when the process exits. Put replaces a value in full;
-// the store never interprets or mutates fields inside the JSON object.
 type StateStore struct {
 	mu              sync.Mutex
 	entries         map[string]stateEntry
@@ -46,10 +43,6 @@ type StateStore struct {
 	now             func() time.Time
 }
 
-// NewStateStore creates a store with fixed entry and payload limits.
-//
-// All limits must be positive. maxTotalBytes limits owned payload bytes across
-// all entries; snapshots returned to callers are not included.
 func NewStateStore(maxEntries int, maxPayloadBytes, maxTotalBytes int64) *StateStore {
 	return &StateStore{
 		entries:         make(map[string]stateEntry),
@@ -137,6 +130,18 @@ func (s *StateStore) Delete(key string) bool {
 	delete(s.entries, key)
 	s.totalBytes -= int64(len(entry.payload))
 	return true
+}
+
+// Stats returns a consistent usage snapshot after removing expired entries.
+func (s *StateStore) Stats() model.KVCacheStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cleanupLocked(s.now())
+
+	return model.KVCacheStatus{
+		EntryCount:   len(s.entries),
+		PayloadBytes: s.totalBytes,
+	}
 }
 
 func (s *StateStore) cleanupLocked(now time.Time) {

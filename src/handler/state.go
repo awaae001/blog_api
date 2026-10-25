@@ -36,7 +36,7 @@ type StateResponse struct {
 
 // StateHandler serves the authenticated in-memory state API.
 type StateHandler struct {
-	store *service.StateStore
+	Store *service.StateStore
 	now   func() time.Time
 }
 
@@ -45,7 +45,7 @@ func NewStateHandler() *StateHandler {
 	store := service.NewStateStore(maxStateEntryCount, maxStateBodyBytes, maxStateTotalBytes)
 	go store.RunCleanup(context.Background(), stateCleanupPeriod)
 	return &StateHandler{
-		store: store,
+		Store: store,
 		now:   time.Now,
 	}
 }
@@ -77,7 +77,7 @@ func (h *StateHandler) PutState(c *gin.Context) {
 		return
 	}
 
-	state, created, err := h.store.Put(key, payload, h.now().Add(ttl))
+	state, created, err := h.Store.Put(key, payload, h.now().Add(ttl))
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidStatePayload):
@@ -107,7 +107,7 @@ func (h *StateHandler) GetState(c *gin.Context) {
 	if !ok {
 		return
 	}
-	state, found := h.store.Get(key)
+	state, found := h.Store.Get(key)
 	if !found {
 		c.JSON(http.StatusNotFound, model.ApiResponse{Code: http.StatusNotFound, Message: "state not found"})
 		return
@@ -121,7 +121,7 @@ func (h *StateHandler) DeleteState(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if !h.store.Delete(key) {
+	if !h.Store.Delete(key) {
 		c.JSON(http.StatusNotFound, model.ApiResponse{Code: http.StatusNotFound, Message: "state not found"})
 		return
 	}

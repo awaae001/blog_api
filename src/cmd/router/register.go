@@ -41,7 +41,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 	apiGroup := router.Group("/api")
 	{
 		if cfg.StateAPIMasterPassword != "" {
-			registerStateRoutes(apiGroup, cfg.StateAPIMasterPassword)
+			statusHandler.StateStore = registerStateRoutes(apiGroup, cfg.StateAPIMasterPassword)
 		} else {
 			log.Print("[state] STATE_API_MASTER_PASSWORD is empty; in-memory state API is disabled")
 		}

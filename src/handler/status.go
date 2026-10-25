@@ -3,6 +3,7 @@ package handler
 import (
 	"blog_api/src/model"
 	"blog_api/src/repositories"
+	"blog_api/src/service"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ type StatusHandler struct {
 	DB           *gorm.DB
 	StartTime    time.Time
 	DatabasePath string
+	StateStore   *service.StateStore
 }
 
 // GetSystemStatus handles the GET /api/status request.
@@ -39,6 +41,11 @@ func (h *StatusHandler) GetSystemStatus(c *gin.Context) {
 		return nil
 	})
 
+	var kvCache model.KVCacheStatus
+	if h.StateStore != nil {
+		kvCache = h.StateStore.Stats()
+	}
+
 	now := time.Now()
 	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: model.SystemStatus{
 		Uptime:              now.Sub(h.StartTime).Round(time.Second).String(),
@@ -46,5 +53,6 @@ func (h *StatusHandler) GetSystemStatus(c *gin.Context) {
 		DatabaseSizeBytes:   databaseSize,
 		DataFolderSizeBytes: dataFolderSize,
 		Time:                now.Unix(),
+		KVCache:             kvCache,
 	}})
 }

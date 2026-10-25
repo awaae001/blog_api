@@ -1,21 +1,16 @@
 <template>
-  <div class="moments-page" v-loading="pageLoading" element-loading-text="加载中...">
-    <el-card class="composer-card">
-      <template #header>
-        <div class="card-header">
-          <span>我的动态</span>
-          <div class="header-actions">
-            <el-select v-model="composer.uploadTarget" size="small" style="width: 120px">
-              <el-option label="本地存储" value="local" />
-              <el-option label="OSS 存储" value="oss" />
-            </el-select>
-            <el-button type="primary" :loading="actionLoading" @click="handleCreateMoment">
-              发布
-            </el-button>
-          </div>
-        </div>
-      </template>
+  <PageShell title="我的动态" v-loading="pageLoading" element-loading-text="加载中...">
+    <template #actions>
+      <el-select v-model="composer.uploadTarget" style="width: 120px">
+        <el-option label="本地存储" value="local" />
+        <el-option label="OSS 存储" value="oss" />
+      </el-select>
+      <el-button type="primary" :loading="actionLoading" @click="handleCreateMoment">
+        发布
+      </el-button>
+    </template>
 
+    <section>
       <el-input
         v-model="composer.content"
         type="textarea"
@@ -64,9 +59,11 @@
           <el-button link type="danger" @click="removeComposerMedia(index)">移除</el-button>
         </div>
       </div>
-    </el-card>
+    </section>
 
-    <el-card class="list-card">
+    <el-divider />
+
+    <section>
       <div class="list-filters">
         <el-select v-model="filters.status" placeholder="状态筛选" clearable style="width: 140px" @change="handleFilter">
           <el-option label="全部" value="" />
@@ -76,7 +73,7 @@
         </el-select>
       </div>
 
-      <el-scrollbar height="68vh">
+      <div>
         <div v-if="!moments.length" class="empty-state">
           还没有动态，先发一条吧。
         </div>
@@ -152,11 +149,9 @@
             </div>
           </div>
         </div>
-      </el-scrollbar>
+      </div>
 
-      <el-pagination
-        background
-        layout="total, sizes, prev, pager, next, jumper"
+      <TablePagination
         :total="total"
         :page-sizes="[10, 20, 50]"
         :page-size="pageSize"
@@ -165,7 +160,7 @@
         @current-change="handlePageChange"
         class="pagination"
       />
-    </el-card>
+    </section>
 
     <el-dialog v-model="editDialogVisible" title="编辑动态" width="640px" @close="resetEditForm">
       <el-form label-width="70px">
@@ -260,24 +255,28 @@
         <el-button type="primary" :loading="actionLoading" @click="handleUpdateMoment">保存</el-button>
       </template>
     </el-dialog>
-  </div>
+  </PageShell>
 </template>
 
 <script setup lang="ts">
+import PageShell from '@/components/PageShell.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { ref, reactive, onMounted, computed, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Delete, Edit, VideoCamera, Link as LinkIcon, ChatLineRound } from '@element-plus/icons-vue'
 import { usePagination } from '@/utils/pagination'
-import { uploadFile } from '@/api/resource'
+import { uploadFile } from '@/api/resources'
 import {
   getMoments,
   createMoment,
   updateMoment,
   deleteMoment,
   createMomentMedia,
-  deleteMomentMedia
-} from '@/api/moment'
-import type { MomentWithMedia, MomentMedia, CreateMomentPayload } from '@/model/moment'
+  deleteMomentMedia,
+  type MomentWithMedia,
+  type MomentMedia,
+  type CreateMomentPayload
+} from '@/api/moments'
 import type { UploadFile } from 'element-plus'
 
 definePage({ meta: { title: '动态', icon: ChatLineRound, order: 2 } })
@@ -667,29 +666,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.moments-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 6px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.composer-card {
-  border-radius: 10px;
-}
-
 .composer-toolbar {
   margin-top: 12px;
   display: flex;
@@ -733,10 +709,6 @@ onUnmounted(() => {
   justify-content: center;
   color: #909399;
   gap: 6px;
-}
-
-.list-card {
-  border-radius: 10px;
 }
 
 .list-filters {
@@ -920,8 +892,6 @@ onUnmounted(() => {
 }
 
 .pagination {
-  display: flex;
-  justify-content: flex-end;
   margin-top: 16px;
 }
 

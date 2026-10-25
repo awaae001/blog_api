@@ -1,183 +1,144 @@
 <template>
-  <div class="rss-container">
-    <el-card shadow="never" class="full-height-card">
-      <template #header>
-        <div class="card-header">
-          <span>{{ viewTitle }}</span>
-          <div class="header-actions">
-            <template v-if="isAllPostsView">
-              <el-button :icon="Back" @click="showFeedList">返回订阅源</el-button>
-            </template>
-            <template v-else>
-              <el-select
-                v-model="statusFilter"
-                placeholder="全部状态"
-                clearable
-                style="width: 120px"
-                @change="handleStatusFilterChange"
-              >
-                <el-option
-                  v-for="(meta, key) in statusMeta"
-                  :key="key"
-                  :label="meta.label"
-                  :value="key"
-                />
-              </el-select>
-              <el-button type="primary" link @click="showAllPosts">查看所有文章</el-button>
-            </template>
-            <el-button type="primary" :icon="Plus" @click="handleCreate">订阅</el-button>
-          </div>
-        </div>
-      </template>
-
-      <!-- All posts view -->
+  <PageShell :title="viewTitle">
+    <template #actions>
       <template v-if="isAllPostsView">
-        <el-scrollbar class="content-scroll">
-          <el-table :data="posts" v-loading="postsLoading" style="width: 100%">
-            <el-table-column prop="title" label="文章标题">
-              <template #default="{ row }">
-                <a :href="row.link" target="_blank" class="post-link">{{ row.title }}</a>
-              </template>
-            </el-table-column>
-            <el-table-column prop="author" label="作者" width="160" />
-            <el-table-column prop="time" label="发布时间" width="180">
-              <template #default="{ row }">
-                {{ formatDate(row.time) }}
-              </template>
-            </el-table-column>
-            <!-- @vue-generic {RssPost} -->
-            <el-table-column label="操作" width="80">
-              <template #default="{ row }">
-                <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-scrollbar>
-        <el-pagination
-          background
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="totalPosts"
-          :page-sizes="[10, 20, 50, 100]"
-          :page-size="postPageSize"
-          :current-page="currentPostPage"
-          @size-change="handlePostSizeChange"
-          @current-change="handlePostPageChange"
-          class="pagination-container"
-        />
+        <el-button :icon="Back" @click="showFeedList">返回订阅源</el-button>
       </template>
-
-      <!-- Accordion feed list -->
       <template v-else>
-        <el-scrollbar class="content-scroll" v-loading="feedsLoading">
-          <el-empty v-if="!feedsLoading && feeds.length === 0" description="暂无订阅源" />
-          <el-collapse v-else v-model="activeFeedId" accordion @change="handleFeedChange">
-            <el-collapse-item v-for="feed in feeds" :key="feed.id" :name="feed.id">
-              <template #title>
-                <div class="feed-title">
-                  <el-tooltip :content="feed.feed_url" placement="top">
-                    <a :href="feed.feed_url" target="_blank" class="feed-link" @click.stop>
-                      <el-icon><Link /></el-icon>
-                    </a>
-                  </el-tooltip>
-                  <a
-                    v-if="feed.site_url"
-                    :href="feed.site_url"
-                    target="_blank"
-                    class="feed-name feed-name-link"
-                    @click.stop
-                  >
-                    {{ feed.name }}
-                  </a>
-                  <span v-else class="feed-name">{{ feed.name }}</span>
-                  <el-tag v-if="feed.feed_type" size="small" effect="plain">{{ feed.feed_type }}</el-tag>
-                  <el-tag :type="statusMeta[feed.status]?.tag ?? 'info'" size="small">
-                    {{ statusMeta[feed.status]?.label ?? feed.status }}
-                  </el-tag>
-                  <el-tooltip v-if="feed.error_count > 0" :content="feed.last_error || '未知错误'" placement="top">
-                    <el-tag type="warning" size="small" effect="plain">失败 {{ feed.error_count }} 次</el-tag>
-                  </el-tooltip>
-                  <span class="feed-meta">{{ friendLinkName(feed.friend_link_id) }}</span>
-                  <span class="feed-meta">上次成功 {{ formatDate(feed.last_success_at, 'MM-DD HH:mm') }}</span>
-                  <span v-if="feed.status !== 'paused'" class="feed-meta">
-                    下次 {{ formatNextFetch(feed.next_fetch_at) }}
-                  </span>
-                  <span v-if="feed.fetch_interval" class="feed-meta">
-                    每 {{ formatInterval(feed.fetch_interval) }}
-                  </span>
-                  <div class="feed-actions" @click.stop>
-                    <el-button
-                      type="success"
-                      link
-                      :icon="Refresh"
-                      :loading="fetchingId === feed.id"
-                      :disabled="fetchingId !== null && fetchingId !== feed.id"
-                      @click="handleImmediateFetch(feed)"
-                    >
-                      立刻获取
-                    </el-button>
-                    <el-button
-                      v-if="feed.status === 'paused'"
-                      type="primary"
-                      link
-                      :icon="VideoPlay"
-                      @click="handleTogglePause(feed)"
-                    >
-                      恢复
-                    </el-button>
-                    <el-button v-else type="warning" link :icon="VideoPause" @click="handleTogglePause(feed)">
-                      暂停
-                    </el-button>
-                    <el-button type="primary" link :icon="Edit" @click="handleEdit(feed)">编辑</el-button>
-                    <el-button type="danger" link :icon="Delete" @click="handleDelete(feed)">删除</el-button>
-                  </div>
-                </div>
-              </template>
-
-              <el-table :data="posts" v-loading="postsLoading" max-height="420" style="width: 100%">
-                <el-table-column prop="title" label="文章标题">
-                  <template #default="{ row }">
-                    <a :href="row.link" target="_blank" class="post-link">{{ row.title }}</a>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="time" label="发布时间" width="180">
-                  <template #default="{ row }">
-                    {{ formatDate(row.time) }}
-                  </template>
-                </el-table-column>
-                <!-- @vue-generic {RssPost} -->
-                <el-table-column label="操作" width="80">
-                  <template #default="{ row }">
-                    <el-button type="danger" link :icon="Delete" @click="handleDeletePost(row)">删除</el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-              <el-pagination
-                background
-                layout="total, sizes, prev, pager, next, jumper"
-                :total="totalPosts"
-                :page-sizes="[10, 20, 50, 100]"
-                :page-size="postPageSize"
-                :current-page="currentPostPage"
-                @size-change="handlePostSizeChange"
-                @current-change="handlePostPageChange"
-                class="pagination-container"
-              />
-            </el-collapse-item>
-          </el-collapse>
-        </el-scrollbar>
-        <el-pagination
-          background
-          layout="total, sizes, prev, pager, next"
-          :total="totalFeeds"
-          :page-sizes="[10, 20, 50]"
-          :page-size="feedPageSize"
-          :current-page="currentFeedPage"
-          @size-change="handleFeedSizeChange"
-          @current-change="handleFeedPageChange"
-          class="pagination-container feed-pagination"
-        />
+        <el-select
+          v-model="statusFilter"
+          placeholder="全部状态"
+          clearable
+          style="width: 120px"
+          @change="handleStatusFilterChange"
+        >
+          <el-option
+            v-for="(meta, key) in statusMeta"
+            :key="key"
+            :label="meta.label"
+            :value="key"
+          />
+        </el-select>
+        <el-button type="primary" link @click="showAllPosts">查看所有文章</el-button>
       </template>
-    </el-card>
+      <el-button type="primary" :icon="Plus" @click="handleCreate">订阅</el-button>
+    </template>
+
+    <!-- All posts view -->
+    <template v-if="isAllPostsView">
+      <el-scrollbar class="content-scroll">
+        <RssPostTable
+          :posts="posts"
+          :loading="postsLoading"
+          show-author
+          @delete="handleDeletePost"
+        />
+      </el-scrollbar>
+      <TablePagination
+        :total="totalPosts"
+        :page-size="postPageSize"
+        :current-page="currentPostPage"
+        @size-change="handlePostSizeChange"
+        @current-change="handlePostPageChange"
+        class="pagination-container"
+      />
+    </template>
+
+    <!-- Accordion feed list -->
+    <template v-else>
+      <el-scrollbar class="content-scroll" v-loading="feedsLoading">
+        <el-empty v-if="!feedsLoading && feeds.length === 0" description="暂无订阅源" />
+        <el-collapse v-else v-model="activeFeedId" accordion @change="handleFeedChange">
+          <el-collapse-item v-for="feed in feeds" :key="feed.id" :name="feed.id">
+            <template #title>
+              <div class="feed-title">
+                <el-tooltip :content="feed.feed_url" placement="top">
+                  <a :href="feed.feed_url" target="_blank" class="feed-link" @click.stop>
+                    <el-icon><Link /></el-icon>
+                  </a>
+                </el-tooltip>
+                <a
+                  v-if="feed.site_url"
+                  :href="feed.site_url"
+                  target="_blank"
+                  class="feed-name feed-name-link"
+                  @click.stop
+                >
+                  {{ feed.name }}
+                </a>
+                <span v-else class="feed-name">{{ feed.name }}</span>
+                <el-tag v-if="feed.feed_type" size="small" effect="plain">{{ feed.feed_type }}</el-tag>
+                <el-tag :type="statusMeta[feed.status]?.tag ?? 'info'" size="small">
+                  {{ statusMeta[feed.status]?.label ?? feed.status }}
+                </el-tag>
+                <el-tooltip v-if="feed.error_count > 0" :content="feed.last_error || '未知错误'" placement="top">
+                  <el-tag type="warning" size="small" effect="plain">失败 {{ feed.error_count }} 次</el-tag>
+                </el-tooltip>
+                <span class="feed-meta">{{ friendLinkName(feed.friend_link_id) }}</span>
+                <span class="feed-meta">上次成功 {{ formatDate(feed.last_success_at, 'MM-DD HH:mm') }}</span>
+                <span v-if="feed.status !== 'paused'" class="feed-meta">
+                  下次 {{ formatNextFetch(feed.next_fetch_at) }}
+                </span>
+                <span v-if="feed.fetch_interval" class="feed-meta">
+                  每 {{ formatInterval(feed.fetch_interval) }}
+                </span>
+                <div class="feed-actions" @click.stop>
+                  <el-button
+                    type="success"
+                    link
+                    :icon="Refresh"
+                    :loading="fetchingId === feed.id"
+                    :disabled="fetchingId !== null && fetchingId !== feed.id"
+                    @click="handleImmediateFetch(feed)"
+                  >
+                    立刻获取
+                  </el-button>
+                  <el-button
+                    v-if="feed.status === 'paused'"
+                    type="primary"
+                    link
+                    :icon="VideoPlay"
+                    @click="handleTogglePause(feed)"
+                  >
+                    恢复
+                  </el-button>
+                  <el-button v-else type="warning" link :icon="VideoPause" @click="handleTogglePause(feed)">
+                    暂停
+                  </el-button>
+                  <el-button type="primary" link :icon="Edit" @click="handleEdit(feed)">编辑</el-button>
+                  <el-button type="danger" link :icon="Delete" @click="handleDelete(feed)">删除</el-button>
+                </div>
+              </div>
+            </template>
+
+            <RssPostTable
+              :posts="posts"
+              :loading="postsLoading"
+              :max-height="420"
+              @delete="handleDeletePost"
+            />
+            <TablePagination
+              :total="totalPosts"
+              :page-size="postPageSize"
+              :current-page="currentPostPage"
+              @size-change="handlePostSizeChange"
+              @current-change="handlePostPageChange"
+              class="pagination-container"
+            />
+          </el-collapse-item>
+        </el-collapse>
+      </el-scrollbar>
+      <TablePagination
+        layout="total, sizes, prev, pager, next"
+        :total="totalFeeds"
+        :page-sizes="[10, 20, 50]"
+        :page-size="feedPageSize"
+        :current-page="currentFeedPage"
+        @size-change="handleFeedSizeChange"
+        @current-change="handleFeedPageChange"
+        class="pagination-container feed-pagination"
+      />
+    </template>
 
     <!-- Edit Dialog -->
     <el-dialog v-model="editDialogVisible" title="编辑订阅源" width="520px">
@@ -283,10 +244,13 @@
         </el-button>
       </template>
     </el-dialog>
-  </div>
+  </PageShell>
 </template>
 
 <script setup lang="ts">
+import PageShell from '@/components/PageShell.vue'
+import TablePagination from '@/components/TablePagination.vue'
+import RssPostTable from '@/components/RssPostTable.vue'
 import { ref, onMounted, reactive, computed } from 'vue'
 import { usePagination } from '@/utils/pagination'
 import { formatDate } from '@/utils/date'
@@ -301,11 +265,14 @@ import {
   deleteRssPost,
   createRssFeed,
   discoverRssFeeds,
-  fetchRssFeed
+  fetchRssFeed,
+  type FeedCandidate,
+  type RssFeed,
+  type RssFeedStatus,
+  type RssPost,
+  type UpdateRssFeedPayload
 } from '@/api/rss'
-import { getFriendLinks } from '@/api/friendLink'
-import type { FeedCandidate, RssFeed, RssFeedStatus, RssPost, UpdateRssFeedPayload } from '@/model/rss'
-import type { FriendLink } from '@/model/friendLink'
+import { getFriendLinks, type FriendLink } from '@/api/friend-links'
 
 definePage({ meta: { title: 'RSS', icon: Document, order: 4 } })
 
@@ -662,43 +629,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.rss-container {
-  /* 60px header + 12px el-main padding */
-  height: calc(100vh - 72px);
-  display: flex;
-  flex-direction: column;
-}
-
-.full-height-card {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.full-height-card :deep(.el-card__body) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .content-scroll {
   flex: 1;
   min-height: 0;
-}
-
-.card-header {
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .feed-title {
@@ -787,23 +720,12 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-.post-link {
-  text-decoration: none;
-  color: #409eff;
-}
-
-.post-link:hover {
-  text-decoration: underline;
-}
-
 .pagination-container {
   margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .feed-pagination {
   padding-top: 4px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--el-border-color);
 }
 </style>

@@ -1,12 +1,67 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/model/response'
-import type {
-  FriendLinkListParams,
-  PaginatedFriendLinks,
-  CreateFriendLinkPayload,
-  UpdateFriendLinkPayload,
-  FriendLinkInspectionProgress
-} from '@/model/friendLink'
+import type { ApiResponse, PaginatedResponse } from './response'
+
+export interface FriendLink {
+  id: number
+  name: string
+  link: string
+  avatar: string
+  description: string
+  status: 'survival' | 'timeout' | 'error' | 'pending'
+  enable_rss: boolean
+  skip_health_check: boolean
+  is_died?: boolean
+  email?: string
+  times?: number
+  updated_at: number
+}
+
+export interface FriendLinkListParams {
+  page?: number
+  page_size?: number
+  is_died?: boolean
+  status?: string
+  search?: string
+}
+
+export type PaginatedFriendLinks = PaginatedResponse<FriendLink>
+
+export interface CreateFriendLinkPayload {
+  name: string
+  link: string
+  avatar?: string
+  description?: string
+  email?: string
+  enable_rss?: boolean
+}
+
+export type UpdateFriendLinkData = Partial<Omit<FriendLink, 'id' | 'updated_at'>> & {
+  website_name?: string
+  website_url?: string
+  website_icon_url?: string
+}
+
+export interface UpdateFriendLinkPayload {
+  data: UpdateFriendLinkData
+  opt?: {
+    overwrite_if_blank?: boolean
+  }
+}
+
+/** 一次巡查任务的进度，进程重启后重置。 */
+export interface FriendLinkInspectionProgress {
+  running: boolean
+  label?: string
+  started_at?: number
+  finished_at?: number
+  total: number
+  processed: number
+  survival: number
+  failed: number
+  database_failures: number
+  rss_discovered: number
+  error?: string
+}
 
 /**
  * 获取友链列表

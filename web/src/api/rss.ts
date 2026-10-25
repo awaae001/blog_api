@@ -1,17 +1,78 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/model/response'
+import type { ApiResponse, PaginatedResponse } from './response'
 
-import type {
-  CreateRssFeedPayload,
-  CreateRssFeedResult,
-  FeedCandidate,
-  PaginatedResponse,
-  RssFeed,
-  RssFeedListParams,
-  RssFetchResult,
-  RssPost,
-  UpdateRssFeedPayload
-} from '@/model/rss'
+export type RssFeedStatus = 'active' | 'paused' | 'dead'
+
+/** 对应后端 model.RssFeed。 */
+export interface RssFeed {
+  id: number
+  friend_link_id: number | null
+  name: string
+  feed_url: string
+  site_url: string
+  feed_type: string
+  status: RssFeedStatus
+  error_count: number
+  last_error: string
+  /** 调度器选择的轮询间隔，单位为秒。 */
+  fetch_interval: number
+  next_fetch_at: number
+  last_fetched_at: number
+  last_success_at: number
+  created_at: number
+  updated_at: number
+}
+
+/** 网页通过 <link rel="alternate"> 声明的订阅源。 */
+export interface FeedCandidate {
+  url: string
+  title: string
+  type: string
+}
+
+export interface RssPost {
+  id: number
+  rss_id: number
+  title: string
+  link: string
+  description: string
+  author: string
+  time: number
+}
+
+export interface RssFeedListParams {
+  page?: number
+  page_size?: number
+  status?: RssFeedStatus | ''
+  friend_link_id?: number
+}
+
+export interface CreateRssFeedPayload {
+  feed_url: string
+  /** 留空时使用订阅源标题。 */
+  name?: string
+  /** 0 表示无归属。 */
+  friend_link_id: number
+}
+
+export interface UpdateRssFeedPayload {
+  name?: string
+  feed_url?: string
+  /** 0 表示清除归属。 */
+  friend_link_id?: number
+  status?: 'active' | 'paused'
+}
+
+export interface RssFetchResult {
+  not_modified: boolean
+  checked_items: number
+  inserted_items: number
+}
+
+export interface CreateRssFeedResult {
+  feed: RssFeed
+  result: RssFetchResult
+}
 
 /**
  * GET /api/action/rss

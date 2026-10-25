@@ -1,123 +1,116 @@
 <template>
-  <div class="resource-management">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <div class="header-left">
-            <span class="title">本地资源管理</span>
-            <el-breadcrumb separator="/">
-              <el-breadcrumb-item
-                v-for="crumb in breadcrumbs"
-                :key="crumb.path"
-                class="breadcrumb-item"
-              >
-                <el-link
-                  :underline="false"
-                  @click="handleBreadcrumbClick(crumb.path)"
-                >
-                  {{ crumb.label }}
-                </el-link>
-              </el-breadcrumb-item>
-            </el-breadcrumb>
-          </div>
-          <div class="header-actions">
-            <el-button :disabled="!currentPath" @click="goToParent">
-              返回上级
-            </el-button>
-            <el-button type="primary" :icon="Upload" @click="openUploadDialog">
-              上传文件
-            </el-button>
-            <el-button :icon="Refresh" @click="refreshList">
-              刷新
-            </el-button>
-          </div>
-        </div>
-      </template>
+  <PageShell title="本地资源管理" flush>
+    <template #subtitle>
+      <el-breadcrumb separator="/">
+        <el-breadcrumb-item
+          v-for="crumb in breadcrumbs"
+          :key="crumb.path"
+          class="breadcrumb-item"
+        >
+          <el-link
+            :underline="false"
+            @click="handleBreadcrumbClick(crumb.path)"
+          >
+            {{ crumb.label }}
+          </el-link>
+        </el-breadcrumb-item>
+      </el-breadcrumb>
+    </template>
+    <template #actions>
+      <el-button :disabled="!currentPath" @click="goToParent">
+        返回上级
+      </el-button>
+      <el-button type="primary" :icon="Upload" @click="openUploadDialog">
+        上传文件
+      </el-button>
+      <el-button :icon="Refresh" @click="refreshList">
+        刷新
+      </el-button>
+    </template>
 
-      <el-table
-        :data="sortedEntries"
-        v-loading="loading"
-        style="width: 100%"
-      >
-        <!-- @vue-generic {ResourceEntry} -->
-        <el-table-column label="名称" min-width="240">
-          <template #default="{ row }">
-            <div class="name-cell">
-              <el-icon class="name-icon">
-                <Folder v-if="row.is_dir" />
-                <Document v-else />
-              </el-icon>
-              <el-link
-                v-if="row.is_dir"
-                :underline="false"
-                @click="handleOpen(row)"
-              >
-                {{ row.name }}
-              </el-link>
-              <span v-else>{{ row.name }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="path" label="路径" min-width="260" show-overflow-tooltip />
-        <el-table-column label="类型" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.is_dir ? 'info' : 'success'">
-              {{ row.is_dir ? '文件夹' : '文件' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="大小" width="120">
-          <template #default="{ row }">
-            {{ row.is_dir ? '-' : formatSize(row.size) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="修改时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.mod_time) }}
-          </template>
-        </el-table-column>
-        <!-- @vue-generic {ResourceEntry} -->
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button
+    <el-table
+      :data="sortedEntries"
+      v-loading="loading"
+      height="100%"
+    >
+      <!-- @vue-generic {ResourceEntry} -->
+      <el-table-column label="名称" min-width="240">
+        <template #default="{ row }">
+          <div class="name-cell">
+            <el-icon class="name-icon">
+              <Folder v-if="row.is_dir" />
+              <Document v-else />
+            </el-icon>
+            <el-link
               v-if="row.is_dir"
-              type="primary"
-              link
-              :icon="FolderOpened"
+              :underline="false"
               @click="handleOpen(row)"
             >
-              打开
-            </el-button>
-            <el-button
-              v-else
-              type="primary"
-              link
-              :icon="Download"
-              @click="handleDownload(row)"
-            >
-              下载
-            </el-button>
-            <el-button
-              v-if="isEditableFile(row)"
-              type="primary"
-              link
-              :icon="Edit"
-              @click="handleEdit(row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              type="danger"
-              link
-              :icon="Delete"
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+              {{ row.name }}
+            </el-link>
+            <span v-else>{{ row.name }}</span>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="path" label="路径" min-width="260" show-overflow-tooltip />
+      <el-table-column label="类型" width="100">
+        <template #default="{ row }">
+          <el-tag :type="row.is_dir ? 'info' : 'success'">
+            {{ row.is_dir ? '文件夹' : '文件' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="大小" width="120">
+        <template #default="{ row }">
+          {{ row.is_dir ? '-' : formatSize(row.size) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="修改时间" width="180">
+        <template #default="{ row }">
+          {{ formatDate(row.mod_time) }}
+        </template>
+      </el-table-column>
+      <!-- @vue-generic {ResourceEntry} -->
+      <el-table-column label="操作" width="200" fixed="right">
+        <template #default="{ row }">
+          <el-button
+            v-if="row.is_dir"
+            type="primary"
+            link
+            :icon="FolderOpened"
+            @click="handleOpen(row)"
+          >
+            打开
+          </el-button>
+          <el-button
+            v-else
+            type="primary"
+            link
+            :icon="Download"
+            @click="handleDownload(row)"
+          >
+            下载
+          </el-button>
+          <el-button
+            v-if="isEditableFile(row)"
+            type="primary"
+            link
+            :icon="Edit"
+            @click="handleEdit(row)"
+          >
+            编辑
+          </el-button>
+          <el-button
+            type="danger"
+            link
+            :icon="Delete"
+            @click="handleDelete(row)"
+          >
+            删除
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <el-dialog v-model="uploadDialogVisible" title="上传文件" width="520px" @close="resetUploadForm">
       <el-form label-width="90px">
@@ -170,10 +163,11 @@
         </el-button>
       </template>
     </el-dialog>
-  </div>
+  </PageShell>
 </template>
 
 <script setup lang="ts">
+import PageShell from '@/components/PageShell.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -188,12 +182,11 @@ import {
   Edit
 } from '@element-plus/icons-vue'
 import type { UploadFile } from 'element-plus'
-import { listResources, uploadFile, deleteFile, getResourceFileBlob } from '@/api/resource'
-import type { ResourceEntry } from '@/model/resource'
+import { listResources, uploadFile, deleteFile, getResourceFileBlob, type ResourceEntry } from '@/api/resources'
 import { formatDate } from '@/utils/date'
 import { EditorView, basicSetup } from 'codemirror'
 
-definePage({ meta: { title: '资源', icon: FolderOpened, order: 6 } })
+definePage({ path: '/resource', meta: { title: '资源', icon: FolderOpened, order: 6 } })
 
 const entries = ref<ResourceEntry[]>([])
 const loading = ref(false)
@@ -466,29 +459,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.resource-management {
-  padding: 6px;
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .name-cell {
   display: flex;
   align-items: center;
