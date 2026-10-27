@@ -5,16 +5,37 @@
     </template>
 
     <el-tabs v-model="activeTab" class="settings-tabs">
-      <!-- 安全配置 -->
-      <el-tab-pane label="安全配置" name="safe">
+      <!-- 基础配置 -->
+      <el-tab-pane label="基础" name="basic">
         <el-form :model="config" label-width="150px">
+          <el-divider content-position="left">数据与存储</el-divider>
+          <el-form-item label="数据库路径">
+            <el-input v-model="config.system_conf.data_conf.database.path" placeholder="例如: data/blog.db" />
+          </el-form-item>
+
+          <el-form-item label="图片存储路径">
+            <el-input v-model="config.system_conf.data_conf.image.path" placeholder="例如: data/images" />
+          </el-form-item>
+          <el-form-item label="图片转换格式">
+            <el-select v-model="config.system_conf.data_conf.image.conv_to">
+              <el-option label="webp" value="webp" />
+              <el-option label="jpeg" value="jpeg" />
+              <el-option label="png" value="png" />
+              <el-option label="不转换" value="" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="资源存储路径">
+            <el-input v-model="config.system_conf.data_conf.resource.path" placeholder="例如: data/resources" />
+          </el-form-item>
+
+          <el-divider content-position="left">安全配置</el-divider>
           <el-form-item label="CORS 白名单">
             <el-tag v-for="(host, index) in config.system_conf.safe_conf.cors_allow_hostlist" :key="index" closable
               @close="removeArrayItem('cors_allow_hostlist', index)" style="margin-right: 8px; margin-bottom: 8px">
               {{ host }}
             </el-tag>
-            <el-input v-model="newCorsHost" placeholder="输入域名后按回车添加" @keyup.enter="addCorsHost"
-              style="width: 300px" />
+            <el-input v-model="newCorsHost" placeholder="输入域名后按回车添加" @keyup.enter="addCorsHost" style="width: 300px" />
           </el-form-item>
 
           <el-form-item label="排除路径">
@@ -35,17 +56,19 @@
               style="width: 300px" />
           </el-form-item>
 
-          <el-divider content-position="left">验证配置</el-divider>
+          <el-divider content-position="left">反机器人</el-divider>
           <el-form-item label="启用 Turnstile">
             <el-switch v-model="config.system_conf.verify_conf.turnstile.enable" />
           </el-form-item>
           <template v-if="config.system_conf.verify_conf.turnstile.enable">
             <el-form-item label="Turnstile Site Key">
-              <el-input v-model="config.system_conf.verify_conf.turnstile.site_key"
-                placeholder="Turnstile Site Key" />
+              <el-input v-model="config.system_conf.verify_conf.turnstile.site_key" placeholder="Turnstile Site Key" />
               <div class="form-item-help">用于前端渲染 Turnstile 组件。</div>
             </el-form-item>
-            <el-form-item label="Turnstile Secret (敏感)">
+            <el-form-item>
+              <template #label>
+                <SecretLabel>Turnstile Secret</SecretLabel>
+              </template>
               <el-input v-model="config.system_conf.verify_conf.turnstile.secret" placeholder="Turnstile Secret"
                 show-password />
               <div class="env-override-notice">
@@ -56,7 +79,10 @@
               </div>
             </el-form-item>
           </template>
-          <el-form-item label="Fingerprint Secret">
+          <el-form-item>
+            <template #label>
+              <SecretLabel>Fingerprint Secret</SecretLabel>
+            </template>
             <el-input v-model="config.system_conf.verify_conf.fingerprint.secret" placeholder="用于指纹签名的服务端密钥"
               show-password />
             <div class="env-override-notice">
@@ -75,34 +101,33 @@
             <el-alert class="feature-alert" type="warning" :closable="false" show-icon
               title="未选中的公开 API 将返回 404；后台管理接口不受影响。" />
           </el-form-item>
-        </el-form>
-      </el-tab-pane>
 
-      <!-- 数据配置 -->
-      <el-tab-pane label="数据配置" name="data">
-        <el-form :model="config" label-width="150px">
-          <el-divider content-position="left">数据库配置</el-divider>
-          <el-form-item label="数据库路径">
-            <el-input v-model="config.system_conf.data_conf.database.path" placeholder="例如: data/blog.db" />
+          <el-divider content-position="left">测活与探针</el-divider>
+          <el-form-item label="并发数量">
+            <el-input-number v-model="config.system_conf.crawler_conf.concurrency" :min="1" :max="20" />
+            <div class="form-item-help">
+              设置 RSS 爬虫的并发数量，建议值为 5-10
+            </div>
           </el-form-item>
-
-          <el-divider content-position="left">图片配置</el-divider>
-          <el-form-item label="图片存储路径">
-            <el-input v-model="config.system_conf.data_conf.image.path" placeholder="例如: data/images" />
-          </el-form-item>
-          <el-form-item label="图片转换格式">
-            <el-select v-model="config.system_conf.data_conf.image.conv_to">
-              <el-option label="webp" value="webp" />
-              <el-option label="jpeg" value="jpeg" />
-              <el-option label="png" value="png" />
-              <el-option label="不转换" value="" />
-            </el-select>
+          <el-form-item label="RSS 超时 (秒)">
+            <el-input-number v-model="config.system_conf.crawler_conf.rss_timeout_seconds" :min="1" :max="120" />
+            <div class="form-item-help">
+              设置 RSS 解析请求的超时时间，建议值为 10-30
+            </div>
           </el-form-item>
 
-          <el-divider content-position="left">资源配置</el-divider>
-          <el-form-item label="资源存储路径">
-            <el-input v-model="config.system_conf.data_conf.resource.path" placeholder="例如: data/resources" />
-          </el-form-item>
+          <el-divider content-position="left">危险区域</el-divider>
+          <div class="danger-zone">
+            <div class="danger-zone__content">
+              <div class="danger-zone__title">重启后端服务</div>
+              <div class="danger-zone__desc">
+                这会让当前后端进程主动退出，并依赖外部自启动机制重新拉起。请先确认已配置好自动重启。
+              </div>
+            </div>
+            <el-button type="danger" :loading="restarting" @click="handleRestart">
+              重启服务
+            </el-button>
+          </div>
         </el-form>
       </el-tab-pane>
 
@@ -122,7 +147,10 @@
             <el-form-item label="SMTP 用户名">
               <el-input v-model="config.system_conf.email_conf.user_name" placeholder="user@example.com" />
             </el-form-item>
-            <el-form-item label="SMTP 密码 (敏感)">
+            <el-form-item>
+              <template #label>
+                <SecretLabel>SMTP 密码</SecretLabel>
+              </template>
               <el-input v-model="config.system_conf.email_conf.password" placeholder="SMTP Password" show-password />
               <div class="env-override-notice">
                 此配置可被环境变量 <code>EMAIL_PASSWORD</code> 覆盖。
@@ -132,24 +160,6 @@
               <el-input v-model="config.system_conf.email_conf.sender" placeholder="Blog <no-reply@example.com>" />
             </el-form-item>
           </template>
-        </el-form>
-      </el-tab-pane>
-
-      <!-- 爬虫配置 -->
-      <el-tab-pane label="爬虫配置" name="crawler">
-        <el-form :model="config" label-width="150px">
-          <el-form-item label="并发数量">
-            <el-input-number v-model="config.system_conf.crawler_conf.concurrency" :min="1" :max="20" />
-            <div style="color: #909399; font-size: 12px; margin-top: 8px">
-              设置 RSS 爬虫的并发数量，建议值为 5-10
-            </div>
-          </el-form-item>
-          <el-form-item label="RSS 超时 (秒)">
-            <el-input-number v-model="config.system_conf.crawler_conf.rss_timeout_seconds" :min="1" :max="120" />
-            <div style="color: #909399; font-size: 12px; margin-top: 8px">
-              设置 RSS 解析请求的超时时间，建议值为 10-30
-            </div>
-          </el-form-item>
         </el-form>
       </el-tab-pane>
 
@@ -177,7 +187,10 @@
               <el-form-item label="同步删除">
                 <el-switch v-model="config.system_conf.moments_integrated_conf.integrated.telegram.sync_delete" />
               </el-form-item>
-              <el-form-item label="Bot Token">
+              <el-form-item>
+                <template #label>
+                  <SecretLabel>Bot Token</SecretLabel>
+                </template>
                 <el-input v-model="config.system_conf.moments_integrated_conf.integrated.telegram.bot_token"
                   placeholder="Telegram Bot Token" show-password />
                 <div class="env-override-notice">
@@ -211,7 +224,10 @@
               <el-form-item label="同步删除">
                 <el-switch v-model="config.system_conf.moments_integrated_conf.integrated.discord.sync_delete" />
               </el-form-item>
-              <el-form-item label="Bot Token">
+              <el-form-item>
+                <template #label>
+                  <SecretLabel>Bot Token</SecretLabel>
+                </template>
                 <el-input v-model="config.system_conf.moments_integrated_conf.integrated.discord.bot_token"
                   placeholder="Discord Bot Token" show-password />
                 <div class="env-override-notice">
@@ -260,7 +276,10 @@
                 此配置可被环境变量 <code>OSS_ACCESS_KEY_ID</code> 覆盖。
               </div>
             </el-form-item>
-            <el-form-item label="Access Key Secret">
+            <el-form-item>
+              <template #label>
+                <SecretLabel>Access Key Secret</SecretLabel>
+              </template>
               <el-input v-model="config.system_conf.oss_conf.accessKeySecret" placeholder="OSS Access Key Secret"
                 show-password />
               <div class="env-override-notice">
@@ -277,8 +296,7 @@
               <el-input v-model="config.system_conf.oss_conf.region" />
             </el-form-item>
             <el-form-item label="自定义域名">
-              <el-input v-model="config.system_conf.oss_conf.customDomain"
-                placeholder="例如: https://oss.example.com" />
+              <el-input v-model="config.system_conf.oss_conf.customDomain" placeholder="例如: https://oss.example.com" />
             </el-form-item>
             <el-form-item label="上传路径前缀">
               <el-input v-model="config.system_conf.oss_conf.prefix" />
@@ -293,25 +311,13 @@
         </el-form>
       </el-tab-pane>
 
-      <el-tab-pane label="危险区域" name="danger">
-        <div class="danger-zone">
-          <div class="danger-zone__content">
-            <div class="danger-zone__title">重启后端服务</div>
-            <div class="danger-zone__desc">
-              这会让当前后端进程主动退出，并依赖外部自启动机制重新拉起。请先确认已配置好自动重启。
-            </div>
-          </div>
-          <el-button type="danger" :loading="restarting" @click="handleRestart">
-            重启服务
-          </el-button>
-        </div>
-      </el-tab-pane>
-    </el-tabs>
+      </el-tabs>
   </PageShell>
 </template>
 
 <script setup lang="ts">
 import PageShell from '@/components/PageShell.vue'
+import SecretLabel from '@/components/SecretLabel.vue'
 import { Setting } from '@element-plus/icons-vue'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -326,7 +332,7 @@ import {
 
 definePage({ meta: { title: '系统设置', icon: Setting, order: 99, bottom: true } })
 
-const activeTab = ref('safe')
+const activeTab = ref('basic')
 const saving = ref(false)
 const restarting = ref(false)
 const newCorsHost = ref('')
@@ -594,12 +600,12 @@ const handleRestart = async () => {
   min-height: 0;
 }
 
-.settings-tabs > :deep(.el-tabs__header) {
+.settings-tabs> :deep(.el-tabs__header) {
   margin: 0;
   padding: 0 20px;
 }
 
-.settings-tabs > :deep(.el-tabs__content) {
+.settings-tabs> :deep(.el-tabs__content) {
   overflow-y: auto;
   padding: 20px;
 }
