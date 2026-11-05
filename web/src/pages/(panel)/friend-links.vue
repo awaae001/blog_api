@@ -343,11 +343,14 @@ const handleRecheck = async (id: number) => {
 
   recheckingId.value = id
   try {
-    await recheckFriendLink(id)
-    ElMessage.success('巡查完成')
+    const res = await recheckFriendLink(id)
+    if (res.data.success) {
+      ElMessage.success('巡查成功')
+    } else {
+      ElMessage.error('巡查失败')
+    }
     await fetchFriendLinks()
   } catch {
-    // The response interceptor reports request failures.
   } finally {
     recheckingId.value = null
   }

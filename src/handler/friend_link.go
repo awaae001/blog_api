@@ -165,13 +165,11 @@ func (h *FriendLinkHandler) GetFullFriendLinks(c *gin.Context) {
 	h.getFriendLinks(c, true, "")
 }
 
-// GetFullFriendLinkByID handles GET /api/action/friend/:id request (authenticated)
 func (h *FriendLinkHandler) GetFullFriendLinkByID(c *gin.Context) {
 	h.getFriendLinkByID(c, true)
 }
 
 // RecheckFriendLink handles POST /api/action/friend/recheck/:id.
-// It performs one inspection even when scheduled health checks are disabled.
 func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 	link, ok := h.loadFriendLink(c)
 	if !ok {
@@ -182,14 +180,20 @@ func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 	if c.Request.Context().Err() != nil {
 		return
 	}
-	if err := friendsRepositories.UpdateFriendLink(h.DB, link, result); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "failed to update friend link inspection"})
-		return
+	if !link.SkipHealthCheck {
+		if err := friendsRepositories.UpdateFriendLink(h.DB, link, result); err != nil {
+			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "failed to update friend link inspection"})
+			return
+		}
+		crawlerService.SubscribeDiscovered(c.Request.Context(), h.DB, link, result.Feeds)
 	}
 
-	crawlerService.SubscribeDiscovered(c.Request.Context(), h.DB, link, result.Feeds)
-
-	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: nil})
+	success := result.Status == crawlerService.StatusSurvival
+	message := "巡查失败"
+	if success {
+		message = "巡查成功"
+	}
+	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: message, Data: gin.H{"success": success}})
 }
 
 // RecheckAllFriendLinks handles POST /api/action/friend/recheck.
