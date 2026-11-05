@@ -57,6 +57,12 @@
         </el-table-column>
         <el-table-column prop="email" label="邮箱" width="200" />
         <el-table-column prop="times" label="失败次数" width="100" />
+        <!-- @vue-generic {FriendLink} -->
+        <el-table-column prop="reason" label="探针问题" width="260" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.reason || '—' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="updated_at" label="更新时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.updated_at) }}
@@ -254,7 +260,19 @@ const handleFilter = () => {
 const openFormDialog = (link?: FriendLink) => {
   if (link) {
     isEditMode.value = true
-    Object.assign(form, link)
+    Object.assign(form, {
+      id: link.id,
+      name: link.name,
+      link: link.link,
+      avatar: link.avatar,
+      description: link.description,
+      email: link.email ?? '',
+      times: link.times ?? 0,
+      status: link.status,
+      enable_rss: link.enable_rss,
+      skip_health_check: link.skip_health_check,
+      is_died: link.is_died ?? false
+    })
   } else {
     isEditMode.value = false
   }

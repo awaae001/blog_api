@@ -19,18 +19,19 @@ type PaginatedResponse struct {
 
 // FriendLinkDTO omits private fields unless explicitly requested.
 type FriendLinkDTO struct {
-	ID              int    `json:"id"`
-	Name            string `json:"name"`
-	Link            string `json:"link"`
-	Avatar          string `json:"avatar"`
-	Description     string `json:"description"`
-	Status          string `json:"status"`
-	Email           string `json:"email,omitempty"`
-	Times           int    `json:"times,omitempty"`
-	EnableRss       bool   `json:"enable_rss"`
-	IsDied          bool   `json:"is_died,omitempty"`
-	SkipHealthCheck *bool  `json:"skip_health_check,omitempty"`
-	UpdatedAt       int64  `json:"updated_at"`
+	ID              int     `json:"id"`
+	Name            string  `json:"name"`
+	Link            string  `json:"link"`
+	Avatar          string  `json:"avatar"`
+	Description     string  `json:"description"`
+	Status          string  `json:"status"`
+	Reason          *string `json:"reason,omitempty"`
+	Email           string  `json:"email,omitempty"`
+	Times           int     `json:"times,omitempty"`
+	EnableRss       bool    `json:"enable_rss"`
+	IsDied          bool    `json:"is_died,omitempty"`
+	SkipHealthCheck *bool   `json:"skip_health_check,omitempty"`
+	UpdatedAt       int64   `json:"updated_at"`
 }
 
 // ToDTO controls private field exposure for every friend link response.
@@ -46,6 +47,7 @@ func (link FriendWebsite) ToDTO(includePrivate bool) FriendLinkDTO {
 		UpdatedAt:   link.UpdatedAt,
 	}
 	if includePrivate {
+		dto.Reason = &link.Reason
 		dto.Email = link.Email
 		dto.Times = link.Times
 		dto.IsDied = link.IsDied

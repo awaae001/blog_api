@@ -5,6 +5,7 @@ type CrawlResult struct {
 	Description string
 	IconURL     string
 	Status      string          // e.g., "survival", "timeout", "error"
+	Reason      string          // Problem reported by the latest inspection; empty on success
 	RedirectURL string          // The new URL if a redirect occurs
 	Feeds       []FeedCandidate // Feeds advertised by the page, best first
 }

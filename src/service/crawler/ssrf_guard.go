@@ -57,11 +57,6 @@ func isBlockedIP(ip netip.Addr) bool {
 	return false
 }
 
-// safeDialContext resolves the host itself, rejects any non-public resolved
-// address, and then dials a validated IP directly. Dialing the checked IP
-// (instead of the hostname) closes the DNS-rebinding window between the
-// check and the connection. TLS is unaffected: http.Transport derives the
-// ServerName from the request URL, not the dialed address.
 func safeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {

@@ -3,6 +3,7 @@ package crawlerService
 import (
 	"blog_api/src/model"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -22,24 +23,22 @@ var crawlerHTTPClient = &http.Client{
 	},
 }
 
-// CrawlWebsite inspects one website and returns its health and discovered metadata.
-// Transport and parsing failures are represented by the result status.
 func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 	if _, err := ValidatePublicHTTPURL(rawURL); err != nil {
 		log.Printf("[crawler]拒绝爬取非法目标 %s: %v", rawURL, err)
-		return model.CrawlResult{Status: StatusError}
+		return model.CrawlResult{Status: StatusError, Reason: "目标地址无效或被安全策略拒绝: " + err.Error()}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		log.Printf("[crawler]创建获取 %s 的请求时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: StatusError}
+		return model.CrawlResult{Status: StatusError, Reason: "创建请求失败: " + err.Error()}
 	}
 	setHTMLRequestHeaders(req)
 	resp, err := crawlerHTTPClient.Do(req)
 	if err != nil {
 		status, reason := classifyTransportError(err)
 		log.Printf("[crawler]获取 URL %s 失败，判定为 %s (%s): %v", rawURL, status, reason, err)
-		return model.CrawlResult{Status: status}
+		return model.CrawlResult{Status: status, Reason: reason}
 	}
 	defer resp.Body.Close()
 
@@ -52,18 +51,18 @@ func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("[crawler]错误: %s 的状态码非 200: %d", rawURL, resp.StatusCode)
-		return model.CrawlResult{Status: StatusError}
+		return model.CrawlResult{Status: StatusError, Reason: fmt.Sprintf("HTTP 状态异常: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))}
 	}
 	limitedBody := &limitedReader{reader: resp.Body, remaining: maxHTMLResponseBytes}
 	utf8Reader, err := charset.NewReader(limitedBody, resp.Header.Get("Content-Type"))
 	if err != nil {
 		log.Printf("[crawler]创建 %s 的字符集解码器时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: StatusError}
+		return model.CrawlResult{Status: StatusError, Reason: "字符集解码失败: " + err.Error()}
 	}
 	doc, err := goquery.NewDocumentFromReader(utf8Reader)
 	if err != nil {
 		log.Printf("[crawler]解析 %s 的 HTML 时出错: %v", rawURL, err)
-		return model.CrawlResult{Status: StatusError}
+		return model.CrawlResult{Status: StatusError, Reason: "读取或解析 HTML 失败: " + err.Error()}
 	}
 	description := doc.Find("meta[name='description']").AttrOr("content", "")
 	iconURL, exists := doc.Find("link[rel='icon']").Attr("href")
@@ -82,7 +81,6 @@ func CrawlWebsite(ctx context.Context, rawURL string) model.CrawlResult {
 	}
 }
 
-// toAbsoluteURL 根据基础 URL 将相对 URL 转换为绝对 URL
 func toAbsoluteURL(base *url.URL, href string) string {
 	relativeURL, err := url.Parse(href)
 	if err != nil {

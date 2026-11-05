@@ -103,7 +103,7 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 	if opts.Offset > 0 {
 		query = query.Offset(opts.Offset)
 	}
-	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, is_died, enable_rss, skip_health_check, updated_at"
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, updated_at"
 	if err := query.Select(selectFields).Find(&resp.Links).Error; err != nil {
 		return resp, err
 	}
@@ -111,10 +111,9 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 	return resp, nil
 }
 
-// GetFriendLinkByID fetches a single friend link by ID.
 func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
 	var link model.FriendWebsite
-	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, is_died, enable_rss, skip_health_check, updated_at"
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, updated_at"
 	err := db.Model(&model.FriendWebsite{}).Select(selectFields).Where("id = ?", id).First(&link).Error
 	return link, err
 }
@@ -131,8 +130,10 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 		result.Status,
 		"",
 	)
+	link.Reason = result.Reason
 	if success {
 		link.IsDied = false
+		link.Reason = ""
 	} else if reachedThreshold {
 		link.IsDied = true
 	}
@@ -145,6 +146,7 @@ func UpdateFriendLink(db *gorm.DB, link model.FriendWebsite, result model.CrawlR
 		"website_url": link.Link,
 		"description": gorm.Expr("CASE WHEN description = '' THEN ? ELSE description END", result.Description),
 		"status":      link.Status,
+		"reason":      link.Reason,
 		"times":       link.Times,
 		"is_died":     link.IsDied,
 	}

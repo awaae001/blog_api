@@ -7,6 +7,7 @@ export interface FriendLink {
   link: string
   avatar: string
   description: string
+  readonly reason: string
   status: 'survival' | 'timeout' | 'error' | 'pending'
   enable_rss: boolean
   skip_health_check: boolean
@@ -35,7 +36,7 @@ export interface CreateFriendLinkPayload {
   enable_rss?: boolean
 }
 
-export type UpdateFriendLinkData = Partial<Omit<FriendLink, 'id' | 'updated_at'>> & {
+export type UpdateFriendLinkData = Partial<Omit<FriendLink, 'id' | 'updated_at' | 'reason'>> & {
   website_name?: string
   website_url?: string
   website_icon_url?: string

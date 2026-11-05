@@ -10,6 +10,7 @@ type FriendWebsite struct {
 	Email           string `json:"email,omitempty" gorm:"column:email"`
 	Times           int    `json:"times,omitempty" gorm:"column:times"`
 	Status          string `json:"status,omitempty" gorm:"column:status"`
+	Reason          string `json:"reason" gorm:"column:reason"`
 	IsDied          bool   `json:"is_died,omitempty" gorm:"column:is_died"`
 	EnableRss       bool   `json:"enable_rss,omitempty" gorm:"column:enable_rss"`
 	SkipHealthCheck bool   `json:"skip_health_check,omitempty" gorm:"column:skip_health_check"`

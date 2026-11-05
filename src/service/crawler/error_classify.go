@@ -22,7 +22,7 @@ const (
 )
 
 // classifyTransportError maps a failed HTTP round trip to a crawl status and a
-// short human-readable reason for the log.
+// short human-readable reason for storage and logging.
 //
 // The distinction that matters: a domain that no longer resolves is dead and
 // should not be reported the same way as a site that was merely slow. Only
