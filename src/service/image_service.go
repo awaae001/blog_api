@@ -73,12 +73,10 @@ func ScanAndSaveImages(db *gorm.DB) error {
 	})
 
 	if walkErr != nil {
-		log.Printf("[service][image][ERR] Failed to walk through image directory: %v", walkErr)
 		return walkErr
 	}
 
 	if err := flush(); err != nil {
-		log.Printf("[service][image][ERR] Failed to insert image batch: %v", err)
 		return err
 	}
 
@@ -102,7 +100,6 @@ func processSingleImage(filePath, rootPath, targetFormat string) (*processedImag
 
 	originalRelPath, err := filepath.Rel(rootPath, filePath)
 	if err != nil {
-		log.Printf("[service][image][WARN] Failed to get relative path for %s: %v", filePath, err)
 		return nil, err
 	}
 	originalURL := filepath.ToSlash(filepath.Join("/image", originalRelPath))
@@ -123,7 +120,6 @@ func processSingleImage(filePath, rootPath, targetFormat string) (*processedImag
 		}
 		if needsConvert {
 			if err := convertImage(filePath, newPath, targetFormat); err != nil {
-				log.Printf("[service][image][WARN] Failed to convert %s: %v", filePath, err)
 				return nil, err
 			}
 			log.Printf("[service][image] Converted %s to %s", filePath, newPath)
@@ -141,7 +137,6 @@ func processSingleImage(filePath, rootPath, targetFormat string) (*processedImag
 	// 构建相对路径和 URL
 	relPath, err := filepath.Rel(rootPath, finalPath)
 	if err != nil {
-		log.Printf("[service][image][WARN] Failed to get relative path for %s: %v", finalPath, err)
 		return nil, err
 	}
 	url := filepath.ToSlash(filepath.Join("/image", relPath))
@@ -190,22 +185,20 @@ func convertImage(srcPath, destPath, targetFormat string) error {
 		return fmt.Errorf("could not create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
 
 	encodeErr := encodeImage(tmpFile, img, targetFormat)
 	closeErr := tmpFile.Close()
-	if encodeErr == nil && closeErr == nil {
-		if err := os.Rename(tmpPath, destPath); err != nil {
-			os.Remove(tmpPath)
-			return fmt.Errorf("could not move converted file into place: %w", err)
-		}
-		return nil
-	}
-
-	os.Remove(tmpPath)
 	if encodeErr != nil {
 		return encodeErr
 	}
-	return fmt.Errorf("could not finalize converted file: %w", closeErr)
+	if closeErr != nil {
+		return fmt.Errorf("could not finalize converted file: %w", closeErr)
+	}
+	if err := os.Rename(tmpPath, destPath); err != nil {
+		return fmt.Errorf("could not move converted file into place: %w", err)
+	}
+	return nil
 }
 
 // encodeImage 将解码后的图片按目标格式编码写入 w。
@@ -235,12 +228,9 @@ func updateImageAfterConvert(db *gorm.DB, originalURL, originalPath string, img 
 	result := db.Model(&model.Image{}).
 		Where("url = ? OR local_path = ?", originalURL, originalPath).
 		Updates(updates)
-	if result.Error != nil {
-		return false, result.Error
-	}
-	if result.RowsAffected > 0 {
+	updated := result.Error == nil && result.RowsAffected > 0
+	if updated {
 		log.Printf("[service][image] Updated image record after conversion: %s -> %s", originalURL, img.URL)
-		return true, nil
 	}
-	return false, nil
+	return updated, result.Error
 }

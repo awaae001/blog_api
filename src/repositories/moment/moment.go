@@ -2,6 +2,7 @@ package momentRepositories
 
 import (
 	"blog_api/src/model"
+	"blog_api/src/repositories"
 
 	"gorm.io/gorm"
 )
@@ -65,14 +66,7 @@ func UpdateMoment(db *gorm.DB, moment *model.Moment, updates model.UpdateMomentR
 		return nil
 	}
 
-	result := db.Model(moment).Updates(updates)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return repositories.RecordError(db.Model(moment).Updates(updates))
 }
 
 // GetMomentByID retrieves a moment by ID.
@@ -86,14 +80,7 @@ func GetMomentByID(db *gorm.DB, id int) (*model.Moment, error) {
 
 // DeleteMomentByChannelMessage deletes a moment using channel_id and message_id.
 func DeleteMomentByChannelMessage(db *gorm.DB, channelID, messageID int64) error {
-	result := db.Where("channel_id = ? AND message_id = ?", channelID, messageID).Delete(&model.Moment{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return repositories.RecordError(db.Where("channel_id = ? AND message_id = ?", channelID, messageID).Delete(&model.Moment{}))
 }
 
 // MomentExistsByChannelMessage checks if a moment already exists for a channel/message pair.

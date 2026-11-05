@@ -2,6 +2,7 @@ package friendsRepositories
 
 import (
 	"blog_api/src/model"
+	"blog_api/src/repositories"
 	"fmt"
 	"log"
 
@@ -104,11 +105,8 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 		query = query.Offset(opts.Offset)
 	}
 	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, updated_at"
-	if err := query.Select(selectFields).Find(&resp.Links).Error; err != nil {
-		return resp, err
-	}
-
-	return resp, nil
+	err := query.Select(selectFields).Find(&resp.Links).Error
+	return resp, err
 }
 
 func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
@@ -204,14 +202,7 @@ func DeleteFriendLink(db *gorm.DB, id uint, ownerEmail *string) (model.FriendWeb
 		if err := DeleteRssFeedsByFriendLinkID(tx, deletedLink.ID); err != nil {
 			return err
 		}
-		result := tx.Where(match).Delete(&deletedLink)
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return gorm.ErrRecordNotFound
-		}
-		return nil
+		return repositories.RecordError(tx.Where(match).Delete(&deletedLink))
 	})
 	if err != nil {
 		return model.FriendWebsite{}, err

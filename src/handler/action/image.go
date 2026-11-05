@@ -1,6 +1,7 @@
 package handlerAction
 
 import (
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	imageRepositories "blog_api/src/repositories/image"
 	"net/http"
@@ -43,8 +44,7 @@ func (h *ImageHandler) GetImages(c *gin.Context) {
 	}
 
 	resp, err := imageRepositories.QueryImages(h.DB, opts)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "获取图片列表失败"})
+	if response.Error(c, err, "获取图片列表失败") {
 		return
 	}
 
@@ -65,15 +65,11 @@ func (h *ImageHandler) CreateImage(c *gin.Context) {
 		return
 	}
 
-	if image.URL == "" {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "图片 URL 不能为空"})
-		return
-	}
 	// 忽略前端参数，默认状态为正常
 	image.Status = "normal"
 
 	if err := imageRepositories.CreateImage(h.DB, &image); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "创建图片配置失败: " + err.Error()})
+		response.Error(c, err, "创建图片配置失败: "+err.Error())
 		return
 	}
 
@@ -92,18 +88,10 @@ func (h *ImageHandler) UpdateImage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "无效的请求体: " + err.Error()})
 		return
 	}
-	if req.Status != nil {
-		switch *req.Status {
-		case "normal", "pause", "broken", "pending":
-		default:
-			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "无效的状态参数"})
-			return
-		}
-	}
 
 	image := model.Image{ID: id}
 	if err := imageRepositories.UpdateImage(h.DB.WithContext(c.Request.Context()), &image, req); err != nil {
-		writeRecordError(c, err, "图片配置不存在", "更新图片配置失败: "+err.Error())
+		response.RecordError(c, err, "图片配置不存在", "更新图片配置失败: "+err.Error())
 		return
 	}
 
@@ -118,7 +106,7 @@ func (h *ImageHandler) DeleteImage(c *gin.Context) {
 	}
 
 	if err := imageRepositories.DeleteImage(h.DB.WithContext(c.Request.Context()), id); err != nil {
-		writeRecordError(c, err, "图片配置不存在", "删除图片配置失败: "+err.Error())
+		response.RecordError(c, err, "图片配置不存在", "删除图片配置失败: "+err.Error())
 		return
 	}
 

@@ -4,7 +4,7 @@ package model
 type Image struct {
 	ID        int    `json:"id" gorm:"column:id;primaryKey"`
 	Name      string `json:"name" gorm:"column:name"`
-	URL       string `json:"url" gorm:"column:url"`
+	URL       string `json:"url" gorm:"column:url" binding:"required"`
 	LocalPath string `json:"local_path" gorm:"column:local_path"`
 	IsLocal   int    `json:"is_local" gorm:"column:is_local"`
 	IsOss     int    `json:"is_oss" gorm:"column:is_oss"`
@@ -15,8 +15,7 @@ func (Image) TableName() string {
 	return "images"
 }
 
-// PublicImageMetadata 是可匿名公开访问的图片元数据，刻意不包含
-// LocalPath 等服务器内部信息。
+// PublicImageMetadata 是可匿名公开访问的图片元数据
 type PublicImageMetadata struct {
 	ID     int    `json:"id"`
 	Name   string `json:"name"`

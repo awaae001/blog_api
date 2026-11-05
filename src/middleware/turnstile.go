@@ -17,9 +17,7 @@ import (
 )
 
 type turnstileResponse struct {
-	Success    bool     `json:"success"`
-	ErrorCodes []string `json:"error-codes"`
-	Hostname   string   `json:"hostname"`
+	Success bool `json:"success"`
 }
 
 const maxTurnstileRequestBytes = int64(1 << 20)
@@ -35,14 +33,12 @@ func TurnstileVerify() gin.HandlerFunc {
 
 		token := extractTurnstileToken(c)
 		if token == "" {
-			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "turnstile token is required"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "turnstile token is required"})
 			return
 		}
 
 		if ok := verifyTurnstile(c, cfg.Verify.Turnstile.Secret, token); !ok {
-			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "turnstile verification failed"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "turnstile verification failed"})
 			return
 		}
 
@@ -55,14 +51,12 @@ func AntiBotAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := extractAntiBotToken(c)
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "antibot token is required"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "antibot token is required"})
 			return
 		}
 
 		if !service.ValidateAntiBotToken(token) {
-			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "antibot token is invalid"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "antibot token is invalid"})
 			return
 		}
 
@@ -76,12 +70,9 @@ func extractAntiBotToken(c *gin.Context) string {
 		return token
 	}
 
-	authHeader := c.GetHeader("Authorization")
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
-			return parts[1]
-		}
+	scheme, token, ok := strings.Cut(c.GetHeader("Authorization"), " ")
+	if ok && strings.EqualFold(scheme, "Bearer") {
+		return token
 	}
 
 	return ""
@@ -103,11 +94,7 @@ func verifyTurnstile(c *gin.Context, secret, token string) bool {
 	defer resp.Body.Close()
 
 	var result turnstileResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false
-	}
-
-	return result.Success
+	return json.NewDecoder(resp.Body).Decode(&result) == nil && result.Success
 }
 
 func extractTurnstileToken(c *gin.Context) string {

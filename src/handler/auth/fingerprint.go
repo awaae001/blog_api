@@ -2,6 +2,7 @@ package authHandler
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/handler/response"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"blog_api/src/repositories"
@@ -29,47 +30,32 @@ func (h *FingerprintHandler) CreateFingerprint(c *gin.Context) {
 	userAgent := c.Request.UserAgent()
 	tokenService := service.NewFingerprintTokenService(secret)
 
-	// 请求级 context：客户端断开后查询会被取消
 	db := h.DB.WithContext(c.Request.Context())
 
-	if token, ok, err := h.reuseFingerprintToken(c, db, tokenService, ip, userAgent, secret); err != nil {
-		if !middleware.AbortIfCanceled(c, err) {
-			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to update fingerprint"})
-		}
-		return
-	} else if ok {
-		c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]string{
-			"fingerprint_token": token,
-		}})
+	token, reused, err := h.reuseFingerprintToken(c, db, tokenService, ip, userAgent, secret)
+	if response.Error(c, err, "failed to update fingerprint") {
 		return
 	}
-
-	fingerprintValue := hashFingerprint(ip, userAgent, secret)
-
-	record, err := repositories.GetFingerprintByValue(db, fingerprintValue)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		if !middleware.AbortIfCanceled(c, err) {
-			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to query fingerprint"})
-		}
-		return
-	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		record = &model.Fingerprint{
-			Fingerprint:      fingerprintValue,
-			UserAgent:        userAgent,
-			IP:               ip,
-			PermissionsLevel: "normal",
-			CreatedAt:        time.Now().Unix(),
-		}
-		if err := db.Create(record).Error; err != nil {
-			if !middleware.AbortIfCanceled(c, err) {
-				c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create fingerprint"})
-			}
+	if !reused {
+		fingerprintValue := hashFingerprint(ip, userAgent, secret)
+		record, err := repositories.GetFingerprintByValue(db, fingerprintValue)
+		if !errors.Is(err, gorm.ErrRecordNotFound) && response.Error(c, err, "failed to query fingerprint") {
 			return
 		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			record = &model.Fingerprint{
+				Fingerprint:      fingerprintValue,
+				UserAgent:        userAgent,
+				IP:               ip,
+				PermissionsLevel: "normal",
+				CreatedAt:        time.Now().Unix(),
+			}
+			if response.Error(c, db.Create(record).Error, "failed to create fingerprint") {
+				return
+			}
+		}
+		token = tokenService.Sign(record.ID)
 	}
-
-	token := tokenService.Sign(record.ID)
 
 	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: map[string]string{
 		"fingerprint_token": token,

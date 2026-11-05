@@ -1,10 +1,10 @@
 package handlerAction
 
 import (
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -40,9 +40,7 @@ func (h *FriendLinkHandler) CreateFriendLink(c *gin.Context) {
 
 	// Insert into database
 	id, err := friendsRepositories.CreateFriendLink(h.DB, req)
-	if err != nil {
-		log.Printf("[handler][friend][ERR] 创建友情链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create friend link"})
+	if response.Error(c, err, "failed to create friend link") {
 		return
 	}
 
@@ -64,12 +62,7 @@ func (h *FriendLinkHandler) DeleteOwnedFriendLink(c *gin.Context) {
 	}
 
 	link, err := friendsRepositories.GetFriendLinkByID(h.DB, int(id))
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.ApiResponse{Code: 404, Message: "friend link not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
+	if response.RecordError(c, err, "friend link not found", "failed to retrieve friend link") {
 		return
 	}
 	if link.Email != email {
@@ -99,9 +92,7 @@ func (h *FriendLinkHandler) DeleteFriendLink(c *gin.Context) {
 	}
 
 	deletedLink, err := friendsRepositories.DeleteFriendLink(h.DB, uint(id), nil)
-	if err != nil {
-		log.Printf("[handler][friend][ERR] 删除友情链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to delete friend link"})
+	if response.Error(c, err, "failed to delete friend link") {
 		return
 	}
 
@@ -133,13 +124,7 @@ func (h *FriendLinkHandler) EditFriendLink(c *gin.Context) {
 		authEmail, _ := c.Get("auth_email")
 		email, _ := authEmail.(string)
 		link, err := friendsRepositories.GetFriendLinkByID(h.DB, int(id))
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, model.ApiResponse{Code: 404, Message: "friend link not found"})
-				return
-			}
-			log.Printf("[handler][friend][ERR] 查询友情链接失败: %v", err)
-			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend link"})
+		if response.RecordError(c, err, "friend link not found", "failed to retrieve friend link") {
 			return
 		}
 		if link.Email == "" {
@@ -172,9 +157,7 @@ func (h *FriendLinkHandler) EditFriendLink(c *gin.Context) {
 	}
 
 	rowsAffected, err := friendsRepositories.UpdateFriendLinkByID(h.DB, uint(id), req)
-	if err != nil {
-		log.Printf("[handler][friend][ERR] 更新友情链接失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to update friend link"})
+	if response.Error(c, err, "failed to update friend link") {
 		return
 	}
 

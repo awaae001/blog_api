@@ -2,20 +2,14 @@ package momentRepositories
 
 import (
 	"blog_api/src/model"
+	"blog_api/src/repositories"
 
 	"gorm.io/gorm"
 )
 
 // DeleteMomentMedia deletes a media record by its ID.
 func DeleteMomentMedia(db *gorm.DB, id int) error {
-	result := db.Where("id = ?", id).Delete(&model.MomentMedia{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return repositories.RecordError(db.Where("id = ?", id).Delete(&model.MomentMedia{}))
 }
 
 // UpdateMomentMedia updates fields for a media record.
@@ -24,14 +18,7 @@ func UpdateMomentMedia(db *gorm.DB, media *model.MomentMedia, updates model.Upda
 		return nil
 	}
 
-	result := db.Model(media).Updates(updates)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return repositories.RecordError(db.Model(media).Updates(updates))
 }
 
 // QueryMedia retrieves media based on pagination and filters, returning the list and total count.

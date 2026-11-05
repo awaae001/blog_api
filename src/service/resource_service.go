@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -43,13 +44,8 @@ func SaveResourceReader(filename string, src io.Reader, subPath string, overwrit
 		return "", "", fmt.Errorf("创建目标文件失败: %w", err)
 	}
 	tempPath := dst.Name()
-	committed := false
-	defer func() {
-		if !committed {
-			dst.Close()
-			os.Remove(tempPath)
-		}
-	}()
+	defer dst.Close()
+	defer os.Remove(tempPath)
 
 	if _, err := io.Copy(dst, src); err != nil {
 		return "", "", fmt.Errorf("保存文件失败: %w", err)
@@ -63,8 +59,6 @@ func SaveResourceReader(filename string, src io.Reader, subPath string, overwrit
 	if err := os.Rename(tempPath, filePath); err != nil {
 		return "", "", fmt.Errorf("提交目标文件失败: %w", err)
 	}
-	committed = true
-
 	return filePath, urlPath, nil
 }
 
@@ -78,14 +72,7 @@ func prepareSavePath(cfg *model.Config, filename, subPath string, overwrite bool
 
 	// 检查文件扩展名是否在白名单中
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
-	extAllowed := false
-	for _, allowedExt := range cfg.Safe.AllowExtension {
-		if ext == allowedExt {
-			extAllowed = true
-			break
-		}
-	}
-	if !extAllowed {
+	if !slices.Contains(cfg.Safe.AllowExtension, ext) {
 		return "", "", fmt.Errorf("文件类型 '%s' 不被允许", ext)
 	}
 
@@ -159,10 +146,7 @@ func DeleteResourceFile(filePath string) error {
 	// 将绝对输入路径按相对路径处理，避免绕过 basePath 校验
 	relativePath = strings.TrimLeft(relativePath, `/\`)
 
-	cleanPath, err := filepath.Abs(filepath.Join(absBasePath, relativePath))
-	if err != nil {
-		return fmt.Errorf("获取目标绝对路径失败: %w", err)
-	}
+	cleanPath := filepath.Join(absBasePath, relativePath)
 	baseWithSep := absBasePath + string(filepath.Separator)
 	if cleanPath != absBasePath && !strings.HasPrefix(cleanPath, baseWithSep) {
 		return fmt.Errorf("%w: %s", ErrInvalidResourcePath, filePath)
@@ -170,8 +154,7 @@ func DeleteResourceFile(filePath string) error {
 
 	// 2. 检查路径是否在受保护的目录内
 	for _, protectedPath := range cfg.Safe.ExcludePaths {
-		isProtected := false
-		candidates := []string{}
+		var candidates []string
 
 		absProtectedPath, err := filepath.Abs(filepath.Clean(protectedPath))
 		if err == nil {
@@ -181,22 +164,14 @@ func DeleteResourceFile(filePath string) error {
 		// 兼容以资源根为基准的写法（如 "/config"）
 		relativeProtectedPath := strings.TrimLeft(filepath.Clean(protectedPath), `/\`)
 		if relativeProtectedPath != "" && relativeProtectedPath != "." {
-			absProtectedFromBase, err := filepath.Abs(filepath.Join(absBasePath, relativeProtectedPath))
-			if err == nil {
-				candidates = append(candidates, absProtectedFromBase)
-			}
+			candidates = append(candidates, filepath.Join(absBasePath, relativeProtectedPath))
 		}
 
 		for _, candidate := range candidates {
 			candidateWithSep := candidate + string(filepath.Separator)
 			if cleanPath == candidate || strings.HasPrefix(cleanPath, candidateWithSep) {
-				isProtected = true
-				break
+				return fmt.Errorf("%w: '%s'", ErrProtectedResource, filePath)
 			}
-		}
-
-		if isProtected {
-			return fmt.Errorf("%w: '%s'", ErrProtectedResource, filePath)
 		}
 	}
 

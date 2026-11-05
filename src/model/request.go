@@ -16,7 +16,7 @@ type EditRssFeedReq struct {
 	Name         *string `json:"name"`
 	FeedURL      *string `json:"feed_url"`
 	FriendLinkID *int    `json:"friend_link_id"`
-	Status       *string `json:"status"`
+	Status       *string `json:"status" binding:"omitempty,oneof=active paused"`
 }
 
 // PostQuery defines the query parameters for fetching posts.
@@ -61,7 +61,7 @@ type UpdateImageReq struct {
 	LocalPath *string `json:"local_path"`
 	IsLocal   *int    `json:"is_local"`
 	IsOss     *int    `json:"is_oss"`
-	Status    *string `json:"status"`
+	Status    *string `json:"status" binding:"omitempty,oneof=normal pause broken pending"`
 }
 
 // UpdateConfigReq 只携带 system_conf 的 JSON Merge Patch，不包含启动环境配置。
@@ -79,41 +79,41 @@ type MediaRequest struct {
 type CreateMomentRequest struct {
 	Content     string         `json:"content" binding:"required"`
 	Media       []MediaRequest `json:"media"`
-	GuildID     *int64         `json:"guild_id"`
-	ChannelID   *int64         `json:"channel_id"`
-	MessageID   *int64         `json:"message_id"`
+	GuildID     *int64         `json:"guild_id" binding:"omitempty,gte=0"`
+	ChannelID   *int64         `json:"channel_id" binding:"omitempty,gte=0"`
+	MessageID   *int64         `json:"message_id" binding:"omitempty,gte=0"`
 	MessageLink *string        `json:"message_link"`
 }
 
 // CreateMomentMediaReq defines the request body for creating moment media.
 type CreateMomentMediaReq struct {
-	MomentID  int    `json:"moment_id"`
+	MomentID  int    `json:"moment_id" binding:"gt=0"`
 	Name      string `json:"name"`
-	MediaURL  string `json:"media_url"`
-	MediaType string `json:"media_type"`
-	IsLocal   int    `json:"is_local"`
+	MediaURL  string `json:"media_url" binding:"required"`
+	MediaType string `json:"media_type" binding:"omitempty,oneof=image video"`
+	IsLocal   int    `json:"is_local" binding:"oneof=0 1"`
 }
 
 // UpdateMomentMediaReq defines the request body for updating moment media.
 type UpdateMomentMediaReq struct {
-	MomentID  *int    `json:"moment_id"`
+	MomentID  *int    `json:"moment_id" binding:"omitempty,gt=0"`
 	Name      *string `json:"name"`
 	MediaURL  *string `json:"media_url"`
-	MediaType *string `json:"media_type"`
-	IsLocal   *int    `json:"is_local"`
+	MediaType *string `json:"media_type" binding:"omitempty,oneof=image video"`
+	IsLocal   *int    `json:"is_local" binding:"omitempty,oneof=0 1"`
 }
 
 // UpdateMomentRequest defines the request body for updating a moment.
 type UpdateMomentRequest struct {
 	Content     *string `json:"content"`
-	Status      *string `json:"status"`
-	GuildID     *int64  `json:"guild_id"`
-	ChannelID   *int64  `json:"channel_id"`
-	MessageID   *int64  `json:"message_id"`
+	Status      *string `json:"status" binding:"omitempty,oneof=visible hidden deleted"`
+	GuildID     *int64  `json:"guild_id" binding:"omitempty,gte=0"`
+	ChannelID   *int64  `json:"channel_id" binding:"omitempty,gte=0"`
+	MessageID   *int64  `json:"message_id" binding:"omitempty,gte=0"`
 	MessageLink *string `json:"message_link"`
 }
 
 // MomentReactionRequest defines the request body for reacting to a moment.
 type MomentReactionRequest struct {
-	Reaction string `json:"reaction" binding:"required"`
+	Reaction string `json:"reaction" binding:"required,oneof=👍 👎 ❤ 👀 💩"`
 }

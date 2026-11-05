@@ -17,15 +17,9 @@ import (
 func StateMasterAuth(password string) gin.HandlerFunc {
 	expected := sha256.Sum256([]byte(password))
 	return func(c *gin.Context) {
-		const prefix = "Bearer "
-		header := c.GetHeader("Authorization")
-		if !strings.HasPrefix(header, prefix) || len(header) == len(prefix) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: http.StatusUnauthorized, Message: "unauthorized"})
-			return
-		}
-
-		actual := sha256.Sum256([]byte(header[len(prefix):]))
-		if subtle.ConstantTimeCompare(actual[:], expected[:]) != 1 {
+		token, ok := strings.CutPrefix(c.GetHeader("Authorization"), "Bearer ")
+		actual := sha256.Sum256([]byte(token))
+		if !ok || token == "" || subtle.ConstantTimeCompare(actual[:], expected[:]) != 1 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: http.StatusUnauthorized, Message: "unauthorized"})
 			return
 		}

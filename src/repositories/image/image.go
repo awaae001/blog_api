@@ -2,6 +2,7 @@ package imageRepositories
 
 import (
 	"blog_api/src/model"
+	"blog_api/src/repositories"
 	"log"
 	"math/rand/v2"
 
@@ -50,11 +51,8 @@ func QueryImages(db *gorm.DB, opts model.ImageQueryOptions) (model.QueryImageRes
 		query = query.Offset(offset).Limit(opts.PageSize)
 	}
 
-	if err := query.Order("id desc").Find(&resp.Images).Error; err != nil {
-		return resp, err
-	}
-
-	return resp, nil
+	err := query.Order("id desc").Find(&resp.Images).Error
+	return resp, err
 }
 
 // CreateImage inserts a single image record into the database.
@@ -73,12 +71,8 @@ func UpdateImage(db *gorm.DB, image *model.Image, updates model.UpdateImageReq) 
 		return nil
 	}
 
-	result := db.Model(image).Updates(updates)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+	if err := repositories.RecordError(db.Model(image).Updates(updates)); err != nil {
+		return err
 	}
 
 	log.Printf("[db][image] 成功更新图片记录，ID: %d", image.ID)
@@ -87,12 +81,8 @@ func UpdateImage(db *gorm.DB, image *model.Image, updates model.UpdateImageReq) 
 
 // DeleteImage deletes an image record from the database by its ID.
 func DeleteImage(db *gorm.DB, id int) error {
-	result := db.Delete(&model.Image{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+	if err := repositories.RecordError(db.Delete(&model.Image{}, id)); err != nil {
+		return err
 	}
 
 	log.Printf("[db][image] 成功删除图片记录，ID: %d", id)

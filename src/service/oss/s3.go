@@ -10,33 +10,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // S3OSSService 实现了 OSSService 接口，用于与 S3 兼容的对象存储
 type S3OSSService struct {
 	client   *s3.Client
-	uploader *manager.Uploader
+	uploader *transfermanager.Client
 	config   *model.OSSConfig
 }
 
 // NewS3OSSService 创建一个新的 S3OSSService 实例
 func NewS3OSSService(cfg *model.OSSConfig) (OSSService, error) {
-	s3Client, err := newS3Client(cfg)
-	if err != nil {
-		return nil, err
-	}
-	uploader := manager.NewUploader(s3Client)
-
-	return &S3OSSService{
-		client:   s3Client,
-		uploader: uploader,
-		config:   cfg,
-	}, nil
-}
-
-func newS3Client(cfg *model.OSSConfig) (*s3.Client, error) {
 	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
 		awsconfig.WithRegion(cfg.Region),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.AccessKeySecret, "")),
@@ -45,19 +31,27 @@ func newS3Client(cfg *model.OSSConfig) (*s3.Client, error) {
 		return nil, fmt.Errorf("failed to load s3 config: %w", err)
 	}
 
-	return s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		o.UsePathStyle = true
 		if cfg.Endpoint != "" {
 			o.BaseEndpoint = aws.String(cfg.Endpoint)
 		}
-	}), nil
+	})
+	return &S3OSSService{
+		client: client,
+		uploader: transfermanager.New(client, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 5 << 20
+			o.MultipartUploadThreshold = 5 << 20
+		}),
+		config: cfg,
+	}, nil
 }
 
 // Upload stores a stream in S3.
 func (s *S3OSSService) Upload(ctx context.Context, input UploadInput) (string, string, error) {
 	// 生成在 OSS 中的存储路径
 	objectKey := generateFilePath(s.config.Prefix, input.Name)
-	_, err := s.uploader.Upload(ctx, &s3.PutObjectInput{
+	_, err := s.uploader.UploadObject(ctx, &transfermanager.UploadObjectInput{
 		Bucket:        aws.String(s.config.Bucket),
 		Key:           aws.String(objectKey),
 		Body:          input.Body,

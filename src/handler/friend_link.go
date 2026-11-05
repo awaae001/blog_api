@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"blog_api/src/middleware"
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
 	crawlerService "blog_api/src/service/crawler"
@@ -82,11 +82,7 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 		IsDied: isDied,
 	}
 	resp, err := friendsRepositories.QueryFriendLinks(h.DB.WithContext(c.Request.Context()), opts)
-	if err != nil {
-		if middleware.AbortIfCanceled(c, err) {
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve friend links"})
+	if response.Error(c, err, "failed to retrieve friend links") {
 		return
 	}
 
@@ -112,17 +108,7 @@ func (h *FriendLinkHandler) loadFriendLink(c *gin.Context) (model.FriendWebsite,
 	}
 
 	link, err := friendsRepositories.GetFriendLinkByID(h.DB.WithContext(c.Request.Context()), id)
-	if err == nil {
-		return link, true
-	}
-	if !middleware.AbortIfCanceled(c, err) {
-		status, message := http.StatusInternalServerError, "failed to retrieve friend link"
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			status, message = http.StatusNotFound, "friend link not found"
-		}
-		c.JSON(status, model.ApiResponse{Code: status, Message: message})
-	}
-	return model.FriendWebsite{}, false
+	return link, !response.RecordError(c, err, "friend link not found", "failed to retrieve friend link")
 }
 
 func (h *FriendLinkHandler) getFriendLinkByID(c *gin.Context, isPrivate bool) {
@@ -181,8 +167,7 @@ func (h *FriendLinkHandler) RecheckFriendLink(c *gin.Context) {
 		return
 	}
 	if !link.SkipHealthCheck {
-		if err := friendsRepositories.UpdateFriendLink(h.DB, link, result); err != nil {
-			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "failed to update friend link inspection"})
+		if response.Error(c, friendsRepositories.UpdateFriendLink(h.DB, link, result), "failed to update friend link inspection") {
 			return
 		}
 		crawlerService.SubscribeDiscovered(c.Request.Context(), h.DB, link, result.Feeds)

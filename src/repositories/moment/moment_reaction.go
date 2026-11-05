@@ -2,25 +2,19 @@ package momentRepositories
 
 import (
 	"blog_api/src/model"
+	"blog_api/src/repositories"
 
 	"gorm.io/gorm"
 )
 
 // DeleteMomentReaction removes a reaction by moment, fingerprint, and reaction type.
 func DeleteMomentReaction(db *gorm.DB, momentID, fingerprintID int, reaction string) error {
-	result := db.Where(
+	return repositories.RecordError(db.Where(
 		"moment_id = ? AND fingerprint_id = ? AND reaction = ?",
 		momentID,
 		fingerprintID,
 		reaction,
-	).Delete(&model.MomentReaction{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	).Delete(&model.MomentReaction{}))
 }
 
 type momentReactionCount struct {

@@ -1,6 +1,7 @@
 package handlerAction
 
 import (
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
 	"net/http"
@@ -22,25 +23,8 @@ func (h *MediaHandler) CreateMedia(c *gin.Context) {
 		return
 	}
 
-	if req.MomentID <= 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid moment_id"})
-		return
-	}
-	if req.MediaURL == "" {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "media_url is required"})
-		return
-	}
-
 	if req.MediaType == "" {
 		req.MediaType = "image"
-	}
-	if req.MediaType != "image" && req.MediaType != "video" {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid media_type"})
-		return
-	}
-	if req.IsLocal != 0 && req.IsLocal != 1 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid is_local"})
-		return
 	}
 
 	media := model.MomentMedia{
@@ -52,8 +36,7 @@ func (h *MediaHandler) CreateMedia(c *gin.Context) {
 		IsDeleted: 0,
 	}
 
-	if err := h.DB.Create(&media).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create media"})
+	if response.Error(c, h.DB.Create(&media).Error, "failed to create media") {
 		return
 	}
 
@@ -67,8 +50,7 @@ func (h *MediaHandler) DeleteMedia(c *gin.Context) {
 		return
 	}
 
-	if err := momentRepositories.DeleteMomentMedia(h.DB.WithContext(c.Request.Context()), id); err != nil {
-		writeRecordError(c, err, "media not found", "failed to delete media")
+	if response.RecordError(c, momentRepositories.DeleteMomentMedia(h.DB.WithContext(c.Request.Context()), id), "media not found", "failed to delete media") {
 		return
 	}
 
@@ -88,22 +70,8 @@ func (h *MediaHandler) UpdateMedia(c *gin.Context) {
 		return
 	}
 
-	if req.MomentID != nil && *req.MomentID <= 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid moment_id"})
-		return
-	}
-	if req.MediaType != nil && *req.MediaType != "image" && *req.MediaType != "video" {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid media_type"})
-		return
-	}
-	if req.IsLocal != nil && *req.IsLocal != 0 && *req.IsLocal != 1 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid is_local"})
-		return
-	}
-
 	media := model.MomentMedia{ID: id}
-	if err := momentRepositories.UpdateMomentMedia(h.DB.WithContext(c.Request.Context()), &media, req); err != nil {
-		writeRecordError(c, err, "media not found", "failed to update media")
+	if response.RecordError(c, momentRepositories.UpdateMomentMedia(h.DB.WithContext(c.Request.Context()), &media, req), "media not found", "failed to update media") {
 		return
 	}
 
@@ -132,8 +100,7 @@ func (h *MediaHandler) GetMedia(c *gin.Context) {
 	}
 
 	media, total, err := momentRepositories.QueryMedia(h.DB, req.Page, req.PageSize, req.MomentID, req.MediaType)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to get media"})
+	if response.Error(c, err, "failed to get media") {
 		return
 	}
 

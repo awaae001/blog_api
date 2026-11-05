@@ -1,10 +1,9 @@
 package handler
 
 import (
-	"blog_api/src/middleware"
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -26,9 +25,7 @@ func (h *RssPostHandler) DeleteRssPost(c *gin.Context) {
 	}
 
 	rowsAffected, err := friendsRepositories.DeleteRssPostByID(h.DB, id)
-	if err != nil {
-		log.Printf("[rss_post] failed to delete post %d: %v", id, err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "删除 RSS 文章失败"})
+	if response.Error(c, err, "删除 RSS 文章失败") {
 		return
 	}
 	if rowsAffected == 0 {
@@ -66,12 +63,7 @@ func (h *RssPostHandler) GetRssPosts(c *gin.Context) {
 	}
 
 	posts, total, err := friendsRepositories.GetPosts(h.DB.WithContext(c.Request.Context()), &query)
-	if err != nil {
-		if middleware.AbortIfCanceled(c, err) {
-			return
-		}
-		log.Printf("[rss_post] failed to retrieve posts: %+v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve posts"})
+	if response.Error(c, err, "failed to retrieve posts") {
 		return
 	}
 

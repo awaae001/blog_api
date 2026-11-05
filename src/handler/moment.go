@@ -2,6 +2,7 @@ package handler
 
 import (
 	"blog_api/src/config"
+	"blog_api/src/handler/response"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
 	"blog_api/src/service"
@@ -44,11 +45,7 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 	}
 
 	resp, err := service.GetMomentsWithMedia(h.DB.WithContext(c.Request.Context()), page, pageSize, "visible", fingerprintID)
-	if err != nil {
-		if middleware.AbortIfCanceled(c, err) {
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to retrieve moments"})
+	if response.Error(c, err, "failed to retrieve moments") {
 		return
 	}
 

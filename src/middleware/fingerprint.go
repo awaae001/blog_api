@@ -17,16 +17,14 @@ func FingerprintAuth() gin.HandlerFunc {
 		secret := config.GetConfig().Verify.Fingerprint.Secret
 		token := ExtractFingerprintToken(c)
 		if token == "" {
-			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "fingerprint token is required"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "fingerprint token is required"})
 			return
 		}
 
 		tokenService := service.NewFingerprintTokenService(secret)
 		id, ok := tokenService.Verify(token)
 		if !ok {
-			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "invalid fingerprint token"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "invalid fingerprint token"})
 			return
 		}
 
@@ -41,12 +39,9 @@ func ExtractFingerprintToken(c *gin.Context) string {
 		return token
 	}
 
-	authHeader := c.GetHeader("Authorization")
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && strings.EqualFold(parts[0], "Fingerprint") {
-			return parts[1]
-		}
+	scheme, token, ok := strings.Cut(c.GetHeader("Authorization"), " ")
+	if ok && strings.EqualFold(scheme, "Fingerprint") {
+		return token
 	}
 
 	return ""

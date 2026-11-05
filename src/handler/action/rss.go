@@ -1,11 +1,11 @@
 package handlerAction
 
 import (
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	friendsRepositories "blog_api/src/repositories/friend"
 	crawlerService "blog_api/src/service/crawler"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -43,9 +43,7 @@ func (h *FriendRssHandler) GetRss(c *gin.Context) {
 		Page:         page,
 		PageSize:     pageSize,
 	})
-	if err != nil {
-		log.Printf("[handler][rss] query feeds: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "获取订阅源失败"})
+	if response.Error(c, err, "获取订阅源失败") {
 		return
 	}
 
@@ -131,7 +129,7 @@ func (h *FriendRssHandler) EditRss(c *gin.Context) {
 		}
 		taken, err := friendsRepositories.RssFeedURLTaken(h.DB, feedURL, id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "检查订阅地址失败"})
+			response.Error(c, err, "检查订阅地址失败")
 			return
 		}
 		if taken {
@@ -142,15 +140,9 @@ func (h *FriendRssHandler) EditRss(c *gin.Context) {
 		resetSchedule(updates)
 	}
 	if req.Status != nil {
-		switch *req.Status {
-		case model.FeedStatusPaused:
-			updates["status"] = model.FeedStatusPaused
-		case model.FeedStatusActive:
-			updates["status"] = model.FeedStatusActive
+		updates["status"] = *req.Status
+		if *req.Status == model.FeedStatusActive {
 			resetSchedule(updates)
-		default:
-			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: http.StatusBadRequest, Message: "status 只能是 active 或 paused"})
-			return
 		}
 	}
 	if len(updates) == 0 {
@@ -159,9 +151,7 @@ func (h *FriendRssHandler) EditRss(c *gin.Context) {
 	}
 
 	found, err := friendsRepositories.UpdateRssFeed(h.DB, id, updates)
-	if err != nil {
-		log.Printf("[handler][rss] update feed %d: %v", id, err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "更新订阅源失败"})
+	if response.Error(c, err, "更新订阅源失败") {
 		return
 	}
 	if !found {
@@ -178,9 +168,7 @@ func (h *FriendRssHandler) DeleteFriendRss(c *gin.Context) {
 		return
 	}
 	rows, err := friendsRepositories.DeleteRssFeedByID(h.DB, id)
-	if err != nil {
-		log.Printf("[handler][rss] delete feed %d: %v", id, err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "删除订阅源失败"})
+	if response.Error(c, err, "删除订阅源失败") {
 		return
 	}
 	if rows == 0 {
@@ -197,12 +185,7 @@ func (h *FriendRssHandler) FetchRss(c *gin.Context) {
 		return
 	}
 	feed, err := friendsRepositories.GetRssFeedByID(h.DB, id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.ApiResponse{Code: http.StatusNotFound, Message: "未找到指定订阅源"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "获取订阅源失败"})
+	if response.RecordError(c, err, "未找到指定订阅源", "获取订阅源失败") {
 		return
 	}
 
@@ -230,8 +213,7 @@ func (h *FriendRssHandler) checkFriendLink(c *gin.Context, id int) bool {
 		return true
 	}
 	exists, err := friendsRepositories.FriendLinkExists(h.DB, id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "检查友链失败"})
+	if response.Error(c, err, "检查友链失败") {
 		return false
 	}
 	if !exists {
@@ -249,7 +231,6 @@ func (h *FriendRssHandler) writeFeedError(c *gin.Context, err error) {
 	case errors.Is(err, crawlerService.ErrRssSource):
 		c.JSON(http.StatusBadGateway, model.ApiResponse{Code: http.StatusBadGateway, Message: err.Error()})
 	default:
-		log.Printf("[handler][rss] %v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: http.StatusInternalServerError, Message: "保存订阅源失败"})
+		response.Error(c, err, "保存订阅源失败")
 	}
 }

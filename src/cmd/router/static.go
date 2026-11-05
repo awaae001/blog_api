@@ -78,6 +78,11 @@ func staticFileHandler() gin.HandlerFunc {
 			return
 		}
 
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
+
 		if info.IsDir() {
 			indexPath := filepath.Join(fsPath, "index.html")
 			if _, err := os.Stat(indexPath); err == nil {

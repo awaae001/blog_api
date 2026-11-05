@@ -1,10 +1,10 @@
 package handler
 
 import (
+	"blog_api/src/handler/response"
 	"blog_api/src/middleware"
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,15 +46,7 @@ func (h *MomentReactionHandler) DeleteReaction(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := momentRepositories.DeleteMomentReaction(h.DB.WithContext(c.Request.Context()), reaction.MomentID, reaction.FingerprintID, reaction.Reaction); err != nil {
-		if middleware.AbortIfCanceled(c, err) {
-			return
-		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, model.ApiResponse{Code: 404, Message: "reaction not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to delete reaction"})
+	if response.RecordError(c, momentRepositories.DeleteMomentReaction(h.DB.WithContext(c.Request.Context()), reaction.MomentID, reaction.FingerprintID, reaction.Reaction), "reaction not found", "failed to delete reaction") {
 		return
 	}
 	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: nil})
@@ -69,12 +61,6 @@ func bindReaction(c *gin.Context) (*model.MomentReaction, bool) {
 	var req model.MomentReactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
-		return nil, false
-	}
-	switch req.Reaction {
-	case "👍", "👎", "❤", "👀", "💩":
-	default:
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid reaction"})
 		return nil, false
 	}
 	fingerprintID, ok := c.Get("fingerprint_id")

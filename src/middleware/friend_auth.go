@@ -15,19 +15,15 @@ func FriendLinkAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "authorization token is required"})
-			c.Abort()
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "authorization token is required"})
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "token format is invalid"})
-			c.Abort()
+		scheme, token, ok := strings.Cut(authHeader, " ")
+		if !ok || !strings.EqualFold(scheme, "Bearer") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "token format is invalid"})
 			return
 		}
-
-		token := parts[1]
 		if claims, err := service.ValidateJWT(token); err == nil {
 			c.Set("username", claims.Username)
 			c.Set("auth_type", "jwt")
@@ -42,7 +38,6 @@ func FriendLinkAuth() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "invalid token"})
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusUnauthorized, model.ApiResponse{Code: 401, Message: "invalid token"})
 	}
 }

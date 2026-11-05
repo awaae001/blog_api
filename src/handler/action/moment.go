@@ -1,11 +1,11 @@
 package handlerAction
 
 import (
+	"blog_api/src/handler/response"
 	"blog_api/src/model"
 	momentRepositories "blog_api/src/repositories/moment"
 	"blog_api/src/service"
 	botService "blog_api/src/service/bot"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,22 +24,8 @@ func (h *MomentHandler) CreateMoment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 		return
 	}
-	if req.GuildID != nil && *req.GuildID < 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid guild_id"})
-		return
-	}
-	if req.ChannelID != nil && *req.ChannelID < 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid channel_id"})
-		return
-	}
-	if req.MessageID != nil && *req.MessageID < 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid message_id"})
-		return
-	}
 
-	if err := service.CreateMoment(h.DB, req); err != nil {
-		log.Printf("[moments] create moment failed: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to create moment"})
+	if response.Error(c, service.CreateMoment(h.DB, req), "failed to create moment") {
 		return
 	}
 
@@ -67,8 +53,7 @@ func (h *MomentHandler) GetMoments(c *gin.Context) {
 	}
 
 	resp, err := service.GetMomentsWithMedia(h.DB, req.Page, req.PageSize, req.Status, nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to get moments"})
+	if response.Error(c, err, "failed to get moments") {
 		return
 	}
 
@@ -82,8 +67,7 @@ func (h *MomentHandler) DeleteMoment(c *gin.Context) {
 		return
 	}
 
-	if err := botService.DeleteMomentWithSync(h.DB.WithContext(c.Request.Context()), id); err != nil {
-		writeRecordError(c, err, "moment not found", "failed to delete moment")
+	if response.RecordError(c, botService.DeleteMomentWithSync(h.DB.WithContext(c.Request.Context()), id), "moment not found", "failed to delete moment") {
 		return
 	}
 
@@ -103,35 +87,13 @@ func (h *MomentHandler) UpdateMoment(c *gin.Context) {
 		return
 	}
 
-	if req.Status != nil {
-		switch *req.Status {
-		case "visible", "hidden", "deleted":
-		default:
-			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid status"})
-			return
-		}
-	}
-	if req.GuildID != nil && *req.GuildID < 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid guild_id"})
-		return
-	}
-	if req.ChannelID != nil && *req.ChannelID < 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid channel_id"})
-		return
-	}
-	if req.MessageID != nil && *req.MessageID < 0 {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid message_id"})
-		return
-	}
-
 	if req == (model.UpdateMomentRequest{}) {
 		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "no fields to update"})
 		return
 	}
 
 	moment := model.Moment{ID: id}
-	if err := momentRepositories.UpdateMoment(h.DB.WithContext(c.Request.Context()), &moment, req); err != nil {
-		writeRecordError(c, err, "moment not found", "failed to update moment")
+	if response.RecordError(c, momentRepositories.UpdateMoment(h.DB.WithContext(c.Request.Context()), &moment, req), "moment not found", "failed to update moment") {
 		return
 	}
 
@@ -151,8 +113,7 @@ func (h *MomentHandler) DeleteMomentReaction(c *gin.Context) {
 		return
 	}
 
-	if err := momentRepositories.ClearReactionsByType(h.DB, id, reaction); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ApiResponse{Code: 500, Message: "failed to delete reactions"})
+	if response.Error(c, momentRepositories.ClearReactionsByType(h.DB, id, reaction), "failed to delete reactions") {
 		return
 	}
 
