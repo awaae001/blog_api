@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS friend_rss (
     next_fetch_at   INTEGER NOT NULL DEFAULT 0,
     last_fetched_at INTEGER NOT NULL DEFAULT 0,
     last_success_at INTEGER NOT NULL DEFAULT 0,
-    created_at      INTEGER NOT NULL DEFAULT 0,
+    created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updated_at      INTEGER NOT NULL DEFAULT 0
 );
 

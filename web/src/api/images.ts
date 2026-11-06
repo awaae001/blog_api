@@ -1,5 +1,5 @@
-import request from '@/utils/request'
-import type { ApiResponse, PaginatedResponse } from './response'
+import { api } from '@/utils/request'
+import type { PaginatedResponse } from './response'
 
 export interface Image {
   id: number
@@ -34,45 +34,7 @@ export interface UpdateImagePayload {
   status?: string
 }
 
-/**
- * 获取图片列表
- */
-export const getImages = (params: ImageListParams): Promise<ApiResponse<PaginatedImages>> => {
-  return request({
-    url: '/action/image',
-    method: 'get',
-    params
-  })
-}
-
-/**
- * 创建图片
- */
-export const createImage = (data: CreateImagePayload): Promise<ApiResponse> => {
-  return request({
-    url: '/action/image',
-    method: 'post',
-    data
-  })
-}
-
-/**
- * 更新图片
- */
-export const updateImage = (id: number, payload: UpdateImagePayload): Promise<ApiResponse> => {
-  return request({
-    url: `/action/image/${id}`,
-    method: 'put',
-    data: payload
-  })
-}
-
-/**
- * 删除图片
- */
-export const deleteImage = (id: number): Promise<ApiResponse> => {
-  return request({
-    url: `/action/image/${id}`,
-    method: 'delete'
-  })
-}
+export const getImages = (params: ImageListParams) => api.get<PaginatedImages>('/action/image', params)
+export const createImage = (data: CreateImagePayload) => api.post('/action/image', data)
+export const updateImage = (id: number, data: UpdateImagePayload) => api.put(`/action/image/${id}`, data)
+export const deleteImage = (id: number) => api.del(`/action/image/${id}`)

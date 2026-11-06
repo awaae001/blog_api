@@ -1,5 +1,4 @@
-import request from '@/utils/request'
-import type { ApiResponse } from './response'
+import request, { api } from '@/utils/request'
 
 export interface ResourceEntry {
   name: string
@@ -16,56 +15,16 @@ export interface UploadFileResponse {
   objectKey?: string
 }
 
-/**
- * 上传文件
- */
-export const uploadFile = (data: FormData, target: 'local' | 'oss' = 'local'): Promise<ApiResponse<UploadFileResponse>> => {
-  return request({
-    url: `/action/resource/${target}`,
-    method: 'post',
-    data,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-}
-
-/**
- * 删除文件
- */
 const encodePath = (filePath: string) =>
   encodeURI(filePath).replace(/[?#]/g, (match) => encodeURIComponent(match))
+const resourcePath = (path: string) => encodePath(path.replace(/^\/+/, ''))
 
-export const deleteFile = (filePath: string, target: 'local' | 'oss'): Promise<ApiResponse> => {
-  const encodedPath = encodePath(filePath)
-  return request({
-    url: `/action/resource/${target}/${encodedPath}`,
-    method: 'delete'
-  })
-}
+export const uploadFile = (data: FormData, target: 'local' | 'oss' = 'local') =>
+  api.post<UploadFileResponse>(`/action/resource/${target}`, data)
+export const deleteFile = (filePath: string, target: 'local' | 'oss') =>
+  api.del(`/action/resource/${target}/${encodePath(filePath)}`)
+export const listResources = (path = '') => api.get<ResourceEntry[]>(`/action/resource/${resourcePath(path)}`)
 
-/**
- * 获取本地资源目录列表
- */
-export const listResources = (path = ''): Promise<ApiResponse<ResourceEntry[]>> => {
-  const normalizedPath = path.replace(/^\/+/, '')
-  const encodedPath = encodePath(normalizedPath)
-  const suffix = normalizedPath ? `/${encodedPath}` : '/'
-  return request({
-    url: `/action/resource${suffix}`,
-    method: 'get'
-  })
-}
-
-/**
- * 获取资源文件内容（原始 Blob）
- */
-export const getResourceFileBlob = (path: string): Promise<Blob> => {
-  const normalizedPath = path.replace(/^\/+/, '')
-  const encodedPath = encodePath(normalizedPath)
-  return request({
-    url: `/action/resource/${encodedPath}`,
-    method: 'get',
-    responseType: 'blob'
-  })
-}
+/** 文件内容直接返回，不包 ApiResponse。 */
+export const getResourceFileBlob = (path: string) =>
+  request.get<never, Blob>(`/action/resource/${resourcePath(path)}`, { responseType: 'blob' })

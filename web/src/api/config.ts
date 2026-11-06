@@ -1,5 +1,4 @@
-import request from '@/utils/request';
-import type { ApiResponse } from './response'
+import request, { api } from '@/utils/request'
 
 export interface SystemConfig {
   system_conf: {
@@ -129,31 +128,15 @@ export interface UpdateConfigResult {
   restart_required_keys: string[];
 }
 
-/**
- * 获取系统配置
- * 注意：资源 API 直接返回文件内容，不包装在 ApiResponse 中
- * @returns SystemConfig
- */
-export const getSystemConfig = () => {
-  return request.get<any, SystemConfig>(`/action/resource/${CONFIG_FILE_PATH}`, {
-    params: {
-      // 添加时间戳以防止缓存
-      _t: new Date().getTime(),
-    },
-  });
-};
+/** 资源 API 直接返回文件内容，不包 ApiResponse；带时间戳防缓存。 */
+export const getSystemConfig = () =>
+  request.get<never, SystemConfig>(`/action/resource/${CONFIG_FILE_PATH}`, { params: { _t: Date.now() } })
 
 /** 只提交变化的字段，按 JSON Merge Patch 合并。 */
-export const updateSystemConfig = (patch: SystemConfigPatch) => {
-  return request.patch<any, ApiResponse<UpdateConfigResult>>('/action/config', patch, {
-    headers: { 'Content-Type': 'application/merge-patch+json' },
-  });
-};
+export const updateSystemConfig = (patch: SystemConfigPatch) =>
+  api.patch<UpdateConfigResult>('/action/config', patch, {
+    headers: { 'Content-Type': 'application/merge-patch+json' }
+  })
 
-/**
- * 请求重启后端进程。
- * 实际拉起由外部守护进程负责。
- */
-export const restartSystem = () => {
-  return request.post<any, ApiResponse<{ detail: string }>>('/action/system/restart');
-};
+/** 请求重启后端进程，实际拉起由外部守护进程负责。 */
+export const restartSystem = () => api.post<{ detail: string }>('/action/system/restart')

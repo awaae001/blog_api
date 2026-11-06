@@ -1,5 +1,16 @@
-import request from "@/utils/request";
-import type { ApiResponse, PaginatedResponse } from "./response";
+import { api } from "@/utils/request";
+import type { PaginatedResponse } from "./response";
+
+export interface FriendTag {
+  id: number;
+  name: string;
+  color: string;
+  sort_order: number;
+  /** 只有标签列表接口会带。 */
+  link_count?: number;
+}
+
+export type FriendTagPayload = Pick<FriendTag, "name" | "color" | "sort_order">;
 
 export interface FriendLink {
   id: number;
@@ -9,6 +20,7 @@ export interface FriendLink {
   description: string;
   readonly reason: string;
   status: "survival" | "timeout" | "error" | "pending";
+  tags: FriendTag[];
   enable_rss: boolean;
   skip_health_check: boolean;
   is_died?: boolean;
@@ -24,6 +36,7 @@ export interface FriendLinkListParams {
   is_died?: boolean;
   status?: string;
   search?: string;
+  tag_id?: number;
 }
 
 export type PaginatedFriendLinks = PaginatedResponse<FriendLink>;
@@ -38,7 +51,7 @@ export interface CreateFriendLinkPayload {
 }
 
 export type UpdateFriendLinkData = Partial<
-  Omit<FriendLink, "id" | "created_at" | "updated_at" | "reason">
+  Omit<FriendLink, "id" | "created_at" | "updated_at" | "reason" | "tags">
 > & {
   website_name?: string;
   website_url?: string;
@@ -67,105 +80,37 @@ export interface FriendLinkInspectionProgress {
   error?: string;
 }
 
-/**
- * 获取友链列表
- */
-export const getFriendLinks = (
-  params: FriendLinkListParams,
-): Promise<ApiResponse<PaginatedFriendLinks>> => {
-  return request({
-    url: "/action/friend",
-    method: "get",
-    params,
-  });
-};
-
-/**
- * 创建友链
- */
-export const createFriendLink = (
-  data: CreateFriendLinkPayload,
-): Promise<ApiResponse> => {
-  return request({
-    url: "/action/friend",
-    method: "post",
-    data,
-  });
-};
-
-/**
- * 更新友链
- */
-export const updateFriendLink = (
-  id: number,
-  payload: UpdateFriendLinkPayload,
-): Promise<ApiResponse> => {
-  const fieldMap: Record<string, string> = {
-    name: "website_name",
-    link: "website_url",
-    avatar: "website_icon_url",
-  };
-  const mappedData: Record<string, unknown> = {};
-  Object.entries(payload.data).forEach(([key, value]) => {
-    const targetKey = fieldMap[key] ?? key;
-    mappedData[targetKey] = value;
-  });
-  return request({
-    url: `/action/friend/${id}`,
-    method: "put",
-    data: {
-      ...payload,
-      data: mappedData,
-    },
-  });
-};
-
-/**
- * 删除友链
- */
-export const deleteFriendLink = (id: number): Promise<ApiResponse> => {
-  return request({
-    url: `/action/friend/${id}`,
-    method: "delete",
-  });
-};
-
 export interface FriendLinkRecheckResult {
   success: boolean;
 }
 
-/**
- * 手动重新巡查单条友链；开启不巡查时只返回结果，不更新数据。
- */
-export const recheckFriendLink = (
-  id: number,
-): Promise<ApiResponse<FriendLinkRecheckResult>> => {
-  return request({
-    url: `/action/friend/recheck/${id}`,
-    method: "post",
-  });
+// 前端字段名和后端 website_* 不一致，提交前映射一下。
+const fieldMap: Record<string, string> = {
+  name: "website_name",
+  link: "website_url",
+  avatar: "website_icon_url",
 };
 
-/**
- * 触发全量巡查（后台异步执行）
- */
-export const recheckAllFriendLinks = (): Promise<
-  ApiResponse<FriendLinkInspectionProgress>
-> => {
-  return request({
-    url: "/action/friend/recheck",
-    method: "post",
+export const getFriendLinks = (params: FriendLinkListParams) => api.get<PaginatedFriendLinks>("/action/friend", params);
+export const createFriendLink = (data: CreateFriendLinkPayload) => api.post("/action/friend", data);
+export const updateFriendLink = (id: number, payload: UpdateFriendLinkPayload) =>
+  api.put(`/action/friend/${id}`, {
+    ...payload,
+    data: Object.fromEntries(Object.entries(payload.data).map(([key, value]) => [fieldMap[key] ?? key, value])),
   });
-};
+export const deleteFriendLink = (id: number) => api.del(`/action/friend/${id}`);
 
-/**
- * 查询全量巡查进度
- */
-export const getRecheckProgress = (): Promise<
-  ApiResponse<FriendLinkInspectionProgress>
-> => {
-  return request({
-    url: "/action/friend/recheck",
-    method: "get",
-  });
-};
+/** 手动重新巡查单条友链；开启不巡查时只返回结果，不更新数据。 */
+export const recheckFriendLink = (id: number) => api.post<FriendLinkRecheckResult>(`/action/friend/recheck/${id}`);
+/** 全量巡查在后台异步跑，用 getRecheckProgress 轮询进度。 */
+export const recheckAllFriendLinks = () => api.post<FriendLinkInspectionProgress>("/action/friend/recheck");
+export const getRecheckProgress = () => api.get<FriendLinkInspectionProgress>("/action/friend/recheck");
+
+/** 全部标签，包括还没挂到友链上的。 */
+export const getFriendTags = () => api.get<FriendTag[]>("/action/friend/tags");
+export const createFriendTag = (data: FriendTagPayload) => api.post<FriendTag>("/action/friend/tags", data);
+/** 局部更新，没传的字段保持不变。 */
+export const updateFriendTag = (id: number, data: Partial<FriendTagPayload>) => api.put<FriendTag>(`/action/friend/tags/${id}`, data);
+export const deleteFriendTag = (id: number) => api.del(`/action/friend/tags/${id}`);
+/** 整体替换友链的标签，传 [] 清空。 */
+export const replaceFriendLinkTags = (id: number, tagIds: number[]) => api.put<FriendTag[]>(`/action/friend/${id}/tags`, { tag_ids: tagIds });

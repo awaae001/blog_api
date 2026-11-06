@@ -1,6 +1,7 @@
-import axios, { type AxiosError } from 'axios'
+import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
+import type { ApiResponse } from '@/api/response'
 
 const request = axios.create({
   baseURL: '/api',
@@ -39,5 +40,16 @@ request.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// 拦截器已经剥掉 axios 的外壳，这里把类型对齐成 ApiResponse<T>。
+type Config = AxiosRequestConfig
+export const api = {
+  get: <T = unknown>(url: string, params?: object, config?: Config) =>
+    request.get<never, ApiResponse<T>>(url, { ...config, params }),
+  post: <T = unknown>(url: string, data?: unknown, config?: Config) => request.post<never, ApiResponse<T>>(url, data, config),
+  put: <T = unknown>(url: string, data?: unknown, config?: Config) => request.put<never, ApiResponse<T>>(url, data, config),
+  patch: <T = unknown>(url: string, data?: unknown, config?: Config) => request.patch<never, ApiResponse<T>>(url, data, config),
+  del: <T = unknown>(url: string, params?: object) => request.delete<never, ApiResponse<T>>(url, { params })
+}
 
 export default request

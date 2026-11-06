@@ -4,6 +4,7 @@
       <el-button type="success" plain :icon="Refresh" :loading="inspectionRunning" @click="handleRecheckAll">
         {{ inspectionRunning ? `全量巡查中 ${progress?.processed ?? 0}/${progress?.total ?? 0}` : '全量巡查' }}
       </el-button>
+      <el-button :icon="PriceTag" @click="openTagDrawer(null)">标签管理</el-button>
       <el-button type="primary" :icon="Plus" @click="openFormDialog()">
         新增友链
       </el-button>
@@ -36,6 +37,10 @@
       </el-select>
       <el-input v-model="searchQuery" placeholder="搜索友链" clearable @input="handleFilter"
         style="width: 200px; margin-right: 10px" />
+      <el-select v-model="filterTagId" placeholder="按标签筛选" clearable filterable :value-on-clear="null"
+        style="width: 150px" @change="handleFilter">
+        <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.id" />
+      </el-select>
     </div>
 
     <!-- Friend Link Table -->
@@ -46,19 +51,27 @@
           <template #default="{ row }">
             <div class="link-cell">
               <el-avatar :size="20" :src="row.avatar" class="link-avatar">{{ row.name.slice(0, 1) }}</el-avatar>
-              <span class="link-name" :class="nameClass(row)" :title="statusLabel(row)">{{ row.name }}</span>
+              <a class="link-name" :class="nameClass(row)" :href="row.link" target="_blank" rel="noopener"
+                :title="row.link">{{ row.name }}</a>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="link" label="链接">
+        <!-- @vue-generic {FriendLink} -->
+        <el-table-column label="标签" min-width="120">
           <template #default="{ row }">
-            <a :href="row.link" target="_blank">{{ row.link }}</a>
+            <div class="tag-cell">
+              <el-tag v-for="tag in row.tags" :key="tag.id" size="small" :color="tag.color || undefined"
+                effect="light" class="tag-item" title="点击编辑" @click="openTagDrawer(null, tag)">
+                {{ tag.name }}
+              </el-tag>
+              <el-button class="tag-add" size="small" :icon="Plus" link @click="openTagDrawer(row)" />
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="email" label="邮箱" width="200" />
         <el-table-column prop="times" label="失败次数" width="100" />
         <!-- @vue-generic {FriendLink} -->
-        <el-table-column prop="reason" label="探针问题" width="260" show-overflow-tooltip>
+        <el-table-column prop="reason" label="探针问题" width="220" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.reason || '—' }}
           </template>
@@ -69,25 +82,25 @@
           </template>
         </el-table-column>
         <!-- @vue-generic {FriendLink} -->
-        <el-table-column label="不巡查" width="100">
+        <el-table-column label="跳过" width="56" align="center">
           <template #default="{ row }">
-            <el-switch :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
+            <el-checkbox :model-value="row.skip_health_check" @change="handleHealthCheckToggle(row)" />
           </template>
         </el-table-column>
         <!-- @vue-generic {FriendLink} -->
-        <el-table-column label="订阅 RSS" width="100">
+        <el-table-column label="RSS" width="56" align="center">
           <template #default="{ row }">
-            <el-switch :model-value="row.enable_rss" @change="handleRssToggle(row)" />
+            <el-checkbox :model-value="row.enable_rss" @change="handleRssToggle(row)" />
           </template>
         </el-table-column>
         <!-- @vue-generic {FriendLink} -->
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
-            <el-button type="success" link :icon="Refresh" :loading="recheckingId === row.id"
-              :disabled="inspectionRunning || (recheckingId !== null && recheckingId !== row.id)"
-              @click="handleRecheck(row.id)">
-              重新巡查
-            </el-button>
+            <el-tooltip content="重新巡查" placement="top">
+              <el-button type="success" link :icon="Refresh" :loading="recheckingId === row.id"
+                :disabled="inspectionRunning || (recheckingId !== null && recheckingId !== row.id)"
+                @click="handleRecheck(row.id)" />
+            </el-tooltip>
             <el-button type="primary" link :icon="Edit" @click="openFormDialog(row)">
               编辑
             </el-button>
@@ -146,15 +159,19 @@
         <el-button type="primary" @click="submitForm">确定</el-button>
       </template>
     </el-dialog>
+
+    <FriendTagDrawer v-model="tagDrawerVisible" :link="tagDrawerLink" :focus="tagDrawerFocus" :tags="tags"
+      @changed="refreshTags" />
   </PageShell>
 </template>
 
 <script setup lang="ts">
 import PageShell from '@/components/PageShell.vue'
 import TablePagination from '@/components/TablePagination.vue'
+import FriendTagDrawer from '@/components/FriendTagDrawer.vue'
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Edit, Refresh, Link } from '@element-plus/icons-vue'
+import { Plus, Delete, Edit, Refresh, Link, PriceTag } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
   getFriendLinks,
@@ -164,7 +181,9 @@ import {
   recheckFriendLink,
   recheckAllFriendLinks,
   getRecheckProgress,
+  getFriendTags,
   type FriendLink,
+  type FriendTag,
   type FriendLinkInspectionProgress
 } from '@/api/friend-links'
 import { usePagination } from '@/utils/pagination'
@@ -186,6 +205,11 @@ const inspectionAlertType = computed(() => {
 const filterStatus = ref('')
 const filterIsDied = ref<boolean | null>(null)
 const searchQuery = ref('')
+const filterTagId = ref<number | null>(null)
+const tags = ref<FriendTag[]>([])
+const tagDrawerVisible = ref(false)
+const tagDrawerLink = ref<FriendLink | null>(null)
+const tagDrawerFocus = ref<FriendTag | null>(null)
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
 const editingCreatedAt = ref(0)
@@ -236,7 +260,8 @@ const fetchFriendLinks = async () => {
       page_size: pageSize.value,
       status: filterStatus.value,
       search: searchQuery.value,
-      is_died: filterIsDied.value === null ? undefined : filterIsDied.value
+      is_died: filterIsDied.value === null ? undefined : filterIsDied.value,
+      tag_id: filterTagId.value ?? undefined
     })
     friendLinks.value = res.data.items
     total.value = res.data.total
@@ -247,8 +272,26 @@ const fetchFriendLinks = async () => {
   }
 }
 
+const fetchTags = async () => {
+  try {
+    tags.value = (await getFriendTags()).data
+  } catch {
+    // Request errors are reported by the interceptor.
+  }
+}
+
+const refreshTags = async () => {
+  await fetchTags()
+  if (filterTagId.value && !tags.value.some((t) => t.id === filterTagId.value)) {
+    filterTagId.value = null
+    reset()
+  }
+  fetchFriendLinks()
+}
+
 onMounted(() => {
   fetchFriendLinks()
+  fetchTags()
   refreshProgress()
 })
 
@@ -421,19 +464,14 @@ const handleRecheckAll = async () => {
 }
 
 // 状态合进名称列：文字颜色即状态，失效的整行置灰。
-const statusLabels: Record<string, string> = {
-  survival: '正常',
-  pending: '待定',
-  timeout: '超时',
-  error: '错误'
-}
-
-const statusLabel = (row: FriendLink) => {
-  const status = statusLabels[row.status] ?? row.status
-  return row.is_died ? `已失效 · ${status}` : status
-}
-
 const nameClass = (row: FriendLink) => `link-name--${row.status}`
+
+// 传 link 给这条友链选标签；传 tag 直接进入编辑。
+const openTagDrawer = (link: FriendLink | null, tag: FriendTag | null = null) => {
+  tagDrawerLink.value = link
+  tagDrawerFocus.value = tag
+  tagDrawerVisible.value = true
+}
 
 const rowClassName = ({ row }: { row: FriendLink }) => (row.is_died ? 'friend-link-died' : '')
 
@@ -512,10 +550,14 @@ const handleRssToggle = async (link: FriendLink) => {
 }
 
 .link-name {
+  display: block;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .link-name--survival {
@@ -559,5 +601,21 @@ const handleRssToggle = async (link: FriendLink) => {
 
 .table-actions {
   margin-bottom: 16px;
+}
+
+.tag-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-item {
+  border: none;
+  cursor: pointer;
+}
+
+.tag-add {
+  height: 20px;
+  padding: 0;
 }
 </style>

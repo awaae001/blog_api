@@ -1,5 +1,4 @@
-import request from '@/utils/request'
-import type { ApiResponse } from './response'
+import { api } from '@/utils/request'
 
 export interface Moment {
   id: number
@@ -66,49 +65,10 @@ export interface CreateMediaPayload {
   is_local: number
 }
 
-export const getMoments = (params: MomentListParams): Promise<ApiResponse<QueryMomentsResponse>> => {
-  return request({
-    url: '/action/moments',
-    method: 'get',
-    params
-  })
-}
-
-export const createMoment = (payload: CreateMomentPayload): Promise<ApiResponse> => {
-  return request({
-    url: '/action/moments',
-    method: 'post',
-    data: payload
-  })
-}
-
-export const updateMoment = (id: number, payload: UpdateMomentPayload): Promise<ApiResponse> => {
-  return request({
-    url: `/action/moments/${id}`,
-    method: 'put',
-    data: payload
-  })
-}
-
-export const deleteMoment = (id: number): Promise<ApiResponse> => {
-  return request({
-    url: `/action/moments/${id}`,
-    method: 'delete'
-  })
-}
-
-export const createMomentMedia = (payload: CreateMediaPayload): Promise<ApiResponse> => {
-  return request({
-    url: '/action/moments/media',
-    method: 'post',
-    data: payload
-  })
-}
-
-export const deleteMomentMedia = (id: number, hard = false): Promise<ApiResponse> => {
-  return request({
-    url: `/action/moments/media/${id}`,
-    method: 'delete',
-    params: hard ? { hard: 1 } : undefined
-  })
-}
+export const getMoments = (params: MomentListParams) => api.get<QueryMomentsResponse>('/action/moments', params)
+export const createMoment = (data: CreateMomentPayload) => api.post('/action/moments', data)
+export const updateMoment = (id: number, data: UpdateMomentPayload) => api.put(`/action/moments/${id}`, data)
+export const deleteMoment = (id: number) => api.del(`/action/moments/${id}`)
+export const createMomentMedia = (data: CreateMediaPayload) => api.post<MomentMedia>('/action/moments/media', data)
+export const deleteMomentMedia = (id: number, hard = false) =>
+  api.del(`/action/moments/media/${id}`, hard ? { hard: 1 } : undefined)

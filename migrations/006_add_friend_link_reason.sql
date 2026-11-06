@@ -1,2 +1,3 @@
--- 最近一次友链探针的问题；正常或未探测时为空。
-ALTER TABLE friend_link ADD COLUMN reason TEXT NOT NULL DEFAULT '';
+-- friend_link.reason 已合并进 001_01 的建表语句，这样 created_at / updated_at
+-- 能保持在整个表定义的最后。此文件保留占位，避免历史部署的迁移记录出现空洞。
+SELECT 1;

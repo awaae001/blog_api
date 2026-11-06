@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS friend_tag(
     name       TEXT    NOT NULL COLLATE NOCASE UNIQUE,
     color      TEXT    NOT NULL DEFAULT '',
     sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    updated_at INTEGER NOT NULL DEFAULT 0
+    created_at INTEGER DEFAULT (strftime('%s', 'now')),
+    updated_at INTEGER DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_friend_tag_sort ON friend_tag(sort_order, id);

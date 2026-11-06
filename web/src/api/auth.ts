@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { api } from '@/utils/request'
 
 export interface LoginRequest {
   username: string
@@ -6,17 +6,6 @@ export interface LoginRequest {
   turnstile_token?: string
 }
 
-export interface LoginResponse {
-  code: number
-  message: string
-  data: {
-    token: string
-    expires_at: string
-  }
-}
-
 export const authApi = {
-  login(data: LoginRequest) {
-    return request.post<any, LoginResponse>('/verify/passwd', data)
-  }
+  login: (data: LoginRequest) => api.post<{ token: string; expires_at: string }>('/verify/passwd', data)
 }

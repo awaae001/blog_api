@@ -1,5 +1,4 @@
-import request from '@/utils/request'
-import type { ApiResponse } from './response'
+import { api } from '@/utils/request'
 
 export interface FriendLinkStatusCount {
   status: string
@@ -34,6 +33,4 @@ export interface SystemStatus {
   time: number
 }
 
-export const getSystemStatus = (): Promise<ApiResponse<SystemStatus>> => {
-  return request.get('/status')
-}
+export const getSystemStatus = () => api.get<SystemStatus>('/status')
