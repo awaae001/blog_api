@@ -14,6 +14,7 @@ export interface FriendLink {
   is_died?: boolean;
   email?: string;
   times?: number;
+  readonly created_at: number;
   updated_at: number;
 }
 
@@ -37,7 +38,7 @@ export interface CreateFriendLinkPayload {
 }
 
 export type UpdateFriendLinkData = Partial<
-  Omit<FriendLink, "id" | "updated_at" | "reason">
+  Omit<FriendLink, "id" | "created_at" | "updated_at" | "reason">
 > & {
   website_name?: string;
   website_url?: string;

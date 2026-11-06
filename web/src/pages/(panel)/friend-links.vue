@@ -137,6 +137,9 @@
             <el-option label="错误" value="error"></el-option>
           </el-select>
         </el-form-item>
+        <el-form-item label="创建时间" v-if="isEditMode">
+          <span>{{ formatDate(editingCreatedAt) }}</span>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -185,6 +188,7 @@ const filterIsDied = ref<boolean | null>(null)
 const searchQuery = ref('')
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
+const editingCreatedAt = ref(0)
 const formRef = ref<FormInstance>()
 const form = reactive<{
   id: number
@@ -258,6 +262,7 @@ const handleFilter = () => {
 
 // Dialog and Form
 const openFormDialog = (link?: FriendLink) => {
+  editingCreatedAt.value = link?.created_at ?? 0
   if (link) {
     isEditMode.value = true
     Object.assign(form, {

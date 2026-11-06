@@ -104,14 +104,14 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 	if opts.Offset > 0 {
 		query = query.Offset(opts.Offset)
 	}
-	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, updated_at"
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, created_at, updated_at"
 	err := query.Select(selectFields).Find(&resp.Links).Error
 	return resp, err
 }
 
 func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
 	var link model.FriendWebsite
-	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, updated_at"
+	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, created_at, updated_at"
 	err := db.Model(&model.FriendWebsite{}).Select(selectFields).Where("id = ?", id).First(&link).Error
 	return link, err
 }

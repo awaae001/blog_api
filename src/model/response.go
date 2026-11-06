@@ -31,6 +31,7 @@ type FriendLinkDTO struct {
 	EnableRss       bool    `json:"enable_rss"`
 	IsDied          bool    `json:"is_died,omitempty"`
 	SkipHealthCheck *bool   `json:"skip_health_check,omitempty"`
+	CreatedAt       int64   `json:"created_at"`
 	UpdatedAt       int64   `json:"updated_at"`
 }
 
@@ -44,6 +45,7 @@ func (link FriendWebsite) ToDTO(includePrivate bool) FriendLinkDTO {
 		Description: link.Info,
 		Status:      link.Status,
 		EnableRss:   link.EnableRss,
+		CreatedAt:   link.CreatedAt,
 		UpdatedAt:   link.UpdatedAt,
 	}
 	if includePrivate {

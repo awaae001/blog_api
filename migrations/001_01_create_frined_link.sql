@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS friend_link (
   is_died BOOLEAN NOT NULL DEFAULT 0,
   enable_rss BOOLEAN NOT NULL DEFAULT 1,
   skip_health_check BOOLEAN NOT NULL DEFAULT 0 CHECK (skip_health_check IN (0, 1)),
+  created_at INTEGER DEFAULT (strftime('%s', 'now')), 
   updated_at INTEGER NOT NULL DEFAULT 0
 );
 

@@ -14,6 +14,7 @@ type FriendWebsite struct {
 	IsDied          bool   `json:"is_died,omitempty" gorm:"column:is_died"`
 	EnableRss       bool   `json:"enable_rss,omitempty" gorm:"column:enable_rss"`
 	SkipHealthCheck bool   `json:"skip_health_check,omitempty" gorm:"column:skip_health_check"`
+	CreatedAt       int64  `json:"created_at" gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt       int64  `json:"updated_at,omitempty" gorm:"column:updated_at"`
 }
 
