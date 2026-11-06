@@ -71,7 +71,6 @@ func (h *ResourceHandler) UploadResourceOSS(c *gin.Context) {
 		return
 	}
 
-	// 从表单中获取文件
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		status := uploadErrorStatus(err)

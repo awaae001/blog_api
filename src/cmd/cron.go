@@ -39,8 +39,6 @@ func scheduleFromNextMidnight(jobName string, interval time.Duration, job func()
 // 友链巡查自身的互斥由 crawlerService 持有。
 var rssRefreshMu sync.Mutex
 
-// RunRssRefreshJob 抓取所有到期的订阅源。每个源按自己的 next_fetch_at 调度，
-// 失效的源也会以长间隔继续探活，成功后自动恢复。
 func RunRssRefreshJob(db *gorm.DB) {
 	if !rssRefreshMu.TryLock() {
 		log.Println("[Cron] RSS 抓取任务上一轮仍在执行，本次跳过")

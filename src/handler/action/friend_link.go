@@ -17,34 +17,41 @@ type FriendLinkHandler struct {
 	DB *gorm.DB
 }
 
-// CreateFriendLink handles POST /api/action/friend and /api/public/friend.
-func (h *FriendLinkHandler) CreateFriendLink(c *gin.Context) {
-	var req model.FriendWebsite
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
-		return
-	}
-
-	if authType, ok := c.Get("auth_type"); ok && authType == "email" {
-		authEmail, _ := c.Get("auth_email")
-		email, _ := authEmail.(string)
-		if email == "" || (req.Email != "" && req.Email != email) {
-			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email does not match the token"})
+// CreateFriendLink builds a handler; public routes cannot assign tags.
+func (h *FriendLinkHandler) CreateFriendLink(public bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req model.CreateFriendLinkReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid request body"})
 			return
 		}
-		req.Email = email
-		req.Status = "pending"
-	} else {
-		req.Status = "survival"
-	}
 
-	// Insert into database
-	id, err := friendsRepositories.CreateFriendLink(h.DB, req)
-	if response.Error(c, err, "failed to create friend link") {
-		return
-	}
+		if public && req.TagIDs != nil {
+			c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "tags can only be assigned through the admin API"})
+			return
+		}
 
-	c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"id": id}})
+		if authType, ok := c.Get("auth_type"); ok && authType == "email" {
+			authEmail, _ := c.Get("auth_email")
+			email, _ := authEmail.(string)
+			if email == "" || (req.Email != "" && req.Email != email) {
+				c.JSON(http.StatusForbidden, model.ApiResponse{Code: 403, Message: "email does not match the token"})
+				return
+			}
+			req.Email = email
+			req.Status = "pending"
+		} else {
+			req.Status = "survival"
+		}
+
+		// Insert into database
+		id, err := friendsRepositories.CreateFriendLinkWithTags(h.DB.WithContext(c.Request.Context()), req.FriendWebsite, req.TagIDs)
+		if friendTagError(c, err, "tag not found", "failed to create friend link") {
+			return
+		}
+
+		c.JSON(http.StatusOK, model.ApiResponse{Code: http.StatusOK, Message: "success", Data: gin.H{"id": id}})
+	}
 }
 
 // DeleteOwnedFriendLink handles deletion by an email-authenticated owner.

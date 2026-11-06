@@ -2,6 +2,30 @@ package model
 
 import "encoding/json"
 
+// CreateFriendLinkReq accepts initial tags only on the admin API.
+type CreateFriendLinkReq struct {
+	FriendWebsite
+	TagIDs []int `json:"tag_ids" binding:"omitempty,dive,gt=0"`
+}
+
+type CreateFriendTagReq struct {
+	Name      string `json:"name" binding:"required"`
+	Color     string `json:"color"`
+	SortOrder int    `json:"sort_order"`
+}
+
+// Nil fields stay untouched; empty color and zero sort_order are valid updates.
+type UpdateFriendTagReq struct {
+	Name      *string `json:"name"`
+	Color     *string `json:"color"`
+	SortOrder *int    `json:"sort_order"`
+}
+
+// An explicit empty array clears tags; missing and null arrays are invalid.
+type ReplaceFriendTagsReq struct {
+	TagIDs []int `json:"tag_ids" binding:"required,dive,gt=0"`
+}
+
 // EditFriendLinkReq defines the request body for editing a friend link.
 type EditFriendLinkReq struct {
 	Data map[string]interface{} `json:"data" binding:"required"`

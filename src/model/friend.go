@@ -2,20 +2,21 @@ package model
 
 // FriendWebsite 单个友链站点
 type FriendWebsite struct {
-	ID              int    `json:"id,omitempty" gorm:"column:id;primaryKey"`
-	Name            string `json:"name" gorm:"column:website_name"`
-	Link            string `json:"link" gorm:"column:website_url"`
-	Avatar          string `json:"avatar" gorm:"column:website_icon_url"`
-	Info            string `json:"description" gorm:"column:description"`
-	Email           string `json:"email,omitempty" gorm:"column:email"`
-	Times           int    `json:"times,omitempty" gorm:"column:times"`
-	Status          string `json:"status,omitempty" gorm:"column:status"`
-	Reason          string `json:"reason" gorm:"column:reason"`
-	IsDied          bool   `json:"is_died,omitempty" gorm:"column:is_died"`
-	EnableRss       bool   `json:"enable_rss,omitempty" gorm:"column:enable_rss"`
-	SkipHealthCheck bool   `json:"skip_health_check,omitempty" gorm:"column:skip_health_check"`
-	CreatedAt       int64  `json:"created_at" gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt       int64  `json:"updated_at,omitempty" gorm:"column:updated_at"`
+	Tags            []FriendTag `json:"-" gorm:"-"`
+	ID              int         `json:"id,omitempty" gorm:"column:id;primaryKey"`
+	Name            string      `json:"name" gorm:"column:website_name"`
+	Link            string      `json:"link" gorm:"column:website_url"`
+	Avatar          string      `json:"avatar" gorm:"column:website_icon_url"`
+	Info            string      `json:"description" gorm:"column:description"`
+	Email           string      `json:"email,omitempty" gorm:"column:email"`
+	Times           int         `json:"times,omitempty" gorm:"column:times"`
+	Status          string      `json:"status,omitempty" gorm:"column:status"`
+	Reason          string      `json:"reason" gorm:"column:reason"`
+	IsDied          bool        `json:"is_died,omitempty" gorm:"column:is_died"`
+	EnableRss       bool        `json:"enable_rss,omitempty" gorm:"column:enable_rss"`
+	SkipHealthCheck bool        `json:"skip_health_check,omitempty" gorm:"column:skip_health_check"`
+	CreatedAt       int64       `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt       int64       `json:"updated_at,omitempty" gorm:"column:updated_at"`
 }
 
 // TableName sets the insert table name for this struct type.
@@ -34,6 +35,7 @@ func IsFriendOwnerField(field string) bool {
 
 // FriendLinkQueryOptions defines the options for querying friend links.
 type FriendLinkQueryOptions struct {
+	TagID           int
 	Status          string
 	Statuses        []string
 	Email           string

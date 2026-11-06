@@ -2,6 +2,30 @@ package model
 
 import "time"
 
+type FriendTagWithCount struct {
+	FriendTag
+	LinkCount int64 `json:"link_count"`
+}
+
+// Counts appear on tag lists; timestamps are exposed only to admins.
+type FriendTagDTO struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	SortOrder int    `json:"sort_order"`
+	LinkCount *int64 `json:"link_count,omitempty"`
+	CreatedAt *int64 `json:"created_at,omitempty"`
+	UpdatedAt *int64 `json:"updated_at,omitempty"`
+}
+
+func (tag FriendTag) ToDTO(private bool) FriendTagDTO {
+	dto := FriendTagDTO{ID: tag.ID, Name: tag.Name, Color: tag.Color, SortOrder: tag.SortOrder}
+	if private {
+		dto.CreatedAt, dto.UpdatedAt = &tag.CreatedAt, &tag.UpdatedAt
+	}
+	return dto
+}
+
 // ApiResponse 统一API响应结构
 type ApiResponse struct {
 	Code    int    `json:"code"`    // HTTP状态码
@@ -19,20 +43,21 @@ type PaginatedResponse struct {
 
 // FriendLinkDTO omits private fields unless explicitly requested.
 type FriendLinkDTO struct {
-	ID              int     `json:"id"`
-	Name            string  `json:"name"`
-	Link            string  `json:"link"`
-	Avatar          string  `json:"avatar"`
-	Description     string  `json:"description"`
-	Status          string  `json:"status"`
-	Reason          *string `json:"reason,omitempty"`
-	Email           string  `json:"email,omitempty"`
-	Times           int     `json:"times,omitempty"`
-	EnableRss       bool    `json:"enable_rss"`
-	IsDied          bool    `json:"is_died,omitempty"`
-	SkipHealthCheck *bool   `json:"skip_health_check,omitempty"`
-	CreatedAt       int64   `json:"created_at"`
-	UpdatedAt       int64   `json:"updated_at"`
+	Tags            []FriendTagDTO `json:"tags"`
+	ID              int            `json:"id"`
+	Name            string         `json:"name"`
+	Link            string         `json:"link"`
+	Avatar          string         `json:"avatar"`
+	Description     string         `json:"description"`
+	Status          string         `json:"status"`
+	Reason          *string        `json:"reason,omitempty"`
+	Email           string         `json:"email,omitempty"`
+	Times           int            `json:"times,omitempty"`
+	EnableRss       bool           `json:"enable_rss"`
+	IsDied          bool           `json:"is_died,omitempty"`
+	SkipHealthCheck *bool          `json:"skip_health_check,omitempty"`
+	CreatedAt       int64          `json:"created_at"`
+	UpdatedAt       int64          `json:"updated_at"`
 }
 
 // ToDTO controls private field exposure for every friend link response.
@@ -47,6 +72,10 @@ func (link FriendWebsite) ToDTO(includePrivate bool) FriendLinkDTO {
 		EnableRss:   link.EnableRss,
 		CreatedAt:   link.CreatedAt,
 		UpdatedAt:   link.UpdatedAt,
+		Tags:        make([]FriendTagDTO, 0, len(link.Tags)),
+	}
+	for _, tag := range link.Tags {
+		dto.Tags = append(dto.Tags, tag.ToDTO(includePrivate))
 	}
 	if includePrivate {
 		dto.Reason = &link.Reason

@@ -16,6 +16,8 @@ import (
 
 func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTime time.Time, ossService oss.OSSService) {
 	friendLinkHandler := &handler.FriendLinkHandler{DB: db}
+	friendTagHandler := &handler.FriendTagHandler{DB: db}
+	friendTagActionHandler := &handlerAction.FriendTagHandler{DB: db}
 	rssPostHandler := &handler.RssPostHandler{DB: db}
 	friendActionHandler := &handlerAction.FriendLinkHandler{DB: db}
 	RssHandler := &handlerAction.FriendRssHandler{DB: db}
@@ -43,7 +45,7 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 		if cfg.StateAPIMasterPassword != "" {
 			statusHandler.StateStore = registerStateRoutes(apiGroup, cfg.StateAPIMasterPassword)
 		} else {
-			log.Print("[state] STATE_API_MASTER_PASSWORD is empty; in-memory state API is disabled")
+			log.Print("[state][info] STATE_API_MASTER_PASSWORD is empty; in-memory state API is disabled")
 		}
 		verifyGroup := apiGroup.Group("/verify")
 		{
@@ -59,9 +61,10 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			friendPublicGroup.Use(middleware.RequirePublicAPI(model.PublicAPIFriend))
 			{
 				friendPublicGroup.GET("/", friendLinkHandler.GetAllFriendLinks)
+				friendPublicGroup.GET("/tags", friendTagHandler.GetTags(true))
 				friendPublicGroup.GET("/self", middleware.FriendLinkAuth(), friendLinkHandler.GetFriendLinkByEmailToken)
 				friendPublicGroup.GET("/:id", friendLinkHandler.GetFriendLinkByID)
-				friendPublicGroup.POST("", middleware.FriendLinkAuth(), friendActionHandler.CreateFriendLink)
+				friendPublicGroup.POST("", middleware.FriendLinkAuth(), friendActionHandler.CreateFriendLink(true))
 				friendPublicGroup.PUT("/:id", middleware.FriendLinkAuth(), friendActionHandler.EditFriendLink)
 				friendPublicGroup.DELETE("/:id", middleware.FriendLinkAuth(), friendActionHandler.DeleteOwnedFriendLink)
 			}
@@ -83,8 +86,13 @@ func registerRoutes(router *gin.Engine, db *gorm.DB, cfg *model.Config, startTim
 			friendActionGroup := actionGroup.Group("/friend")
 			{
 				friendActionGroup.GET("", friendLinkHandler.GetFullFriendLinks)
+				friendActionGroup.GET("/tags", friendTagHandler.GetTags(false))
+				friendActionGroup.POST("/tags", friendTagActionHandler.CreateTag)
+				friendActionGroup.PUT("/tags/:id", friendTagActionHandler.UpdateTag)
+				friendActionGroup.DELETE("/tags/:id", friendTagActionHandler.DeleteTag)
+				friendActionGroup.PUT("/:id/tags", friendTagActionHandler.ReplaceTags)
 				friendActionGroup.GET("/:id", friendLinkHandler.GetFullFriendLinkByID)
-				friendActionGroup.POST("", friendActionHandler.CreateFriendLink)
+				friendActionGroup.POST("", friendActionHandler.CreateFriendLink(false))
 				friendActionGroup.PUT("/:id", friendActionHandler.EditFriendLink)
 				friendActionGroup.DELETE("/:id", friendActionHandler.DeleteFriendLink)
 				friendActionGroup.POST("/recheck", friendLinkHandler.RecheckAllFriendLinks)

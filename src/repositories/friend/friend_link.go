@@ -60,6 +60,9 @@ func InsertFriendLinks(db *gorm.DB, friendLinks []model.FriendWebsite) error {
 func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.QueryFriendLinksResponse, error) {
 	var resp model.QueryFriendLinksResponse
 	baseQuery := db.Model(&model.FriendWebsite{})
+	if opts.TagID > 0 {
+		baseQuery = baseQuery.Where("id IN (?)", db.Model(&model.FriendLinkTag{}).Select("friend_link_id").Where("tag_id = ?", opts.TagID))
+	}
 
 	// Apply status filters
 	if opts.Status != "" {
@@ -106,6 +109,9 @@ func QueryFriendLinks(db *gorm.DB, opts model.FriendLinkQueryOptions) (model.Que
 	}
 	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, created_at, updated_at"
 	err := query.Select(selectFields).Find(&resp.Links).Error
+	if err == nil {
+		err = LoadFriendTags(db, resp.Links)
+	}
 	return resp, err
 }
 
@@ -113,6 +119,11 @@ func GetFriendLinkByID(db *gorm.DB, id int) (model.FriendWebsite, error) {
 	var link model.FriendWebsite
 	selectFields := "id, website_name, website_url, website_icon_url, description, email, times, status, reason, is_died, enable_rss, skip_health_check, created_at, updated_at"
 	err := db.Model(&model.FriendWebsite{}).Select(selectFields).Where("id = ?", id).First(&link).Error
+	if err == nil {
+		links := []model.FriendWebsite{link}
+		err = LoadFriendTags(db, links)
+		link = links[0]
+	}
 	return link, err
 }
 
@@ -200,6 +211,9 @@ func DeleteFriendLink(db *gorm.DB, id uint, ownerEmail *string) (model.FriendWeb
 			return err
 		}
 		if err := DeleteRssFeedsByFriendLinkID(tx, deletedLink.ID); err != nil {
+			return err
+		}
+		if err := tx.Where("friend_link_id = ?", deletedLink.ID).Delete(&model.FriendLinkTag{}).Error; err != nil {
 			return err
 		}
 		return repositories.RecordError(tx.Where(match).Delete(&deletedLink))

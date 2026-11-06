@@ -33,6 +33,15 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 	// Parse query parameters
 	status := c.Query("status")
 	search := c.Query("search")
+	tagID := 0
+	if values, exists := c.Request.URL.Query()["tag_id"]; exists {
+		var err error
+		tagID, err = strconv.Atoi(values[0])
+		if err != nil || tagID < 0 {
+			c.JSON(http.StatusBadRequest, model.ApiResponse{Code: 400, Message: "invalid tag_id parameter"})
+			return
+		}
+	}
 	isDiedStr := c.Query("is_died")
 	var isDied *bool
 	if isDiedStr != "" {
@@ -69,12 +78,11 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 		return
 	}
 
-	// Calculate offset
 	offset := (page - 1) * pageSize
 
-	// Query friend links and total count
 	opts := model.FriendLinkQueryOptions{
 		Status: status,
+		TagID:  tagID,
 		Search: search,
 		Email:  email,
 		Offset: offset,
@@ -86,10 +94,7 @@ func (h *FriendLinkHandler) getFriendLinks(c *gin.Context, isPrivate bool, email
 		return
 	}
 
-	// Convert to DTO based on the context (public or private)
 	dtoLinks := toFriendLinkDTOs(resp.Links, isPrivate)
-
-	// Build paginated response
 	paginatedData := model.PaginatedResponse{
 		Items:    dtoLinks,
 		Total:    int(resp.Count),
